@@ -57,6 +57,10 @@ namespace DumpingGroundMap
         internal const string Perk20NameZh = "拾荒老手";
         internal const string Perk20NameEn = "Scavenger Veteran";
 
+        /// <summary>40 点档的名称（门路：高级拾荒场的准入）。门槛数字仍在 UnlockCost.table。</summary>
+        internal const string Perk40NameZh = "熟门熟路";
+        internal const string Perk40NameEn = "Knows the Back Ways";
+
         /// <summary>客人卡上的来访原因（原生字段只能填类型/物品名，这里在 UI 侧改写）。</summary>
         internal static string Perk20Reason
         {
@@ -497,8 +501,10 @@ namespace DumpingGroundMap
         /// TODO 60：待定（未实现，仅图标占位）。
         /// </summary>
         private static readonly int[] PerkThresholds = { 20, 40, 60 };
-        private static readonly string[] TierZh = { "生手", "熟脸", "老手", "活地图" };
-        private static readonly string[] TierEn = { "Rookie", "Regular", "Old Hand", "Living Map" };
+        private static readonly string[] TierZh =
+            { "生手", "熟脸", Reputation.Perk40NameZh, "活地图" };
+        private static readonly string[] TierEn =
+            { "Rookie", "Regular", Reputation.Perk40NameEn, "Living Map" };
 
         private static bool patchLogged;
         private static int openCount;
@@ -841,7 +847,8 @@ namespace DumpingGroundMap
         private string Title()
         {
             if (threshold >= 60) return Copy.Text("拾荒客·活地图", "Scavenger · Living Map");
-            if (threshold >= 40) return Copy.Text("拾荒客·老手", "Scavenger · Old Hand");
+            if (threshold >= 40) return Copy.Text("拾荒客·" + Reputation.Perk40NameZh,
+                "Scavenger · " + Reputation.Perk40NameEn);
             return Copy.Text(Reputation.Perk20NameZh, Reputation.Perk20NameEn);
         }
 
@@ -853,8 +860,9 @@ namespace DumpingGroundMap
             }
             if (threshold >= 40)
             {
-                return Copy.Text("开放高级拾荒区域：拆解堆、医疗废弃点、废武器堆",
-                    "Unlocks the high-tier scavenging areas: Scrap Pile, Medical Waste, Weapon Dump");
+                return Copy.Text("凭这门路，三个高级拾荒场对你开放：拆解堆、医疗废弃点、废武器堆",
+                    "With the back ways known, three high-tier scavenging grounds open up to you: "
+                    + "Scrap Pile, Medical Waste, Weapon Dump");
             }
             return Copy.Text(
                 "每天多一名拾荒客客人；首次达到 20 点额外获得一枚「拾荒者信物」和一张便条放在前台（仅一次）",

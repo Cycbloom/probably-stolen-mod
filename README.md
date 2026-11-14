@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.44
+# 垃圾场拾荒地图 · 0.3.45
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -29,12 +29,12 @@
 | 位置 | 内容 |
 |---|---|
 | 标题 | 拾荒客（英文环境 Scavenger），沿用原生标题的配色与字号 |
-| 状态 | 等级名：生手 / 熟脸 / 老手 / 活地图（Rookie / Regular / Old Hand / Living Map） |
+| 状态 | 等级名：生手 / 熟脸 / 熟门熟路 / 活地图（Rookie / Regular / Knows the Back Ways / Living Map） |
 | 数字 | 0–200 刻度上的两位小数：`x.xx/200`（显示值 = 累计价值 / 100，`F2`） |
 | 绿条 | 不自己算比例，直接用原生 `Init → UpdateBar → GetBarHeight(v) = 65.5 × v / 100` |
 | 图标 | 柱上 20 / 40 / 60 三个奖励点，依次用 `spriteSmile` / `spriteHappy` / `spriteStar`；未解锁 alpha 0.35。20 与 40 已生效，60 仍是占位；三个图标（含未解锁的）都能悬停，显示自带的中英双语说明 |
 
-四个等级的分界：0–40 生手、40–50 熟脸、50–60 老手、60+ 活地图。
+四个等级的分界：0–40 生手、40–50 熟脸、50–60 熟门熟路、60+ 活地图。
 
 实现上是在 `ReputationUIManager.OpenUI` 的 Postfix 里 `Instantiate(reputationPrefab, layout.transform, false)`，再合成一个只存在于内存里的 `StoreReputation`（`perks` 填 20 / 40 / 60 三个奖励点）交给原生 `ReputationElement.Init` 排版，随后覆盖状态文本与数字文本、按档位覆盖图标 sprite 与透明度，并给每个图标挂上本 mod 的悬停说明。**不往 `PlayerStore.storeReputations` 里塞条目，不写存档，不进 ES3**，面板关闭后这一行随原生清空一起销毁。
 
