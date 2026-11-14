@@ -920,64 +920,68 @@ namespace DumpingGroundMap
                 zh = Reputation.Perk20NameZh;
                 en = Reputation.Perk20NameEn;
             }
-            return Copy.Text("拾荒客·" + zh, "Scavenger · " + en);
+            return Copy.Text(zh, en);
         }
 
         private string Description()
         {
             if (threshold >= Reputation.Perk100Threshold)
             {
-                return Copy.Text("待定奖励（占位）", "Reward TBD (placeholder)");
+                return Copy.Text(
+                    "拾荒者会把你当成自己人。凭这枚信物，拾荒前可以花钱雇一名拾荒者帮手。",
+                    "The scavengers treat you as one of their own. With this token, you can pay "
+                    + "to hire a scavenger helper before you scavenge.");
             }
             if (threshold >= Reputation.Perk80Threshold)
             {
                 return Copy.Text(
-                    "「高档物资出现率」设置开始生效：80 之前按 0 算，80 之后完全按滑条数值；"
-                    + "高级区偶尔能翻到上锁的补给箱和对应的钥匙卡。翻到箱子就是大奖，钥匙卡能把它打开。",
-                    "The high-value find chance setting now applies: it counts as 0 below 80 "
-                    + "and uses the slider value from 80 on. High-tier grounds can also turn up "
-                    + "a locked supply crate and its matching keycard. A crate is the jackpot; "
-                    + "the keycard opens it.");
+                    "拾荒时可能遇到高档物资，偶尔还能翻到补给箱和对应的钥匙卡。",
+                    "While scavenging you may come across high-value goods, and now and then "
+                    + "a supply crate with its matching keycard.");
             }
             if (threshold >= Reputation.Perk60Threshold)
             {
-                return Copy.Text("待定奖励（占位）", "Reward TBD (placeholder)");
+                return Copy.Text(
+                    "拾荒时更有机会找到隐藏的储藏，第二天你会在报纸上看到自己的事迹。",
+                    "You have a better chance of finding a hidden stash while scavenging; "
+                    + "the next day you'll see your deed in the newspaper.");
             }
             if (threshold >= Reputation.Perk40Threshold)
             {
-                return Copy.Text("凭这门路，三个高级拾荒场对你开放：拆解堆、医疗废弃点、废武器堆",
-                    "With the back ways known, three high-tier scavenging grounds open up to you: "
-                    + "Scrap Pile, Medical Waste, Weapon Dump");
+                return Copy.Text(
+                    "三个高级拾荒场对你开放：拆解堆、医疗废弃点、废武器堆。",
+                    "Three high-tier scavenging grounds are open to you: "
+                    + "Scrap Pile, Medical Waste, Weapon Dump.");
             }
             return Copy.Text(
-                "每天多一名拾荒客客人；首次达到 20 点额外获得一枚「拾荒者信物」和一张便条放在前台（仅一次）",
-                "One extra scavenger customer per day; the first time you reach 20 you also get one Scavenger's Token and a note on the front counter (one-time only)");
+                "每天会多一名拾荒者来你店里。",
+                "One more scavenger visits your shop each day.");
         }
 
         private string Flavor()
         {
             if (threshold >= Reputation.Perk100Threshold)
             {
-                return Copy.Text("在这片废土上，你已经是他们自己人了。",
-                    "Out here, you're one of them now.");
+                return Copy.Text("在这片垃圾场里，所有人都把你当兄弟。",
+                    "In this dump, everyone treats you like a brother.");
             }
             if (threshold >= Reputation.Perk80Threshold)
             {
-                return Copy.Text("他看一眼就知道，这箱子里有没有真货。",
-                    "One look tells him whether the crate holds the real thing.");
+                return Copy.Text("值钱的东西，你一眼就认得出来。",
+                    "You can tell something valuable at a glance.");
             }
             if (threshold >= Reputation.Perk60Threshold)
             {
-                return Copy.Text("假货、次品、翻新货，他一眼就能挑出来。",
-                    "Knock-offs, seconds and refurbs - he spots them at a glance.");
+                return Copy.Text("别人翻过去的东西，你还会再看一眼。",
+                    "Others walk right past it; you take a second look.");
             }
             if (threshold >= Reputation.Perk40Threshold)
             {
-                return Copy.Text("他知道哪堆废铁底下还压着好东西。",
-                    "He knows which pile of scrap still hides the good stuff.");
+                return Copy.Text("你知道哪里能捡到更好的东西。",
+                    "You know where the better finds are.");
             }
-            return Copy.Text("废土上的老面孔，价钱好商量。",
-                "A familiar face in the wastes; easier to haggle with.");
+            return Copy.Text("拾荒者们知道哪家店会给好价钱。",
+                "Scavengers know which shop pays a fair price.");
         }
     }
 }
