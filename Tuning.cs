@@ -23,6 +23,11 @@ namespace DumpingGroundMap
         internal const float HighMax = 30f;
 
         private const string SectionName = "拾荒掉落 / Loot";
+        private const string IntegrationSection = "声望飘字 / Reputation Pop";
+
+        /// <summary>声望飘字开关：只在装了 Reputation Pop 时才有实际效果。</summary>
+        internal const string ReputationPopKey = "reputation_pop";
+        internal const bool DefaultReputationPop = true;
 
         /// <summary>
         /// One shared tier for every area. Each area still applies it to its
@@ -37,6 +42,7 @@ namespace DumpingGroundMap
         private static ConfigEntry<float> junkEntry;
         private static ConfigEntry<float> highEntry;
         private static ConfigEntry<string> specialtyEntry;
+        private static ConfigEntry<bool> reputationPopEntry;
         private static readonly Dictionary<string, EffectiveTable> cache =
             new Dictionary<string, EffectiveTable>();
         private static readonly Dictionary<string, float> baseEvCache =
@@ -82,6 +88,12 @@ namespace DumpingGroundMap
         internal static int SpecialtyTier
         {
             get { return EntrySpecialtyTier(); }
+        }
+
+        /// <summary>声望飘字开关；配置项没注册成功时按默认（开）处理。</summary>
+        internal static bool ReputationPopEnabled
+        {
+            get { return reputationPopEntry == null ? DefaultReputationPop : reputationPopEntry.Value; }
         }
 
         /// <summary>
@@ -162,6 +174,29 @@ namespace DumpingGroundMap
                     false);
 
                 MigrateSpecialtyTier(config);
+
+                reputationPopEntry = config.Define(ReputationPopKey, DefaultReputationPop,
+                    IntegrationSection,
+                    delegate
+                    {
+                        return ReputationPopBridge.Running
+                            ? Copy.Text("声望飘字（需安装 Reputation Pop）",
+                                "Reputation pop-ups (requires Reputation Pop)")
+                            : Copy.Text("声望飘字（需安装 Reputation Pop，当前未安装）",
+                                "Reputation pop-ups (requires Reputation Pop - not installed)");
+                    },
+                    delegate
+                    {
+                        return Copy.Text(
+                            "每次拾荒结算后，把本次获得的声望用 Reputation Pop 的气泡飘出来。\n只在装了「声望增加显示 / Reputation Pop」时生效；\n未安装时本项不起作用，也不会报错。\n关掉后不再弹出，声望照常累计。",
+                            "After each scavenge, pops this haul's reputation gain as a Reputation Pop bubble.\nOnly works when the Reputation Pop mod is installed;\nwithout it this option does nothing and logs no error.\nTurning it off stops the pop-ups only; reputation still accumulates.");
+                    },
+                    false);
+
+                reputationPopEntry.OnChanged += delegate(bool value)
+                {
+                    Debug.Log("[DumpingGroundMap] reputation pop: setting=" + (value ? "on" : "off"));
+                };
 
                 junkEntry.OnChanged += delegate(float value)
                 {

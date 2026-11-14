@@ -32,6 +32,8 @@ namespace DumpingGroundMap
         private static Action<string, double> record;
         private static bool resolved;
         private static bool patchTried;
+        private static bool missingLogged;
+        private static bool disabledLogged;
 
         /// <summary>只用于日志/展示，不参与任何分支以外的东西。</summary>
         internal static bool Running
@@ -43,7 +45,28 @@ namespace DumpingGroundMap
         internal static void Show(long value)
         {
             if (!Core.Enabled || value <= 0L) return;
-            if (!Running) return;
+
+            if (!Tuning.ReputationPopEnabled)
+            {
+                if (!disabledLogged)
+                {
+                    disabledLogged = true;
+                    Debug.Log("[DumpingGroundMap] reputation pop: disabled by setting");
+                }
+                return;
+            }
+
+            if (!Running)
+            {
+                if (!missingLogged)
+                {
+                    missingLogged = true;
+                    Debug.Log("[DumpingGroundMap] reputation pop: unavailable (mod not running)");
+                }
+                return;
+            }
+
+            missingLogged = false;
             EnsureResolved();
             if (record == null) return;
 
