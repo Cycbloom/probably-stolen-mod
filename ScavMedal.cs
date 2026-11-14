@@ -47,13 +47,13 @@ namespace DumpingGroundMap
         private const string NoteTitleEn = "To the shopkeeper";
 
         private const string NoteBodyZh =
-            "这枚信物是给有本事的人留的。你的拾荒能力赢得了我们尊重。"
-            + "往后的日子里，我们的人常会来店里。";
+            "这枚信物，只留给有本事的人。你的拾荒本领，我们服气。"
+            + "往后的日子里，我们会常来你店里照应。";
 
         private const string NoteBodyEn =
-            "This token is left for people with skill. Your scavenging skill "
-            + "has won our respect. In the days to come, our people will often "
-            + "come to the shop.";
+            "This token is only left for people with skill. Your scavenging skill — "
+            + "we're convinced. In the days to come, we'll often come by your shop "
+            + "to look after you.";
 
         private const string NoteSignZh = "拾荒者们";
         private const string NoteSignEn = "— the scavengers";
