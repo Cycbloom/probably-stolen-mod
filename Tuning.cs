@@ -287,19 +287,10 @@ namespace DumpingGroundMap
                         return;
                     }
                     debugIgnoredLogged = false;
-                    if (!Reputation.HasStore)
-                    {
-                        // 主菜单没有 PlayerStore：排队，等读档/新档时再应用。
-                        // 绝不能走到 SetPoints —— PlayerStore.Instance 会新建对象并抛异常。
-                        Reputation.QueueDebugPoints(snapped);
-                        return;
-                    }
-                    long stored = Reputation.SetPoints(snapped);
-                    Debug.Log("[DumpingGroundMap] debug: reputation set to "
-                        + snapped.ToString("0.##", CultureInfo.InvariantCulture)
-                        + " points (value=" + stored + ")");
-                    // 不等日终：用原生保存入口落盘（延后一帧，避开场景初始化），否则强退就丢。
-                    DeferredSave.Run("debug");
+                    // 统一入口：能安全存档（Emporium 场景里的 PlayerStore）就直接写并落盘，
+                    // 否则排队等下次读档。主菜单里 PlayerStore 可能仍在内存中，
+                    // 但那时调 SaveGame 会失败，不能直接写。
+                    Reputation.ApplyDebugPoints(snapped);
                 };
 
                 junkEntry.OnChanged += delegate(float value)

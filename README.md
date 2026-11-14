@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.43
+# 垃圾场拾荒地图 · 0.3.44
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -227,6 +227,28 @@ NullReferenceException
 - 日志：`debug: no save loaded, queued 19 points for next load`、`debug: applied queued 19 points (value=1900 saveNow=yes)`、`save now (debug): slot=… day=… value=1900 points=19`、`save now (queued): …`。
 
 正常存档时机不受影响：日终的 `SaveGame` 仍然照常执行，调试保存只是多写一次同一槽位、同一份数据；不改写存档结构、不新增键（只有全局索引里两个 `dgm_debug_pending*` 临时键）。
+
+### 主菜单改点数没生效（0.3.44）
+
+证据（2026-11-14 22:52，GameLog）：
+
+```
+[22:52:44] [Log] [DumpingGroundMap] debug: reputation set to 19 points (value=1900)
+[22:52:44] [Warning] [DumpingGroundMap] save now (debug) failed:
+[22:52:53] [Log] [DumpingGroundMap] reputation load: ... value=0 points=0 previous=1900
+```
+
+- 设置窗口只能在主菜单打开（`MainMenuUIController.OpenModPanel` → `ModUIManager.OpenPanel`，全程序集仅此一处）；回到主菜单后 `PlayerStore` 对象仍在内存里，`PlayerStore.HasInstance` 仍为 true，旧判据因此走了「直接写内存 + 立即存档」分支。
+- 但主菜单是 `EmporiumMenu` 场景，`EmporiumEntry.Instance` 已经是 null；`PlayerStore.SaveGame()` 第一行就解引用 `EmporiumEntry.Instance.invElement`，直接抛异常（异常消息为空），值只留在内存。
+- 紧接着读档，`Reload()` 无条件用存档里的旧值（0）覆盖内存，于是看起来完全没生效。
+
+0.3.44 的改法：
+
+- 新增 `Reputation.ApplyDebugPoints`：只有 `PlayerStore.HasInstance && EmporiumEntry.Instance != null`（真正在 Emporium 场景里）才直接写内存并调 `SaveGame`；否则一律写进 `SaveFiles` 索引排队，等下次读档/新档应用。
+- `SaveNow` 失败时把当前值重新排进 `dgm_debug_pending*`，不再静默丢弃；日志同时打印异常类型（`Describe`），消息为空也能看出是哪一类异常。
+- 日志：`debug: Emporium not loaded, applying on next load`、`debug: queued 19 points for next load (Emporium not loaded)`；失败时 `save now (debug) failed: NullReferenceException` 加 `debug: save failed, 19 points queued for next load`。
+
+正确操作：主菜单 → 模组 → 本模组设置 → 拖点数（松手即生效）→ 关窗口 → **读档**（或开新档）。值在读档完成时写入，并立刻补存一次；不需要再点一次应用。
 
 
 高档物资池（价值 250–400，按 `unitValue`）：蓝血、高级滤芯、便携净水器、高端瓶装水、黑色注射器、稀有电子件、高级模组提取器；各区的具体分布不同。高档物资不受区域专精度影响，它本身就是稀有掉落。

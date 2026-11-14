@@ -182,18 +182,47 @@ namespace DumpingGroundMap
         internal static bool HasStore { get { return PlayerStore.HasInstance; } }
 
         /// <summary>
-        /// 主菜单改调试点数：没有 PlayerStore 可写，先存进游戏自己的 SaveFiles 索引，
-        /// 下次读档/新档时应用一次。
+        /// 设置窗口改动的统一入口。
+        ///
+        /// 只有「有存档 + Emporium 场景已加载」时才直接写内存并立即调原生 SaveGame；
+        /// 其它情况（主菜单 EmporiumMenu、读档过程中）一律排队，等下次读档/新档应用。
+        ///
+        /// 0.3.43 的 bug：只判断了 PlayerStore.HasInstance。回到主菜单后 PlayerStore
+        /// 对象仍在内存里（HasInstance 为 true），但 EmporiumEntry 已销毁，
+        /// PlayerStore.SaveGame() 第一步就解引用 EmporiumEntry.Instance 而失败；
+        /// 值只留在内存，紧接着读档又被存档里的旧值覆盖，看起来就是「没生效」。
         /// </summary>
-        internal static bool QueueDebugPoints(float points)
+        internal static void ApplyDebugPoints(float points)
+        {
+            if (points < 0f) points = 0f;
+            if (!HasStore || EmporiumEntry.Instance == null)
+            {
+                string why = HasStore ? "Emporium not loaded" : "no save loaded";
+                Debug.Log("[DumpingGroundMap] debug: " + why + ", applying on next load");
+                QueueDebugPoints(points, why);
+                return;
+            }
+            long stored = SetPoints(points);
+            Debug.Log("[DumpingGroundMap] debug: reputation set to "
+                + points.ToString("0.##", CultureInfo.InvariantCulture)
+                + " points (value=" + stored + ")");
+            // 不等日终：用原生保存入口落盘（延后一帧，避开场景初始化），否则强退就丢。
+            DeferredSave.Run("debug");
+        }
+
+        /// <summary>
+        /// 主菜单/无法立即存档时改调试点数：先存进游戏自己的 SaveFiles 索引，
+        /// 下次读档/新档时应用一次。why 只用于日志。
+        /// </summary>
+        internal static bool QueueDebugPoints(float points, string why)
         {
             try
             {
                 SaveFiles.IndexSave<bool>(PendingFlagKey, true);
                 SaveFiles.IndexSave<float>(PendingPointsKey, points);
-                Debug.Log("[DumpingGroundMap] debug: no save loaded, queued "
+                Debug.Log("[DumpingGroundMap] debug: queued "
                     + points.ToString("0.##", CultureInfo.InvariantCulture)
-                    + " points for next load");
+                    + " points for next load (" + why + ")");
                 return true;
             }
             catch (Exception ex)
@@ -280,9 +309,26 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] save now (" + reason + ") failed: " + ex.Message);
+                Debug.LogWarning("[DumpingGroundMap] save now (" + reason + ") failed: " + Describe(ex));
+                // 落盘失败时不能把值留在内存里等下次读档被覆盖：排队，读档时再应用。
+                // 只有调试项会走到这里（"debug" 直接改、"queued" 应用排队值时补存），
+                // 两条都该保住这个值。
+                float points = ExactPoints;
+                QueueDebugPoints(points, "save failed: " + reason);
+                Debug.LogWarning("[DumpingGroundMap] debug: save failed, "
+                    + points.ToString("0.##", CultureInfo.InvariantCulture)
+                    + " points queued for next load");
                 return false;
             }
+        }
+
+        /// <summary>异常类型 + 消息。消息为空时至少能看出是哪一类异常。</summary>
+        private static string Describe(Exception ex)
+        {
+            if (ex == null) return "(null)";
+            string text = ex.GetType().Name;
+            if (!string.IsNullOrEmpty(ex.Message)) text += ": " + ex.Message;
+            return text;
         }
 
         private static long ToStored(float points)
