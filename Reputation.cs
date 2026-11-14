@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace DumpingGroundMap
@@ -82,18 +83,37 @@ namespace DumpingGroundMap
         internal static void Reload()
         {
             string store = StoreKey();
-            if (store == null || store == loadedStore) return;
+            if (store == null)
+            {
+                Debug.LogWarning("[DumpingGroundMap] reputation load skipped: no PlayerStore");
+                return;
+            }
+            if (store == loadedStore)
+            {
+                Debug.Log("[DumpingGroundMap] reputation load skipped: same store " + store
+                    + " value=" + totalValue + " points=" + Points);
+                return;
+            }
             loadedStore = store;
             totalValue = StoredValue();
-            Debug.Log("[DumpingGroundMap] reputation " + Points + " (" + store + ")");
+            Debug.Log("[DumpingGroundMap] reputation load: id=" + Core.Id + " key=" + DataKey
+                + " store=" + store + " value=" + totalValue + " points=" + Points);
         }
+
+        /// <summary>累计价值，供日志核对。</summary>
+        internal static long TotalValue { get { return totalValue; } }
 
         /// <summary>把一趟拾荒的总价值折成声望；不足 100 的部分留在 modData 里继续累计。</summary>
         internal static void Add(long value)
         {
             if (value <= 0L) return;
             string store = StoreKey();
-            if (store == null) return;
+            if (store == null)
+            {
+                Debug.LogWarning("[DumpingGroundMap] scavenge: reputation add skipped, no PlayerStore (value="
+                    + value + ")");
+                return;
+            }
             if (store != loadedStore)
             {
                 loadedStore = store;
@@ -152,22 +172,35 @@ namespace DumpingGroundMap
     {
         private static MethodBase TargetMethod()
         {
-            return AccessTools.Method(typeof(ScavHelper), "GetRandomScavengedItem",
+            MethodBase method = AccessTools.Method(typeof(ScavHelper), "GetRandomScavengedItem",
                 new Type[] { typeof(GameItem).MakeByRefType() });
+            Debug.Log("[DumpingGroundMap] scavenge: patch target "
+                + (method == null ? "NOT FOUND" : method.DeclaringType.Name + "." + method.Name));
+            return method;
         }
 
         private static void Postfix(List<GameItem> __result)
         {
-            if (!Core.Enabled || __result == null || __result.Count == 0) return;
+            if (!Core.Enabled) return;
+            int count = __result == null ? 0 : __result.Count;
             long sum = 0L;
-            for (int i = 0; i < __result.Count; ++i)
+            for (int i = 0; i < count; ++i)
             {
                 GameItem item = __result[i];
                 if (item == null) continue;
                 try { sum += item.GetCurrentValue(false, true, true, false, 0L); }
-                catch (Exception) { }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[DumpingGroundMap] scavenge: value failed: " + ex.Message);
+                }
             }
             Reputation.Add(sum);
+            Debug.Log("[DumpingGroundMap] scavenge: items=" + count + " value=" + sum
+                + " total=" + Reputation.TotalValue + " points=" + Reputation.Points);
+            if (count > 0 && sum <= 0L)
+            {
+                Debug.LogWarning("[DumpingGroundMap] scavenge: items found but total value is 0");
+            }
         }
     }
 
@@ -254,9 +287,10 @@ namespace DumpingGroundMap
                     return;
                 }
 
+                List<PerkElement> before = CollectPerks(row);
                 element.Init(entry);
                 ApplyRow(element, points);
-                StylePerks(row, points, __instance);
+                StylePerks(row, points, __instance, before);
                 PlaceRow(row, layout);
                 Debug.Log("[DumpingGroundMap] reputation row: added " + points
                     + " active=" + row.activeSelf
@@ -334,31 +368,77 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 图标：原生按阈值自动挑，40/60 会重复成同一个笑脸，所以按顺序覆盖成
-        /// 微笑 / 笑脸 / 星星；未解锁 alpha 0.35。没有本地化词条，关掉射线避免空 tooltip。
+        /// 图标：按 y 坐标（= GetBarHeight(阈值)）排序后依次对应 20 / 40 / 60，
+        /// 依次用微笑 / 笑脸 / 星星；未解锁 alpha 0.35。
+        /// 预制体自带的 PerkElement 在 Init 前记进 before，Init 后移除，
+        /// 这样 20/40/60 三个图标的归属不依赖子物体索引（0.3.24 曾因此错位）。
+        /// 每个图标挂上自己的 tooltip 组件，未解锁也能悬停预览。
         /// </summary>
-        private static void StylePerks(GameObject row, int points, ReputationUIManager manager)
+        private static void StylePerks(GameObject row, int points,
+            ReputationUIManager manager, List<PerkElement> before)
         {
-            int index = 0;
-            for (int i = 0; i < row.transform.childCount; ++i)
+            List<PerkElement> all = CollectPerks(row);
+            List<PerkElement> fresh = new List<PerkElement>();
+            for (int i = 0; i < all.Count; ++i)
             {
-                PerkElement perk = row.transform.GetChild(i).GetComponent<PerkElement>();
+                PerkElement perk = all[i];
                 if (perk == null || perk.image == null) continue;
+                if (before.Contains(perk))
+                {
+                    perk.gameObject.SetActive(false);
+                    UnityEngine.Object.Destroy(perk.gameObject);
+                    continue;
+                }
+                fresh.Add(perk);
+            }
+            fresh.Sort(delegate(PerkElement a, PerkElement b)
+            {
+                return Y(a).CompareTo(Y(b));
+            });
+
+            string layout = string.Empty;
+            for (int i = 0; i < fresh.Count; ++i)
+            {
+                PerkElement perk = fresh[i];
+                int index = i < PerkThresholds.Length ? i : PerkThresholds.Length - 1;
+                int threshold = PerkThresholds[index];
 
                 if (index == 0) perk.image.sprite = manager.spriteSmile;
                 else if (index == 1) perk.image.sprite = manager.spriteHappy;
                 else perk.image.sprite = manager.spriteStar;
 
-                int threshold = index < PerkThresholds.Length
-                    ? PerkThresholds[index] : PerkThresholds[PerkThresholds.Length - 1];
                 Color color = perk.image.color;
                 color.a = points >= threshold ? 1f : 0.35f;
                 perk.image.color = color;
-                perk.image.raycastTarget = false;
-                ++index;
+                perk.image.raycastTarget = true;
+                perk.enabled = false;
+
+                DgmPerkTooltip tip = perk.gameObject.GetComponent<DgmPerkTooltip>();
+                if (tip == null) tip = perk.gameObject.AddComponent<DgmPerkTooltip>();
+                tip.Setup(manager, threshold, points >= threshold);
+
+                layout += (i == 0 ? "" : " ") + threshold + "@" + Y(perk).ToString("F1");
             }
-            Debug.Log("[DumpingGroundMap] reputation row: perks=" + index
-                + " points=" + points);
+            Debug.Log("[DumpingGroundMap] reputation row: perks total=" + all.Count
+                + " used=" + fresh.Count + " stale=" + (all.Count - fresh.Count)
+                + " points=" + points + " y=[" + layout + "]");
+        }
+
+        private static float Y(PerkElement perk)
+        {
+            RectTransform rect = perk.transform as RectTransform;
+            return rect == null ? 0f : rect.anchoredPosition.y;
+        }
+
+        private static List<PerkElement> CollectPerks(GameObject row)
+        {
+            List<PerkElement> list = new List<PerkElement>();
+            for (int i = 0; i < row.transform.childCount; ++i)
+            {
+                PerkElement perk = row.transform.GetChild(i).GetComponent<PerkElement>();
+                if (perk != null) list.Add(perk);
+            }
+            return list;
         }
 
         private static string StatusName(int points)
@@ -415,6 +495,97 @@ namespace DumpingGroundMap
             Debug.Log("[DumpingGroundMap] reputation row: placed by sibling, previous="
                 + previous.anchoredPosition + " step=" + step
                 + " anchored=" + rect.anchoredPosition + " size=" + rect.sizeDelta);
+        }
+    }
+
+    /// <summary>
+    /// 柱上奖励图标的悬停说明。原生 PerkElement.OnPointerEnter 只会用
+    /// StoreReputationPerk 的本地化键填 tooltip，我们没有词条，所以把原生
+    /// 组件关掉（perk.enabled = false，Unity 不会再向它派发指针事件），
+    /// 改由本组件填 ReputationUIManager 上那五个 public 文本字段。
+    /// 原生 tooltip 的显示只看 GameObject 是否 active，位置由原生 Update
+    /// 每帧调 UpdateTooltipPosition 跟随鼠标，这里只负责开关与文案。
+    /// 全部公开字段访问：不写文件、不反射、不加资源。
+    /// </summary>
+    internal sealed class DgmPerkTooltip : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        private ReputationUIManager manager;
+        private int threshold;
+        private bool unlocked;
+
+        internal void Setup(ReputationUIManager owner, int perkThreshold, bool isUnlocked)
+        {
+            manager = owner;
+            threshold = perkThreshold;
+            unlocked = isUnlocked;
+        }
+
+        public void OnPointerEnter(PointerEventData eventData) { Show(); }
+
+        public void OnPointerExit(PointerEventData eventData) { Hide(); }
+
+        private void OnDisable() { Hide(); }
+
+        private void Show()
+        {
+            ReputationUIManager m = manager != null ? manager : ReputationUIManager.Instance;
+            if (m == null || m.reputationTooltip == null) return;
+
+            string state = unlocked ? Copy.Text("已激活", "Active") : Copy.Text("未激活", "Inactive");
+            if (m.perkTitle != null)
+            {
+                m.perkTitle.SetText(Title() + " [" + state + "] "
+                    + threshold.ToString(CultureInfo.InvariantCulture) + "/200");
+            }
+            if (m.perkStatus != null) m.perkStatus.SetText(string.Empty);
+            if (m.perkProgress != null) m.perkProgress.SetText(string.Empty);
+            if (m.perkdescription != null) m.perkdescription.SetText(Description());
+            if (m.perkFlavorText != null) m.perkFlavorText.SetText(Flavor());
+            m.reputationTooltip.SetActive(true);
+        }
+
+        private void Hide()
+        {
+            ReputationUIManager m = manager != null ? manager : ReputationUIManager.Instance;
+            if (m != null && m.reputationTooltip != null) m.reputationTooltip.SetActive(false);
+        }
+
+        private string Title()
+        {
+            if (threshold >= 60) return Copy.Text("拾荒客·活地图", "Scavenger · Living Map");
+            if (threshold >= 40) return Copy.Text("拾荒客·老手", "Scavenger · Old Hand");
+            return Copy.Text("拾荒客·熟客", "Scavenger · Regular");
+        }
+
+        private string Description()
+        {
+            if (threshold >= 60)
+            {
+                return Copy.Text("待定奖励（占位）", "Reward TBD (placeholder)");
+            }
+            if (threshold >= 40)
+            {
+                return Copy.Text("开放高级拾荒区域：拆解堆、医疗废弃点、废武器堆",
+                    "Unlocks the high-tier scavenging areas: Scrap Pile, Medical Waste, Weapon Dump");
+            }
+            return Copy.Text("每天多一名拾荒者客人（暂未实装）",
+                "One extra scavenger customer per day (not implemented yet)");
+        }
+
+        private string Flavor()
+        {
+            if (threshold >= 60)
+            {
+                return Copy.Text("整座垃圾场，他闭着眼都能走一遍。",
+                    "He could walk the whole dump with his eyes shut.");
+            }
+            if (threshold >= 40)
+            {
+                return Copy.Text("他知道哪堆废铁底下还压着好东西。",
+                    "He knows which pile of scrap still hides the good stuff.");
+            }
+            return Copy.Text("废土上的熟脸，价钱好商量。",
+                "A familiar face in the wastes; easier to haggle with.");
         }
     }
 }
