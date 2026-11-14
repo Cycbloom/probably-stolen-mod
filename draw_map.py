@@ -1,13 +1,12 @@
 """Generate the schematic background, without labels (Unity draws the buttons)."""
 from pathlib import Path
-import math
 import random
 
 from PIL import Image, ImageDraw, ImageFont
 
 
 W, H = 1020, 492
-rng = random.Random(441)
+rng = random.Random(415)
 image = Image.new("RGB", (W, H))
 pixels = image.load()
 for y in range(H):
@@ -22,49 +21,107 @@ for x in range(24, W, 24):
 for y in range(24, H, 24):
     d.line((0, y, W, y), fill="#274440" if y % 96 == 0 else "#24403d")
 
+
+def plot(cx, cy, w, h, seeds):
+    """Hand-cut octagon around (cx, cy); seeds perturb the corners a little."""
+    hw, hh = w / 2, h / 2
+    base = [(-hw, -hh * 0.55), (-hw * 0.55, -hh), (hw * 0.55, -hh), (hw, -hh * 0.55),
+            (hw, hh * 0.55), (hw * 0.55, hh), (-hw * 0.55, hh), (-hw, hh * 0.55)]
+    return [(cx + dx + rng.randrange(-seeds, seeds + 1),
+             cy + dy + rng.randrange(-seeds, seeds + 1)) for dx, dy in base]
+
+
 zones = [
-    ([(69, 308), (123, 256), (280, 274), (383, 350), (373, 436), (72, 441)], "#2c4943", "#68867a"),
-    ([(82, 89), (187, 53), (345, 65), (397, 157), (345, 215), (88, 223)], "#374941", "#8c9270"),
-    ([(643, 268), (772, 245), (932, 283), (955, 425), (746, 448), (618, 404)], "#314b42", "#789379"),
-    ([(638, 63), (884, 54), (952, 79), (954, 207), (767, 223), (629, 169)], "#2b4745", "#6a9590"),
+    # (polygon, fill, edge) in top-down image coordinates
+    (plot(204, 384, 268, 112, 7), "#2c4943", "#68867a"),  # gate, bottom left
+    (plot(204, 246, 272, 108, 7), "#374941", "#8c9270"),  # scrap, middle left
+    (plot(204, 108, 264, 110, 7), "#314b47", "#789379"),  # medical, top left
+    (plot(510, 108, 248, 108, 7), "#3a4740", "#8f8f6d"),  # weapons, top center
+    (plot(510, 246, 244, 104, 7), "#2f4a44", "#7d9080"),  # parts, center
+    (plot(796, 108, 248, 108, 7), "#2b4745", "#6a9590"),  # terminals, top right
+    (plot(796, 384, 268, 112, 7), "#314b42", "#789379"),  # refuse, bottom right
 ]
 
 for poly, fill, edge in zones:
     d.polygon(poly, fill=fill)
-    d.line(poly + [poly[0]], fill=edge, width=2)
+    d.line(poly + [poly[0]], edge, width=2)
 
-def road(points):
-    d.line(points, fill="#19312f", width=27, joint="curve")
+
+def road(points, width=22):
+    d.line(points, fill="#19312f", width=width, joint="curve")
     d.line(points, fill="#557169", width=2, joint="curve")
 
 
-road([(507, 487), (496, 396), (474, 319), (501, 241), (479, 164), (526, 79), (545, 38)])
-road([(103, 245), (288, 240), (402, 267), (501, 241), (609, 227), (760, 241), (947, 244)])
-road([(460, 303), (379, 329), (316, 375)])
-road([(554, 266), (623, 317), (685, 352)])
+# Lanes run through the gaps between plots so no button is split by a road.
+road([(358, 482), (352, 320), (356, 176), (350, 30)])
+road([(655, 482), (661, 320), (657, 176), (663, 30)])
+road([(58, 176), (200, 170), (356, 176), (510, 171), (657, 176), (800, 170), (960, 176)])
+road([(58, 320), (200, 326), (356, 320), (510, 326), (657, 320), (800, 326), (960, 320)])
 
-# Landmarks stay legible at game size; decorative silhouettes avoid the button centers.
-for i in range(5):
-    x = 100 + 46 * i
-    y = 300 + (i % 2) * 14
-    d.rounded_rectangle((x, y, x + 36, y + 15), 2, fill="#42605a", outline="#6b857b")
-    d.line((x + 6, y + 5, x + 30, y + 5), fill="#80968d")
-for i in range(16):
-    x = rng.randrange(102, 335)
-    y = rng.choice([rng.randrange(90, 119), rng.randrange(172, 206)])
-    w, h = rng.randrange(10, 28), rng.randrange(6, 15)
+# Decorative silhouettes stay near the plot edges, clear of the buttons.
+def barrel(x, y, fill="#466256", edge="#74917d"):
+    d.rounded_rectangle((x, y, x + 26, y + 32), 3, fill=fill, outline=edge)
+    d.line((x, y + 8, x + 26, y + 8), fill=edge)
+    d.line((x, y + 24, x + 26, y + 24), fill=edge)
+
+
+def crate(x, y, w=30, h=20, fill="#365855", edge="#69908b"):
+    d.rectangle((x, y, x + w, y + h), fill=fill, outline=edge)
+    d.line((x, y + 5, x + w, y + 5), fill=edge)
+    d.line((x + 7, y + 8, x + w - 7, y + h - 3), fill="#597d6c")
+
+
+# gate: lockers and a couple of bottles
+for i in range(4):
+    x = 72 + 34 * i
+    d.rounded_rectangle((x, 412, x + 24, 436), 2, fill="#42605a", outline="#6b857b")
+    d.line((x + 5, 417, x + 19, 417), fill="#80968d")
+for i in range(3):
+    barrel(68 + 30 * i, 336)
+
+# scrap: loose plate piles
+for i in range(9):
+    x = 74 + rng.randrange(0, 190)
+    y = rng.choice([206, 214, 276, 284])
+    w, h = rng.randrange(14, 30), rng.randrange(6, 14)
     d.polygon([(x, y + h), (x + 5, y), (x + w, y + 2), (x + w - 4, y + h)], fill="#657064", outline="#8e937e")
-for i in range(8):
-    x = 682 + (i % 4) * 55
-    y = 292 if i < 4 else 387
-    d.rectangle((x, y, x + 34, y + 19), fill="#466256", outline="#74917d")
-    d.line((x, y + 5, x + 34, y + 5), fill="#74917d")
-    d.line((x + 6, y + 8, x + 29, y + 17), fill="#597d6c")
-for x in (665, 714, 763, 812, 861):
-    for y in (75, 171):
-        d.rounded_rectangle((x, y, x + 31, y + 22), 2, fill="#365855", outline="#69908b")
-        d.rectangle((x + 4, y + 4, x + 23, y + 11), fill="#5f8179")
-        d.line((x + 16, y + 22, x + 16, y + 27), fill="#6d8d81", width=2)
+
+# medical: marked crates
+for i, y in enumerate((62, 142)):
+    crate(78, y, 34, 22, "#3f5f55", "#87a08c")
+    d.line((95, y + 5, 95, y + 17), fill="#c9d6b9", width=2)
+    d.line((89, y + 11, 101, y + 11), fill="#c9d6b9", width=2)
+    barrel(300, y + 2, "#3c5952", "#7e9a82")
+
+# weapons: racks
+for i in range(3):
+    x = 392 + 16 * i
+    d.line((x, 82, x + 10, 138), fill="#7d8a67", width=3)
+for i in range(3):
+    x = 600 + 14 * i
+    d.line((x, 136, x - 6, 84), fill="#7d8a67", width=3)
+
+# parts: stacked crates
+for i in range(6):
+    x = 388 + (i % 3) * 40
+    y = 204 if i < 3 else 284
+    crate(x, y, 30, 18, "#3a5b55", "#779585")
+
+# terminals: dead screens
+for x in (696, 748, 800):
+    for y in (56, 146):
+        d.rounded_rectangle((x, y, x + 34, y + 24), 2, fill="#365855", outline="#69908b")
+        d.rectangle((x + 4, y + 4, x + 25, y + 12), fill="#5f8179")
+        d.line((x + 17, y + 24, x + 17, y + 30), fill="#6d8d81", width=2)
+
+# refuse: dumpsters
+for i in range(3):
+    x = 720 + 64 * i
+    d.rectangle((x, 334, x + 38, 355), fill="#466256", outline="#74917d")
+    d.line((x, 340, x + 38, 340), fill="#74917d")
+    d.line((x + 6, 344, x + 32, 352), fill="#597d6c")
+for i in range(3):
+    barrel(700 + 78 * i, 402, "#3f5d54", "#78917c")
 
 d.rounded_rectangle((10, 10, W - 11, H - 11), 8, outline="#789184", width=2)
 d.rectangle((37, 36, W - 38, H - 37), outline="#48665e", width=1)
@@ -77,13 +134,13 @@ for i, y in enumerate((90, 190, 292, 394)):
 d.text((48, 465), "SURVEY / DG-04", anchor="lm", font=font, fill="#a1b8a7")
 d.text((970, 465), "LOCAL ROUTES", anchor="rm", font=font, fill="#a1b8a7")
 
-# North arrow in the map's service strip.
-cx, cy = 553, 150
+# North arrow in the empty bottom-center lot.
+cx, cy = 514, 392
 d.polygon([(cx, cy - 15), (cx - 7, cy + 9), (cx, cy + 4), (cx + 7, cy + 9)], fill="#d7bb7e")
 d.text((cx, cy - 28), "N", anchor="mm", font=font, fill="#d7bb7e")
 for i in range(4):
-    x = 485 + 10 * i
-    d.line((x, 435, x + 8, 428), fill="#b19f72", width=2)
+    x = 470 + 10 * i
+    d.line((x, 432, x + 8, 425), fill="#b19f72", width=2)
 
 target = Path(__file__).parent / "Paper" / "dumping_ground_map.png"
 target.parent.mkdir(parents=True, exist_ok=True)

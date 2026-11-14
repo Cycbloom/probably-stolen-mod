@@ -25,7 +25,7 @@ namespace DumpingGroundMap
         private const string SectionName = "拾荒掉落 / Loot";
 
         /// <summary>
-        /// One shared tier for all four areas. Each area still applies it to its
+        /// One shared tier for every area. Each area still applies it to its
         /// own signature pool, so the same tier yields different goods.
         /// </summary>
         internal const string SpecialtyKey = "specialty";
@@ -156,7 +156,7 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "决定除垃圾外，捡到的东西多偏向本区特产。\n档位越高，本区特产越多，通用物品越少。\n「全部」：除垃圾外只出本区特产。\n如报废终端区：「较少」仍有材料、食品，\n「全部」只出模组和电子件。\n四个区各有各的特产；垃圾不受影响。",
+                            "决定除垃圾外，捡到的东西多偏向本区特产。\n档位越高，本区特产越多，通用物品越少。\n「全部」：除垃圾外只出本区特产。\n如报废终端区：「较少」仍有材料、食品，\n「全部」只出模组和电子件。\n每个区都有自己的一批特产；垃圾不受影响。",
                             "Controls how strongly, junk aside, a haul leans toward this region's own goods.\nHigher tiers mean more local goods and fewer generic ones.\nAll: nothing but local goods and junk.\nExample, Dead Terminals: Rare still brings materials and food;\nAll brings only modules and electronics.\nEach region has its own goods; junk is not affected.");
                     },
                     false);
@@ -357,7 +357,7 @@ namespace DumpingGroundMap
             int count = ids.Length;
             int junkIndex = Array.IndexOf(ids, "junk");
             int regionIndex = RegionIndex(region);
-            // One shared tier for all four areas; each area applies it to its own
+            // One shared tier for every area; each area applies it to its own
             // specialty pool below, so the same value still yields different goods.
             float specialty = Mathf.Clamp(specialtyPercent, 0f, 100f) / 100f;
 
@@ -476,7 +476,10 @@ namespace DumpingGroundMap
             new[] { 1, 4, 6 }, // Main Gate: materials, tools, household goods
             new[] { 1, 4, 5 }, // Scrap Pile: materials, tools, the odd module
             new[] { 2, 3, 6 }, // Refuse Lane: food, medical, household goods
-            new[] { 5, 7 }     // Dead Terminals: modules and electronics
+            new[] { 5, 7 },    // Dead Terminals: modules and electronics
+            new[] { 3 },       // Medical Waste: medicine only
+            new[] { 8, 9, 10 },// Weapon Dump: melee, guns, ammunition
+            new[] { 10, 11 }   // Parts Crates: gun mods and ammunition
         };
 
         private static bool IsSignature(int regionIndex, string itemId)
@@ -501,14 +504,18 @@ namespace DumpingGroundMap
         };
 
         /// <summary>
-        /// Per-area high-value mix, in Region.All order (gate, scrap, refuse, terminal).
+        /// Per-area high-value mix, in Region.All order (gate, scrap, refuse,
+        /// terminal, medical, weapons, parts).
         /// </summary>
         private static readonly int[][] HighWeights =
         {
             new[] { 2, 2, 1, 2, 1, 1, 1 },
             new[] { 1, 1, 1, 1, 1, 3, 4 },
             new[] { 3, 3, 3, 3, 1, 1, 1 },
-            new[] { 1, 1, 1, 1, 3, 3, 2 }
+            new[] { 1, 1, 1, 1, 3, 3, 2 },
+            new[] { 4, 1, 1, 1, 5, 1, 1 },
+            new[] { 1, 2, 2, 2, 3, 1, 3 },
+            new[] { 1, 2, 2, 2, 2, 2, 3 }
         };
 
         /// <summary>
@@ -571,6 +578,69 @@ namespace DumpingGroundMap
                 { "bandage_item", 8f },
                 { "hemostatic_bandage_item", 16f },
                 { "topical_bandage_item", 16f },
+                { "blood_bag", 33f },
+                { "rubbing_alcohol", 35f },
+                { "salve", 80f },
+                { "surgery_tool", 200f },
+                { "birth_control_pill", 15f },
+                { "fanta_pill", 12f },
+                { "phagimycin_pill", 25f },
+                { "zyanide_pill", 33f },
+                { "smelling_salt", 15f },
+                { "dream_dust", 18f },
+                { "nightmare_dust", 36f },
+                { "common_medical", 40f },
+                { "metal_ingot", 50f },
+                { "system_module_corrupt", 45f },
+                { "blank_module", 60f },
+                { "combat_knife", 75f },
+                { "kitchen_cleaver", 65f },
+                { "stun_baton", 165f },
+                { "hatchet", 55f },
+                { "skinning_knife", 100f },
+                { "combat_machete", 185f },
+                { "printed_gun", 40f },
+                { "handmade_pistol", 120f },
+                { "heavy_handmade_pistol", 160f },
+                { "revolver", 240f },
+                { "small_pistol_ammo", 20f },
+                { "small_pistol_ammo_p", 26f },
+                { "small_pistol_ammo_nl", 14f },
+                { "heavy_pistol_ammo", 30f },
+                { "heavy_pistol_ammo_p", 36f },
+                { "heavy_pistol_ammo_nl", 24f },
+                { "lou_etched_round", 30f },
+                { "rds", 60f },
+                { "rds_makeshift", 25f },
+                { "silencer", 55f },
+                { "silencer2", 90f },
+                { "silencer_makeshift", 15f },
+                { "barrel", 60f },
+                { "compensator", 50f },
+                { "mag_10mm", 30f },
+                { "mag_10mm_high", 40f },
+                { "mag_10mm_ext", 50f },
+                { "mag_22", 15f },
+                { "mag_22_high", 25f },
+                { "mag_22_ext", 35f },
+                { "mag_10mm_smg", 55f },
+                { "mag_10mm_smg_high", 70f },
+                { "mag_10mm_smg_box", 85f },
+                { "laser", 50f },
+                { "laser2", 100f },
+                { "laser_toy", 18f },
+                { "bipod", 40f },
+                { "gl", 150f },
+                { "grip", 40f },
+                { "stock", 40f },
+                { "short_stock", 35f },
+                { "internal_springs", 40f },
+                { "internal_springs_improved", 20f },
+                { "trigger_group", 50f },
+                { "match_barrel", 75f },
+                { "pistol_switch", 40f },
+                { "ammo_display", 70f },
+                { "grip_gel", 70f },
                 { "blue_blood_bag", 250f },
                 { "water_filter_adv", 350f },
                 { "portable_water_purifier", 325f },
@@ -582,14 +652,15 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// Item categories: 1 materials, 2 food, 3 medical, 4 tools, 5 modules,
-        /// 6 household goods, 7 electronics. SignatureCategories uses these ids.
+        /// 6 household goods, 7 electronics, 8 melee weapons, 9 guns, 10 ammo,
+        /// 11 gun mods. SignatureCategories uses these ids.
         /// </summary>
         private static readonly Dictionary<string, int> Categories =
             new Dictionary<string, int>
             {
                 { "glass_shard", 1 }, { "scrap_metal", 1 }, { "nuts_metal", 1 },
-                { "flux_agent", 1 }, { "printer_plastic", 1 }, { "wire", 1 },
-                { "gun_part", 1 }, { "kotton_fabric", 1 },
+                { "flux_agent", 1 },
+                { "gun_part", 1 }, { "kotton_fabric", 1 }, { "metal_ingot", 1 },
                 { "empty_beer_bottle", 2 }, { "galaxy_blend", 2 }, { "energy_drink", 2 },
                 { "soda_red", 2 }, { "cat_bar", 2 }, { "li_eat_snackbar", 2 },
                 { "red_beer", 2 }, { "processed_milk", 2 }, { "processed_juice", 2 },
@@ -597,19 +668,44 @@ namespace DumpingGroundMap
                 { "nudka", 2 }, { "beis_icecream", 2 },
                 { "bandage_item", 3 },
                 { "hemostatic_bandage_item", 3 }, { "topical_bandage_item", 3 },
+                { "blood_bag", 3 }, { "rubbing_alcohol", 3 }, { "salve", 3 },
+                { "surgery_tool", 3 }, { "birth_control_pill", 3 }, { "fanta_pill", 3 },
+                { "phagimycin_pill", 3 }, { "zyanide_pill", 3 }, { "smelling_salt", 3 },
+                { "dream_dust", 3 }, { "nightmare_dust", 3 }, { "common_medical", 3 },
                 { "screwdriver", 4 }, { "wire_cutter", 4 }, { "module_extractor", 4 },
-                { "welder", 4 }, { "turbo_booster", 4 }, { "pipe_weapon", 4 },
-                { "crowbar", 4 }, { "kitchen_knife", 4 }, { "glass_shard_shiv", 4 },
-                { "box_cutter", 4 },
+                { "welder", 4 }, { "turbo_booster", 4 },
                 { "system_module_ruined", 5 }, { "random_performance_module", 5 },
                 { "random_efficiency_module", 5 }, { "random_quality_module", 5 },
                 { "system_module_performance", 5 }, { "system_module_eco", 5 },
-                { "system_module_fineness", 5 },
+                { "system_module_fineness", 5 }, { "system_module_corrupt", 5 },
+                { "blank_module", 5 },
                 { "caffeine_pill", 6 }, { "toothpaste", 6 }, { "water_filter", 6 },
                 { "shampoo", 6 }, { "paper_towel", 6 }, { "toilet_paper", 6 },
                 { "full_water_test_strip_box", 6 },
                 { "full_water_purification_tablet_box", 6 },
-                { "common_electronic", 7 }, { "rare_electronic", 7 }
+                { "wire", 7 }, { "printer_plastic", 7 },
+                { "common_electronic", 7 }, { "rare_electronic", 7 },
+                { "pipe_weapon", 8 }, { "glass_shard_shiv", 8 }, { "box_cutter", 8 },
+                { "kitchen_knife", 8 }, { "crowbar", 8 }, { "combat_knife", 8 },
+                { "kitchen_cleaver", 8 }, { "hatchet", 8 }, { "skinning_knife", 8 },
+                { "stun_baton", 8 }, { "combat_machete", 8 },
+                { "printed_gun", 9 }, { "handmade_pistol", 9 },
+                { "heavy_handmade_pistol", 9 }, { "revolver", 9 },
+                { "small_pistol_ammo", 10 }, { "small_pistol_ammo_p", 10 },
+                { "small_pistol_ammo_nl", 10 }, { "heavy_pistol_ammo", 10 },
+                { "heavy_pistol_ammo_p", 10 }, { "heavy_pistol_ammo_nl", 10 },
+                { "lou_etched_round", 10 },
+                { "rds", 11 }, { "rds_makeshift", 11 }, { "silencer", 11 },
+                { "silencer2", 11 }, { "silencer_makeshift", 11 }, { "barrel", 11 },
+                { "compensator", 11 }, { "mag_10mm", 11 }, { "mag_10mm_high", 11 },
+                { "mag_10mm_ext", 11 }, { "mag_22", 11 }, { "mag_22_high", 11 },
+                { "mag_22_ext", 11 }, { "mag_10mm_smg", 11 }, { "mag_10mm_smg_high", 11 },
+                { "mag_10mm_smg_box", 11 }, { "laser", 11 }, { "laser2", 11 },
+                { "laser_toy", 11 }, { "bipod", 11 }, { "gl", 11 }, { "grip", 11 },
+                { "stock", 11 }, { "short_stock", 11 }, { "internal_springs", 11 },
+                { "internal_springs_improved", 11 }, { "trigger_group", 11 },
+                { "match_barrel", 11 }, { "pistol_switch", 11 }, { "ammo_display", 11 },
+                { "grip_gel", 11 }
             };
     }
 

@@ -42,19 +42,31 @@ namespace DumpingGroundMap
             new Region("gate", "入口空地", "Main Gate",
                 "通用杂项：材料、工具、日用品各有一点，适合补充常规消耗。",
                 "A general mix of materials, tools, and household goods for everyday restocking.",
-                0.25f, 0.24f),
+                0.20f, 0.22f),
             new Region("scrap", "拆解堆", "Scrap Pile",
                 "材料与工具占大头，偶尔能拆出完整模组。",
                 "Mostly materials and tools, with the occasional intact module.",
-                0.22f, 0.70f),
+                0.20f, 0.50f),
             new Region("refuse", "生活废料带", "Refuse Lane",
                 "日用、食品、药品为主；值钱的东西不多，但胜在实用。",
                 "Household goods, food, and medicine. Few valuables, but plenty of practical finds.",
-                0.75f, 0.29f),
+                0.78f, 0.22f),
             new Region("terminal", "报废终端区", "Dead Terminals",
-                "垃圾最多，但模组与电子件的比例全场地最高。",
-                "Lots of junk, but the highest share of modules and electronics anywhere.",
-                0.72f, 0.74f)
+                "电线与电子废料最多，也能翻出模组；垃圾比例全场地最高。",
+                "The most wire and electronic scrap, plus the odd module. Junk share is the highest here.",
+                0.78f, 0.78f),
+            new Region("med", "医疗废弃点", "Medical Waste",
+                "绷带、药品、酒精、手术用品；能救命，但大多卖不上价。",
+                "Bandages, pills, alcohol, and surgical supplies. Life-saving, but rarely worth much.",
+                0.20f, 0.78f),
+            new Region("weapons", "废武器堆", "Weapon Dump",
+                "断刀、铁管、土枪和散装弹药；偶尔还能翻出一把能用的枪。",
+                "Broken blades, pipes, makeshift guns, and loose rounds. Now and then a working gun.",
+                0.50f, 0.78f),
+            new Region("parts", "配件箱", "Parts Crates",
+                "成箱的弹匣、消音器、瞄具和改装件，多半是便宜货。",
+                "Crates of magazines, suppressors, sights, and mods, mostly the cheap kind.",
+                0.50f, 0.50f)
         };
 
         internal readonly string Id;
@@ -235,8 +247,8 @@ namespace DumpingGroundMap
             result["gate"] = b.Build();
 
             b = new Builder();
-            b.Add("junk", 363);
-            b.Add("glass_shard", 12);
+            b.Add("junk", 334);
+            b.Add("glass_shard", 38);
             b.Add("system_module_ruined", 12);
             b.Add("pipe_weapon", 12);
             b.Add("empty_beer_bottle", 8);
@@ -272,7 +284,7 @@ namespace DumpingGroundMap
             result["scrap"] = b.Build();
 
             b = new Builder();
-            b.Add("junk", 429);
+            b.Add("junk", 492);
             b.Add("glass_shard", 6);
             b.Add("system_module_ruined", 5);
             b.Add("pipe_weapon", 7);
@@ -311,7 +323,7 @@ namespace DumpingGroundMap
             b.Add("processed_meat", 12);
             b.Add("zerochew", 18);
             b.Add("cup_noodle", 18);
-            b.Add("nudka", 6);
+            b.Add("nudka", 14);
             b.Add("beis_icecream", 12);
             b.Add("bandage_item", 30);
             b.Add("hemostatic_bandage_item", 20);
@@ -319,41 +331,149 @@ namespace DumpingGroundMap
             result["refuse"] = b.Build();
 
             b = new Builder();
-            b.Add("junk", 581);
-            b.Add("glass_shard", 8);
-            b.Add("system_module_ruined", 35);
-            b.Add("pipe_weapon", 6);
-            b.Add("empty_beer_bottle", 6);
-            b.Add("scratcher", 6);
-            b.Add("scrap_metal", 12);
-            b.Add("nuts_metal", 8);
-            b.Add("flux_agent", 12);
-            b.Add("printer_plastic", 10);
-            b.Add("wire", 18);
-            b.Add("gun_part", 12);
-            b.Add("common_electronic", 22);
-            b.Add("kotton_fabric", 5);
-            b.Add("random_performance_module", 8);
-            b.Add("random_efficiency_module", 8);
-            b.Add("random_quality_module", 8);
-            b.Add("system_module_performance", 2);
-            b.Add("system_module_eco", 2);
-            b.Add("system_module_fineness", 2);
-            b.Add("screwdriver", 14);
-            b.Add("wire_cutter", 10);
-            b.Add("module_extractor", 7);
-            b.Add("welder", 5);
-            b.Add("turbo_booster", 8);
-            b.Add("crowbar", 6);
-            b.Add("caffeine_pill", 4);
-            b.Add("water_filter", 3);
-            b.Add("toilet_paper", 3);
-            b.Add("glass_shard_shiv", 5);
-            b.Add("box_cutter", 5);
-            b.Add("kitchen_knife", 3);
-            b.Add("zerochew", 4);
-            b.Add("bandage_item", 6);
+            b.Add("junk", 1357);
+            b.Add("wire", 420);
+            b.Add("printer_plastic", 500);
+            b.Add("common_electronic", 200);
+            b.Add("system_module_ruined", 60);
+            b.Add("system_module_corrupt", 25);
+            b.Add("blank_module", 20);
+            b.Add("random_performance_module", 6);
+            b.Add("random_efficiency_module", 6);
+            b.Add("random_quality_module", 6);
+            b.Add("system_module_performance", 4);
+            b.Add("system_module_eco", 3);
+            b.Add("system_module_fineness", 3);
+            b.Add("rare_electronic", 1);
+            b.Add("welder", 10);
+            b.Add("wire_cutter", 8);
+            b.Add("kotton_fabric", 10);
+            b.Add("metal_ingot", 10);
+            b.Add("gun_part", 10);
+            b.Add("screwdriver", 6);
             result["terminal"] = b.Build();
+
+            b = new Builder();
+            b.Add("junk", 275);
+            b.Add("bandage_item", 60);
+            b.Add("hemostatic_bandage_item", 40);
+            b.Add("topical_bandage_item", 40);
+            b.Add("blood_bag", 15);
+            b.Add("rubbing_alcohol", 10);
+            b.Add("salve", 5);
+            b.Add("surgery_tool", 1);
+            b.Add("birth_control_pill", 15);
+            b.Add("fanta_pill", 15);
+            b.Add("phagimycin_pill", 15);
+            b.Add("zyanide_pill", 15);
+            b.Add("smelling_salt", 6);
+            b.Add("caffeine_pill", 12);
+            b.Add("dream_dust", 5);
+            b.Add("nightmare_dust", 5);
+            b.Add("common_medical", 10);
+            b.Add("water_filter", 6);
+            b.Add("toothpaste", 4);
+            b.Add("toilet_paper", 3);
+            b.Add("processed_meat", 4);
+            b.Add("cup_noodle", 4);
+            b.Add("kotton_fabric", 8);
+            b.Add("glass_shard", 10);
+            b.Add("empty_beer_bottle", 6);
+            result["med"] = b.Build();
+
+            b = new Builder();
+            b.Add("junk", 859);
+            b.Add("pipe_weapon", 200);
+            b.Add("glass_shard_shiv", 250);
+            b.Add("box_cutter", 40);
+            b.Add("kitchen_knife", 24);
+            b.Add("crowbar", 8);
+            b.Add("combat_knife", 10);
+            b.Add("kitchen_cleaver", 8);
+            b.Add("hatchet", 8);
+            b.Add("skinning_knife", 3);
+            b.Add("stun_baton", 1);
+            b.Add("combat_machete", 1);
+            b.Add("printed_gun", 30);
+            b.Add("handmade_pistol", 3);
+            b.Add("heavy_handmade_pistol", 1);
+            b.Add("revolver", 1);
+            b.Add("small_pistol_ammo_nl", 80);
+            b.Add("small_pistol_ammo", 60);
+            b.Add("small_pistol_ammo_p", 18);
+            b.Add("heavy_pistol_ammo_nl", 24);
+            b.Add("heavy_pistol_ammo", 30);
+            b.Add("heavy_pistol_ammo_p", 10);
+            b.Add("lou_etched_round", 10);
+            b.Add("scrap_metal", 30);
+            b.Add("nuts_metal", 20);
+            b.Add("gun_part", 20);
+            b.Add("glass_shard", 30);
+            b.Add("empty_beer_bottle", 20);
+            b.Add("kotton_fabric", 6);
+            b.Add("welder", 4);
+            b.Add("metal_ingot", 6);
+            b.Add("common_electronic", 8);
+            b.Add("wire_cutter", 4);
+            b.Add("processed_meat", 6);
+            b.Add("cup_noodle", 6);
+            b.Add("bandage_item", 8);
+            b.Add("hemostatic_bandage_item", 4);
+            result["weapons"] = b.Build();
+
+            b = new Builder();
+            b.Add("junk", 1478);
+            b.Add("mag_22", 275);
+            b.Add("mag_22_high", 40);
+            b.Add("mag_22_ext", 14);
+            b.Add("mag_10mm", 40);
+            b.Add("mag_10mm_high", 10);
+            b.Add("mag_10mm_ext", 4);
+            b.Add("mag_10mm_smg", 3);
+            b.Add("mag_10mm_smg_high", 1);
+            b.Add("mag_10mm_smg_box", 1);
+            b.Add("rds_makeshift", 45);
+            b.Add("rds", 3);
+            b.Add("laser_toy", 90);
+            b.Add("laser", 3);
+            b.Add("laser2", 1);
+            b.Add("silencer_makeshift", 90);
+            b.Add("silencer", 3);
+            b.Add("silencer2", 1);
+            b.Add("barrel", 3);
+            b.Add("compensator", 3);
+            b.Add("bipod", 5);
+            b.Add("gl", 1);
+            b.Add("grip", 5);
+            b.Add("stock", 5);
+            b.Add("short_stock", 5);
+            b.Add("internal_springs", 5);
+            b.Add("internal_springs_improved", 70);
+            b.Add("trigger_group", 3);
+            b.Add("match_barrel", 2);
+            b.Add("pistol_switch", 3);
+            b.Add("ammo_display", 2);
+            b.Add("grip_gel", 2);
+            b.Add("small_pistol_ammo_nl", 130);
+            b.Add("small_pistol_ammo", 50);
+            b.Add("heavy_pistol_ammo_nl", 40);
+            b.Add("lou_etched_round", 10);
+            b.Add("gun_part", 100);
+            b.Add("common_electronic", 60);
+            b.Add("wire", 50);
+            b.Add("screwdriver", 50);
+            b.Add("scrap_metal", 120);
+            b.Add("nuts_metal", 60);
+            b.Add("welder", 8);
+            b.Add("wire_cutter", 20);
+            b.Add("metal_ingot", 20);
+            b.Add("kotton_fabric", 10);
+            b.Add("empty_beer_bottle", 30);
+            b.Add("bandage_item", 20);
+            b.Add("processed_meat", 6);
+            b.Add("cup_noodle", 6);
+            b.Add("hemostatic_bandage_item", 8);
+            result["parts"] = b.Build();
 
             return result;
         }
@@ -365,9 +485,10 @@ namespace DumpingGroundMap
                 "junk", "glass_shard", "system_module_ruined", "pipe_weapon", "empty_beer_bottle", "scratcher");
             AddAll(result, "materialTable",
                 "scrap_metal", "nuts_metal", "flux_agent", "printer_plastic", "wire", "gun_part",
-                "common_electronic", "kotton_fabric");
+                "common_electronic", "kotton_fabric", "metal_ingot");
             AddAll(result, "t1moduleTable",
-                "random_performance_module", "random_efficiency_module", "random_quality_module");
+                "random_performance_module", "random_efficiency_module", "random_quality_module",
+                "system_module_corrupt", "blank_module");
             AddAll(result, "t2moduleTable",
                 "system_module_performance", "system_module_eco", "system_module_fineness");
             AddAll(result, "toolTable",
@@ -375,13 +496,30 @@ namespace DumpingGroundMap
             AddAll(result, "householdTable",
                 "caffeine_pill", "toothpaste", "water_filter", "shampoo", "paper_towel", "toilet_paper",
                 "full_water_test_strip_box", "full_water_purification_tablet_box");
-            AddAll(result, "makeshiftWeaponTable", "glass_shard_shiv", "box_cutter", "kitchen_knife");
+            AddAll(result, "makeshiftWeaponTable",
+                "glass_shard_shiv", "box_cutter", "kitchen_knife",
+                "combat_knife", "kitchen_cleaver", "hatchet", "skinning_knife", "stun_baton", "combat_machete");
+            AddAll(result, "gunTable", "printed_gun", "handmade_pistol", "heavy_handmade_pistol", "revolver");
+            AddAll(result, "ammoTable",
+                "small_pistol_ammo", "small_pistol_ammo_p", "small_pistol_ammo_nl",
+                "heavy_pistol_ammo", "heavy_pistol_ammo_p", "heavy_pistol_ammo_nl", "lou_etched_round");
+            AddAll(result, "gunModTable",
+                "rds", "rds_makeshift", "silencer", "silencer2", "silencer_makeshift", "barrel",
+                "compensator", "mag_10mm", "mag_10mm_high", "mag_10mm_ext", "mag_22", "mag_22_high",
+                "mag_22_ext", "mag_10mm_smg", "mag_10mm_smg_high", "mag_10mm_smg_box", "laser", "laser2",
+                "laser_toy", "bipod", "gl", "grip", "stock", "short_stock", "internal_springs",
+                "internal_springs_improved", "trigger_group", "match_barrel", "pistol_switch",
+                "ammo_display", "grip_gel");
             AddAll(result, "packedFoodTable",
                 "galaxy_blend", "energy_drink", "soda_red", "cat_bar", "li_eat_snackbar", "red_beer",
                 "processed_milk", "processed_juice", "processed_meat", "zerochew", "cup_noodle", "nudka",
                 "beis_icecream");
             AddAll(result, "dumpingGroundMedical",
                 "bandage_item", "hemostatic_bandage_item", "topical_bandage_item");
+            AddAll(result, "medicalTable",
+                "blood_bag", "rubbing_alcohol", "salve", "surgery_tool", "birth_control_pill",
+                "fanta_pill", "phagimycin_pill", "zyanide_pill", "smelling_salt", "dream_dust",
+                "nightmare_dust", "common_medical");
             // 高档池里的物品在开启前不会出现，这里只是给 ModHook 报一个合理的原版表名。
             AddAll(result, "householdTable",
                 "water_filter_adv", "portable_water_purifier", "bottled_water_premium");
@@ -637,7 +775,7 @@ namespace DumpingGroundMap
             rect.SetParent(parent, false);
             rect.anchorMin = rect.anchorMax = anchor;
             rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = new Vector2(188, 42);
+            rect.sizeDelta = new Vector2(172, 42);
             return rect;
         }
 
@@ -825,7 +963,7 @@ namespace DumpingGroundMap
     /// A postfix on ModConfigWindow.BuildEntry hooks the native sliders, and a patch
     /// on CustomUIElement.SetFixedWidth appends a value label to the same row, right
     /// of the slider, so the number sits where the thumb is instead of on its own
-    /// line. Below the last entry the four-area value block and the preset buttons
+    /// line. Below the last entry the area value block and the preset buttons
     /// are appended. Dragging only changes Tuning's in-memory values and the labels;
     /// the config file is written on PointerUp or when Apply is pressed.
     /// </summary>
@@ -1021,7 +1159,7 @@ namespace DumpingGroundMap
             if (header.text != null) header.text.color = Picker.Accent;
             Picker.Size(header, -1, 26);
 
-            // Fixed yardstick above the four rows: the untouched vanilla tables.
+            // Fixed yardstick above the area rows: the untouched vanilla tables.
             b.AddLabel("", "dgm_ev_reference");
             CustomUIElement reference = b.Last;
             Picker.Size(reference, -1, 24);
@@ -1095,21 +1233,29 @@ namespace DumpingGroundMap
             }
             float count = Region.All.Length;
             evLabels[Region.All.Length].SetText(Line(
-                Copy.Text("四区平均", "four-area average"), baseSum / count, newSum / count));
+                Copy.Text("各区平均", "all-area average"), baseSum / count, newSum / count));
 
             SyncWidgets();
         }
 
         private static string ReferenceLine()
         {
-            string text = Copy.Text("原版参考（垃圾 100%、无专精）：",
-                "Vanilla reference (100% junk, no specialty): ");
+            float min = float.MaxValue;
+            float max = float.MinValue;
             for (int i = 0; i < Region.All.Length; ++i)
             {
-                if (i > 0) text += " / ";
-                text += Tuning.BaseEv(Region.All[i]).ToString("0.00", CultureInfo.InvariantCulture);
+                float value = Tuning.BaseEv(Region.All[i]);
+                if (value < min) min = value;
+                if (value > max) max = value;
             }
-            return text;
+            // Every area is reverse-solved to the same target, so one compact figure
+            // is enough; fall back to a range if rounding ever splits them.
+            string valueText = (max - min) <= 0.011f
+                ? Copy.Text("各区 ", "every area ") + min.ToString("0.00", CultureInfo.InvariantCulture)
+                : min.ToString("0.00", CultureInfo.InvariantCulture) + " – "
+                    + max.ToString("0.00", CultureInfo.InvariantCulture);
+            return Copy.Text("原版参考（垃圾 100%、无专精）：",
+                "Vanilla reference (100% junk, no specialty): ") + valueText;
         }
 
         private static string Line(string name, float before, float after)
