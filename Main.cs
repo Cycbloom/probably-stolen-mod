@@ -1733,6 +1733,7 @@ namespace DumpingGroundMap
                 fireLootRolled.Invoke(null, new object[] { context });
 
             __result = item;
+            StashFind.NoticeSpecialFind(itemId);
             return false;
         }
     }

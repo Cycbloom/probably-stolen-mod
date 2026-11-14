@@ -160,7 +160,7 @@ namespace DumpingGroundMap
                     newsDay = today + 1;
                     jackpotHit = true;
                     SaveState();
-                    NotifyFind();
+                    NotifyFind(region.Id);
                     Debug.Log("[DumpingGroundMap] stash: jackpot region=" + region.Id
                         + " day=" + today + " roll=" + roll.ToString("F3")
                         + " items=" + count + " chance " + before.ToString("F3")
@@ -202,30 +202,73 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 中奖当场提示：复用原生拾荒界面「受伤」那套通知
-        /// （StoreUIManager.Instance.Notify(text, "sec")，最终落到
-        /// ReputationUIManager 的同一个 notifier 位置与样式），不另做 UI。
-        /// 两行用 \n 分隔，TMP 文本直接支持；文案短，不挡拾荒面板。
+        /// 四类当场提示共用同一条通知条：StoreUIManager.Instance.Notify(text, "sec")，
+        /// 与原生「受伤」提示同一个位置和样式，不另做 UI。
+        /// 每句都按「谁在哪里翻到什么」拼：地点来自该区的措辞池，随机取一条，
+        /// 整句只出现一个地点。
         /// </summary>
-        private static void NotifyFind()
+        private static void ShowNotice(string text, string tag)
         {
             try
             {
                 if (StoreUIManager.Instance == null)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] stash: notice skipped, no StoreUIManager");
+                    Debug.LogWarning("[DumpingGroundMap] stash: " + tag + " notice skipped, no StoreUIManager");
                     return;
                 }
-                string text = Copy.Text(
-                    "你翻出了一整间储藏室。\n今天在这个地方，每次搜索都可能多一件东西。",
-                    "You've dug out a whole storeroom.\nEvery search here today may turn up something extra.");
                 StoreUIManager.Instance.Notify(text, "sec");
-                Debug.Log("[DumpingGroundMap] stash: notice shown");
+                Debug.Log("[DumpingGroundMap] stash: " + tag + " notice shown");
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] stash: notice failed: " + ex.Message);
+                Debug.LogWarning("[DumpingGroundMap] stash: " + tag + " notice failed: " + ex.Message);
             }
+        }
+
+        /// <summary>大奖提示：语气是「翻出一整间储藏室」，两行靠 \n 分隔。</summary>
+        private static void NotifyFind(string regionId)
+        {
+            PlaceTalk talk = PlaceTalk.For(regionId);
+            int pick = talk.Roll();
+            ShowNotice(Copy.Text(
+                "你在" + talk.Zh[pick] + "翻出了一整间储藏室。\n今天在这个地方，每次搜索都可能多一件东西。",
+                "You uncovered a whole storeroom " + talk.En[pick]
+                    + ".\nEvery search here today may turn up something extra."), "jackpot");
+        }
+
+        /// <summary>
+        /// 80 档补给箱与钥匙卡的当场提示。箱子走「翻出一个上锁的…」，
+        /// 卡走「摸到一张…」；物品名一律走本地化词条（Picker.ItemName）。
+        /// </summary>
+        internal static void NoticeSpecialFind(string itemId)
+        {
+            if (!Core.Enabled || string.IsNullOrEmpty(itemId)) return;
+
+            bool crate = itemId.StartsWith("loot_crate_", StringComparison.Ordinal);
+            bool card = itemId.EndsWith("_keycard", StringComparison.Ordinal);
+            if (!crate && !card) return;
+
+            Region region = Picker.ChosenRegion;
+            PlaceTalk talk = PlaceTalk.For(region == null ? null : region.Id);
+            int pick = talk.Roll();
+            string name = Picker.ItemName(itemId);
+
+            string text = crate
+                ? Copy.Text("你在" + talk.Zh[pick] + "翻出一个上锁的" + name + "。",
+                    "You found a locked " + name.ToLowerInvariant() + " " + talk.En[pick] + ".")
+                : Copy.Text("你在" + talk.Zh[pick] + "摸到一张" + name + "。",
+                    "You picked up " + WithArticle(name) + " " + talk.En[pick] + ".");
+
+            ShowNotice(text, crate ? "crate" : "keycard");
+        }
+
+        /// <summary>英文冠词：engineering 这类元音开头的名词前用 an。</summary>
+        private static string WithArticle(string name)
+        {
+            string lower = name == null ? string.Empty : name.ToLowerInvariant();
+            char first = lower.Length > 0 ? lower[0] : 'x';
+            bool vowel = first == 'a' || first == 'e' || first == 'i' || first == 'o' || first == 'u';
+            return (vowel ? "an " : "a ") + lower;
         }
 
         private static void AddReward(List<GameItem> items, StashTemplate template, int count)
@@ -291,7 +334,7 @@ namespace DumpingGroundMap
                 }
             }
 
-            NotifyMinor(box);
+            NotifyMinor(box, region.Id);
             Debug.Log("[DumpingGroundMap] stash: minor region=" + region.Id
                 + " day=" + today + " box=" + box.ItemId + " items=" + spawned + "/" + count
                 + " value=" + crateValue + " target=" + Tuning.MinorValue.ToString("F0")
@@ -315,82 +358,65 @@ namespace DumpingGroundMap
             return count;
         }
 
-        /// <summary>小奖提示，复用同一条通知条，一句到底、不挡面板。</summary>
-        private static void NotifyMinor(MinorBox box)
+        /// <summary>小奖提示：语气是「惊喜发现一整箱」，地点同样从该区措辞池里随机取。</summary>
+        private static void NotifyMinor(MinorBox box, string regionId)
         {
-            try
-            {
-                if (StoreUIManager.Instance == null)
-                {
-                    Debug.LogWarning("[DumpingGroundMap] stash: minor notice skipped, no StoreUIManager");
-                    return;
-                }
-                string name = box.ItemName();
-                string text = Copy.Text(
-                    "你惊喜地发现，" + box.SiteZh + "压着一整箱" + name + "。",
-                    "To your surprise, a whole crate of " + name + " is tucked " + box.SiteEn + ".");
-                StoreUIManager.Instance.Notify(text, "sec");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning("[DumpingGroundMap] stash: minor notice failed: " + ex.Message);
-            }
+            PlaceTalk talk = PlaceTalk.For(regionId);
+            int pick = talk.Roll();
+            string name = box.ItemName();
+            ShowNotice(Copy.Text(
+                "你惊喜地发现，" + talk.Zh[pick] + "压着一整箱" + name + "。",
+                "To your surprise, a whole crate of " + name + " was tucked " + talk.En[pick] + "."), "minor");
         }
 
         /// <summary>
-        /// 每区 2–3 种「整箱」。整箱只放同一样东西，件数不再写死，
-        /// 由设置项 minor_value（目标价值）除以单价反推。
+        /// 每区 4–6 种「整箱」，全部取自该区主题，单一单价 15–60、不含垃圾。
+        /// 整箱只放同一样东西，件数不写死，由 minor_value（目标价值）除以单价反推。
         /// </summary>
         internal sealed class MinorBox
         {
             internal readonly string RegionId;
             internal readonly string ItemId;
             internal readonly float UnitPrice;
-            private readonly string siteZh;
-            private readonly string siteEn;
 
-            internal string SiteZh { get { return siteZh; } }
-            internal string SiteEn { get { return siteEn; } }
-
-            private MinorBox(string regionId, string itemId, float unitPrice,
-                string siteZh, string siteEn)
+            private MinorBox(string regionId, string itemId, float unitPrice)
             {
                 RegionId = regionId;
                 ItemId = itemId;
                 UnitPrice = unitPrice;
-                this.siteZh = siteZh;
-                this.siteEn = siteEn;
             }
 
             private static readonly MinorBox[] All =
             {
-                new MinorBox("refuse", "processed_meat", 25f,
-                    "废料堆底下", "under the refuse heap"),
-                new MinorBox("refuse", "toilet_paper", 25f,
-                    "塌了一半的车厢里", "in a half-collapsed carriage"),
-                new MinorBox("refuse", "paper_towel", 35f,
-                    "废料堆底下", "under the refuse heap"),
+                // 生活废料带：食品 / 饮品 / 零食 / 纸品 / 医疗
+                new MinorBox("refuse", "processed_meat", 25f),
+                new MinorBox("refuse", "energy_drink", 18f),
+                new MinorBox("refuse", "beis_icecream", 40f),
+                new MinorBox("refuse", "toilet_paper", 25f),
+                new MinorBox("refuse", "paper_towel", 35f),
+                new MinorBox("refuse", "hemostatic_bandage_item", 16f),
 
-                new MinorBox("scrap", "common_electronic", 33f,
-                    "掀开的铁皮板下", "under a peeled-back sheet of metal"),
-                new MinorBox("scrap", "gun_part", 25f,
-                    "工作台底下", "under a broken workbench"),
-                new MinorBox("scrap", "screwdriver", 25f,
-                    "塌了一半的车厢里", "in a half-collapsed carriage"),
+                // 拆解堆：电子件 / 材料 / 锭 / 工具 / 模组
+                new MinorBox("scrap", "common_electronic", 33f),
+                new MinorBox("scrap", "gun_part", 25f),
+                new MinorBox("scrap", "metal_ingot", 50f),
+                new MinorBox("scrap", "screwdriver", 25f),
+                new MinorBox("scrap", "system_module_corrupt", 45f),
 
-                new MinorBox("med", "hemostatic_bandage_item", 16f,
-                    "废墟下", "under the rubble"),
-                new MinorBox("med", "phagimycin_pill", 25f,
-                    "倒塌的隔墙后", "behind a collapsed partition"),
-                new MinorBox("med", "rubbing_alcohol", 35f,
-                    "废墟下", "under the rubble"),
+                // 医疗废弃点：绷带 / 药 / 消毒 / 血袋 / 通用医疗
+                new MinorBox("med", "hemostatic_bandage_item", 16f),
+                new MinorBox("med", "phagimycin_pill", 25f),
+                new MinorBox("med", "rubbing_alcohol", 35f),
+                new MinorBox("med", "blood_bag", 33f),
+                new MinorBox("med", "common_medical", 40f),
 
-                new MinorBox("weapons", "small_pistol_ammo", 20f,
-                    "掀开的铁皮板下", "under a peeled-back sheet of metal"),
-                new MinorBox("weapons", "small_pistol_ammo_p", 26f,
-                    "塌了一半的车厢里", "in a half-collapsed carriage"),
-                new MinorBox("weapons", "heavy_pistol_ammo", 30f,
-                    "锈蚀的军械箱旁", "beside a rusted arms crate")
+                // 废武器堆：弹药 / 弹匣 / 近战 / 枪械
+                new MinorBox("weapons", "small_pistol_ammo", 20f),
+                new MinorBox("weapons", "heavy_pistol_ammo", 30f),
+                new MinorBox("weapons", "mag_22_ext", 35f),
+                new MinorBox("weapons", "box_cutter", 28f),
+                new MinorBox("weapons", "kitchen_knife", 45f),
+                new MinorBox("weapons", "printed_gun", 40f)
             };
 
             internal static MinorBox Roll(string regionId)
@@ -412,14 +438,86 @@ namespace DumpingGroundMap
 
             internal string ItemName()
             {
-                try
+                return Picker.ItemName(ItemId);
+            }
+        }
+
+        /// <summary>
+        /// 四类提示共用的地点措辞池：按区准备，中英文一一对应，
+        /// 每次提示随机取一条，整句只出现一个地点。
+        /// 措辞与各区场景对应（医疗区不出现军械箱，武器区不出现水槽）。
+        /// </summary>
+        internal sealed class PlaceTalk
+        {
+            internal readonly string[] Zh;
+            internal readonly string[] En;
+
+            private PlaceTalk(string[] zh, string[] en)
+            {
+                Zh = zh;
+                En = en;
+            }
+
+            private static readonly Dictionary<string, PlaceTalk> All =
+                new Dictionary<string, PlaceTalk>
                 {
-                    return LocHelper.GetLocalizedItem("item_" + ItemId + "_name", new object[0]);
-                }
-                catch (Exception)
-                {
-                    return ItemId;
-                }
+                    { "scrap", new PlaceTalk(
+                        new[] { "架子顶上", "抽屉缝里", "工作台底下", "掀开的铁皮板下",
+                                "锈死的柜子里", "塌了半截的车厢里", "废料堆底层",
+                                "墙角的破纸箱里", "拆开的机箱里", "堆到顶的料斗里" },
+                        new[] { "on the top shelf", "in the gap between drawers",
+                                "under a broken workbench", "under a peeled-back sheet of metal",
+                                "inside a rusted-shut cabinet", "in a half-collapsed carriage",
+                                "at the bottom of the refuse heap",
+                                "in a soggy cardboard box in the corner",
+                                "inside a stripped-open machine casing",
+                                "in an overflowing scrap hopper" }) },
+                    { "refuse", new PlaceTalk(
+                        new[] { "废料堆底层", "塌了半截的车厢里", "水槽底下", "墙角的破纸箱里",
+                                "烂了一半的冰箱里", "倒扣的洗衣篮下", "成堆的垃圾袋中间",
+                                "塌下来的隔板下" },
+                        new[] { "at the bottom of the refuse heap", "in a half-collapsed carriage",
+                                "under the sink", "in a soggy cardboard box in the corner",
+                                "inside a half-rotted fridge", "under an overturned laundry basket",
+                                "among the piled-up garbage bags", "beneath a caved-in shelf" }) },
+                    { "med", new PlaceTalk(
+                        new[] { "倒塌的隔墙后面", "锈死的药柜里", "翻倒的病床下", "拆开的急救箱里",
+                                "停用的处置台底下", "墙角的输液架旁", "拆下来的吊柜里" },
+                        new[] { "behind a collapsed partition", "inside a rusted-shut medicine cabinet",
+                                "under an overturned hospital bed", "inside a pried-open first-aid kit",
+                                "under a decommissioned treatment table",
+                                "beside a stack of IV stands in the corner",
+                                "in a detached wall cabinet" }) },
+                    { "weapons", new PlaceTalk(
+                        new[] { "锈蚀的军械箱旁", "掀开的铁皮板下", "塌了半截的车厢里",
+                                "拆开的枪柜里", "打空的弹箱底下", "塌下来的掩体后",
+                                "堆到顶的料斗里" },
+                        new[] { "beside a rusted arms crate", "under a peeled-back sheet of metal",
+                                "in a half-collapsed carriage", "inside a pried-open gun locker",
+                                "under an emptied ammo box", "behind a caved-in barricade",
+                                "in an overflowing scrap hopper" }) },
+                    { "gate", new PlaceTalk(
+                        new[] { "门口的垃圾堆里", "塌了半截的车厢里", "掀开的铁皮板下",
+                                "墙角的破纸箱里" },
+                        new[] { "in the trash heap by the gate", "in a half-collapsed carriage",
+                                "under a peeled-back sheet of metal",
+                                "in a soggy cardboard box in the corner" }) }
+                };
+
+            private static readonly PlaceTalk Fallback = new PlaceTalk(
+                new[] { "墙角的破纸箱里" },
+                new[] { "in a soggy cardboard box in the corner" });
+
+            internal static PlaceTalk For(string regionId)
+            {
+                PlaceTalk talk;
+                if (!string.IsNullOrEmpty(regionId) && All.TryGetValue(regionId, out talk)) return talk;
+                return Fallback;
+            }
+
+            internal int Roll()
+            {
+                return En.Length == 0 ? 0 : UnityEngine.Random.Range(0, En.Length);
             }
         }
 
