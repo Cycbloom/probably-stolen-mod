@@ -881,7 +881,7 @@ namespace DumpingGroundMap
             if (m.perkStatus != null) m.perkStatus.SetText(string.Empty);
             if (m.perkProgress != null) m.perkProgress.SetText(string.Empty);
             if (m.perkdescription != null) m.perkdescription.SetText(Description());
-            // 0.3.50 起只有 20 / 40 末尾保留斜体风味行，60 / 80 / 100 没有独立风味行。
+            // 0.3.51 起五档统一「正文一行 + 斜体风味一行」，风味句沿用原来的位置与样式。
             if (m.perkFlavorText != null) m.perkFlavorText.SetText(Flavor());
             m.reputationTooltip.SetActive(true);
         }
@@ -925,8 +925,7 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 0.3.50 定稿：引导句与功能说明连在同一行，只用句号连接、不换行（60 / 80 的功能部分即使两句也接在同一行）。
-        /// 只有 20 / 40 末尾的风味句单独占一行，沿用原来的斜体位置与样式；60 / 80 / 100 没有独立风味行。
+        /// 0.3.51 定稿：五档统一「正文一行 + 斜体风味一行」，正文里句子之间只用句号、不手动换行。
         /// 60 的隐藏储藏 / 报纸事迹与 100 的雇人服务尚未实现，文案先落，功能上线后再核一次。
         /// </summary>
         private string Description()
@@ -941,17 +940,15 @@ namespace DumpingGroundMap
             if (threshold >= Reputation.Perk80Threshold)
             {
                 return Copy.Text(
-                    "值钱的东西你一眼就认得出来。拾荒时可能遇到高档物资。偶尔还能翻到补给箱和对应的钥匙卡。",
-                    "You can tell something valuable at a glance. "
-                    + "While scavenging you may come across high-value goods. "
+                    "拾荒时可能遇到高档物资。偶尔还能翻到补给箱和对应的钥匙卡。",
+                    "While scavenging you may come across high-value goods. "
                     + "Now and then you can even turn up a supply crate and its matching keycard.");
             }
             if (threshold >= Reputation.Perk60Threshold)
             {
                 return Copy.Text(
-                    "你眼里没有真正的垃圾。拾荒时更有机会找到隐藏的储藏。第二天你会在报纸上看到自己的事迹。",
-                    "To your eye, no trash is truly junk. "
-                    + "You have a better chance of finding a hidden stash while scavenging. "
+                    "拾荒时更有机会找到隐藏的储藏。第二天你会在报纸上看到自己的事迹。",
+                    "You have a better chance of finding a hidden stash while scavenging. "
                     + "The next day you'll see your deed in the newspaper.");
             }
             if (threshold >= Reputation.Perk40Threshold)
@@ -970,7 +967,21 @@ namespace DumpingGroundMap
 
         private string Flavor()
         {
-            if (threshold >= Reputation.Perk60Threshold) return string.Empty;
+            if (threshold >= Reputation.Perk100Threshold)
+            {
+                return Copy.Text("在这片垃圾场里，所有人都把你当兄弟。",
+                    "In this dump, everyone treats you like a brother.");
+            }
+            if (threshold >= Reputation.Perk80Threshold)
+            {
+                return Copy.Text("值钱的东西，你一眼就认得出来。",
+                    "You can tell something valuable at a glance.");
+            }
+            if (threshold >= Reputation.Perk60Threshold)
+            {
+                return Copy.Text("别人翻过去的东西，你还会再看一眼。",
+                    "Others walk right past it; you take a second look.");
+            }
             if (threshold >= Reputation.Perk40Threshold)
             {
                 return Copy.Text("你知道哪里能捡到更好的东西。",
