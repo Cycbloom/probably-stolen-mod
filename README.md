@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.32
+# 垃圾场拾荒地图 · 0.3.33
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -165,6 +165,8 @@ w(f) = (1 − f) × 原版权重 + f × 主题权重
 - `debug_enabled` 绑 `OnToggle` → `Tuning.SetDebugEnabledLive`，勾选即时生效（原生 `Apply` 时值已相同，不会重复触发）。
 - `debug_points` 绑 `OnSlider`（拖动时按 0.5 吸附）与 `PointerUp` → `Tuning.SetDebugPointsFromSlider`，松手写入；开关关闭时只记一条 `debug: reputation setter ignored (debug off)`。
 - 控件仍是原生 float 滑条：`AddSlider(min, max, value, null, wholeNumbers=false, key)` + `SetFixedWidth(224)`，范围 0–200 由 `Define` 传入；绑定时会打一行 `[DGM-SLIDER] debug_points: slider bound (min=0 max=200 whole=False)`。
+- 数值显示（0.3.33）：调试行右侧单独一条 `debugValue` 标签（宽 56px，左对齐），一位小数（`19.5` / `200.0`）。拖动时按 0.5 吸附实时刷新，松手后回读 `Tuning.DebugPoints`（开关关闭时会被忽略，标签因此退回真实值）。不复用 `highValue`，所以垃圾/高档两行的标签互不影响。
+- 空间：原生滑条固定 224px，调试值最多 5 个字符，56px 足够；垃圾/高档仍是 72px（带 `%`）。若窗口再窄，优先缩到 48px 或改右对齐，不影响其它行。
 
 高档物资池（价值 250–400，按 `unitValue`）：蓝血、高级滤芯、便携净水器、高端瓶装水、黑色注射器、稀有电子件、高级模组提取器；各区的具体分布不同。高档物资不受区域专精度影响，它本身就是稀有掉落。
 

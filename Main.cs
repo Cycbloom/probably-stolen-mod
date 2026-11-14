@@ -967,6 +967,7 @@ namespace DumpingGroundMap
         private static CustomUIWindow window;
         private static CustomUIWindow builtFor;
         private static CustomUIElement junkValue, highValue;
+        private static CustomUIElement debugValue;
         private static CustomUIElement specialtyDropdown;
         private static CustomUIElement[] evLabels;
         private static CustomUIElement junkSlider, highSlider;
@@ -1026,7 +1027,8 @@ namespace DumpingGroundMap
             try
             {
                 if (element == null || building == null || buildingKey == null) return;
-                if (buildingKey != KeyJunk && buildingKey != KeyHigh) return;
+                if (buildingKey != KeyJunk && buildingKey != KeyHigh
+                    && buildingKey != Tuning.DebugPointsKey) return;
                 if (!ReferenceEquals(element, building.Last)) return;
                 if (element.slider == null) return;
 
@@ -1038,7 +1040,9 @@ namespace DumpingGroundMap
                 CustomUIElement label = building.Last;
                 // Fixed width with flexibleWidth 0 so the row keeps the slider where
                 // the native layout put it and the number just sits to its right.
-                label.SetFixedWidth(72f);
+                // The debug row only prints "19.5", so a narrower label is enough
+                // and leaves room next to the 224px slider.
+                label.SetFixedWidth(key == Tuning.DebugPointsKey ? 56f : 72f);
                 if (label.text != null)
                 {
                     label.text.alignment = TextAlignmentOptions.MidlineLeft;
@@ -1046,6 +1050,7 @@ namespace DumpingGroundMap
                 }
                 if (key == KeyJunk) junkValue = label;
                 else if (key == KeyHigh) highValue = label;
+                else debugValue = label;
             }
             catch (Exception ex)
             {
@@ -1087,6 +1092,9 @@ namespace DumpingGroundMap
                 else if (key == Tuning.DebugPointsKey)
                 {
                     debugSlider = HookDebugSlider(window, key);
+                    debugValue = EnsureValueLine(b, key, debugValue);
+                    if (debugValue != null)
+                        debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
                 }
                 Refresh();
             }
@@ -1226,6 +1234,8 @@ namespace DumpingGroundMap
             {
                 float snapped = Mathf.Round(value * 2f) * 0.5f;
                 if (Mathf.Abs(snapped - value) > 0.001f) element.SetFloat(snapped, false);
+                if (debugValue != null)
+                    debugValue.SetText(snapped.ToString("0.0", CultureInfo.InvariantCulture));
             });
             GameObject go = element.slider.gameObject;
             UnityEngine.EventSystems.EventTrigger trigger =
@@ -1254,6 +1264,9 @@ namespace DumpingGroundMap
             if (debugSlider == null || debugSlider.slider == null) return;
             float value = debugSlider.slider.value;
             Tuning.SetDebugPointsFromSlider(value);
+            // 松手后以真正写入的值为准：开关关闭时会被忽略，标签要退回原值。
+            if (debugValue != null)
+                debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
             Debug.Log(LogTag + "debug slider release raw="
                 + value.ToString("0.###", CultureInfo.InvariantCulture)
                 + " applied=" + Tuning.DebugPoints.ToString("0.##", CultureInfo.InvariantCulture));
@@ -1282,6 +1295,8 @@ namespace DumpingGroundMap
                 junkValue.SetText(Mathf.RoundToInt(Tuning.JunkPercent) + "%");
             if (highValue != null)
                 highValue.SetText(Tuning.HighPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+            if (debugValue != null)
+                debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
             if (evLabels == null) return;
 
             float baseSum = 0f;
@@ -1435,6 +1450,7 @@ namespace DumpingGroundMap
             builtFor = null;
             junkValue = null;
             highValue = null;
+            debugValue = null;
             specialtyDropdown = null;
             evLabels = null;
             junkSlider = null;
