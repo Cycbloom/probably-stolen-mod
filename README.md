@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.36
+# 垃圾场拾荒地图 · 0.3.37
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -64,6 +64,15 @@
 日志：补丁绑定时一条 `scavenger perk: patch target StoreClientManager.GenerateClient`；生效时一条 `scavenger perk: +1 scavenger client day=<天数> points=<点数> identifier=scavGeneral`；失败分别打 `CreateScavGeneral returned null` / `add failed: …`。
 
 **悬停说明（0.3.36）**：20 点这一档实际是两件事——每天多一名拾荒客客人，以及首次达到 20 点时一次性获得一枚「拾荒者信物」放在前台。图标悬停文案已补成两件并标明信物只给一次，中英文同步。
+
+**20 档定名与附赠便条（0.3.37）**：
+
+- 名称改成「拾荒老手 / Scavenger Veteran」，抽成 `Reputation.Perk20NameZh` / `Perk20NameEn` 两个常量；40（老手）、60（活地图）两档和状态栏的四档等级名都没动。
+- 首次达到 20 点，开张时在前台放**两件**：`scav_token` 信物 + 一张原生 `slip` 便条。便条用 `PreBuiltItemHelper.CreatePaperWithText(正文, 标题)` 生成，标题同时是物品名，正文写在 `SLIP_BODY` 标签里，点开走原生的纸条 UI。
+- 两件原子发放：先放信物再放便条；便条放不下就 `RemoveItemFromStoreInventory` 把信物收回来、**不写** `scav_medal_given`，次日重来。前台满时连物品都不创建，避免泄漏。
+- 悬停说明改成三件并述（每天一位客人 + 一枚信物 + 一张便条，仅一次）。
+
+**客人来访原因（0.3.37）**：原生 `StoreClient.attractedType` / `attractedItemId` 只能填类型名或物品名，表达不了「被名声吸引」，所以改在 UI 侧：给 `NegociationUIManager.RefreshClientHeader(StoreClient)` 加 Postfix，在 `frame.clientSubtitle` 赋值之后覆盖文本。条件：`identifier == scavGeneral`、声望 ≥ 20、且该客人**没有**原生吸引原因（有原生原因的一律跳过，不覆盖展示柜等真实信息）。文案「被「拾荒老手」的名声吸引 / Drawn by a Scavenger Veteran's reputation」。副标题原生在无原因时是隐藏的、客人名上移 13px，补文本后用原版同样的 `SetRect(48, 70, 530, 26)` 恢复排布。选「所有无原生原因的拾荒客」而不是「只我们加的那位」：StoreClient 没有可挂的自定义字段，内存集合读档即失效；按「无原生原因」判断无需标记、读档后依然成立。日志 `client reason: rewritten …` 只在文本真的变化时打一条，不刷屏。
 
 ### Reputation Pop 联动（0.3.27）
 

@@ -52,6 +52,21 @@ namespace DumpingGroundMap
         private const string PendingFlagKey = "dgm_debug_pending";
         private const string PendingPointsKey = "dgm_debug_pending_points";
 
+        /// <summary>20 点档的门槛与名称。改档名只改这两行，其它地方不要再写死。</summary>
+        internal const int Perk20Threshold = 20;
+        internal const string Perk20NameZh = "拾荒老手";
+        internal const string Perk20NameEn = "Scavenger Veteran";
+
+        /// <summary>客人卡上的来访原因（原生字段只能填类型/物品名，这里在 UI 侧改写）。</summary>
+        internal static string Perk20Reason
+        {
+            get
+            {
+                return Copy.Text("被「" + Perk20NameZh + "」的名声吸引",
+                    "Drawn by a " + Perk20NameEn + "'s reputation");
+            }
+        }
+
         private static long totalValue;
         private static string loadedStore;
         private static bool hooked;
@@ -430,7 +445,8 @@ namespace DumpingGroundMap
         private static readonly int[] Thresholds = { 40, 50, 60 };
         /// <summary>
         /// 柱子上的三个奖励点，与原生 perk 同一套刻度（0–200）。
-        /// 20：每天多一名拾荒客客人 + 首次达到 20 点的一枚「拾荒者信物」（ScavMedal，仅一次，已生效）。
+        /// 20：每天多一名拾荒客客人 + 首次达到 20 点的一枚「拾荒者信物」和一张便条
+        ///     （ScavMedal，两件一起发，仅一次，已生效）。
         /// 40：三个高级区（拆解堆 / 医疗废弃点 / 废武器堆）的统一解锁门槛，已生效。
         /// TODO 60：待定（未实现，仅图标占位）。
         /// </summary>
@@ -780,7 +796,7 @@ namespace DumpingGroundMap
         {
             if (threshold >= 60) return Copy.Text("拾荒客·活地图", "Scavenger · Living Map");
             if (threshold >= 40) return Copy.Text("拾荒客·老手", "Scavenger · Old Hand");
-            return Copy.Text("拾荒客·熟客", "Scavenger · Regular");
+            return Copy.Text(Reputation.Perk20NameZh, Reputation.Perk20NameEn);
         }
 
         private string Description()
@@ -794,8 +810,9 @@ namespace DumpingGroundMap
                 return Copy.Text("开放高级拾荒区域：拆解堆、医疗废弃点、废武器堆",
                     "Unlocks the high-tier scavenging areas: Scrap Pile, Medical Waste, Weapon Dump");
             }
-            return Copy.Text("每天多一名拾荒客客人；首次达到 20 点额外获得一枚「拾荒者信物」放在前台（仅一次）",
-                "One extra scavenger customer per day; the first time you reach 20 you also get one Scavenger's Token on the front counter (one-time only)");
+            return Copy.Text(
+                "每天多一名拾荒客客人；首次达到 20 点额外获得一枚「拾荒者信物」和一张便条放在前台（仅一次）",
+                "One extra scavenger customer per day; the first time you reach 20 you also get one Scavenger's Token and a note on the front counter (one-time only)");
         }
 
         private string Flavor()

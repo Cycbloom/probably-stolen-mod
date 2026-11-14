@@ -85,4 +85,88 @@ namespace DumpingGroundMap
             }
         }
     }
+
+    /// <summary>
+    /// 客人卡副标题里的「来访原因」改写。
+    ///
+    /// 原生 StoreClient.attractedType / attractedItemId 只能填「大类名」或「物品名」，
+    /// 表达不了「被这位店主的名声吸引」，所以不在数据上做文章，改在 UI 侧覆盖：
+    /// 副标题由 NegociationUIManager.RefreshClientHeader(StoreClient) 最后拼装并
+    /// 赋给 frame.clientSubtitle（TextMeshProUGUI），我们在这个方法的 Postfix 里
+    /// 覆盖文本。每次刷新都会重跑，文本不会累积；只对
+    /// identifier = scavGeneral 且声望 >= 20 档的客人生效，其它客人完全不动。
+    ///
+    /// 两个判断口径的取舍：
+    /// - 只认「我们加出来的那位」需要持久标记；StoreClient 没有可用的自定义字段，
+    ///   用内存集合会在读档后失效（客人是反序列化出来的新对象）。
+    /// - 因此采用「所有没有原生吸引原因的拾荒客」：既覆盖我们每天加的那位，也覆盖
+    ///   原生随机生成的、本来就没写吸引原因的拾荒客；带原生原因的（例如展示柜吸引）
+    ///   一律跳过，不覆盖真实信息。无需额外标记，读档后依然成立。
+    ///
+    /// frame 是 private 字段，用 AccessTools.Field 取一次并缓存（与现有
+    /// AccessTools.Method 取 GenerateClient 同一种做法），不用字符串拼反射。
+    /// 副标题原生在「没有原因」时隐藏，客人名字整体上移 13px；补上文本后按原版
+    /// 同样的 SetRect 参数（48, 70, 530, 26）恢复成「有原因」的排布。
+    /// </summary>
+    [HarmonyPatch]
+    internal static class ClientReasonPatch
+    {
+        private const string ScavengerClientId = "scavGeneral";
+
+        private static FieldInfo frameField;
+        private static bool frameFieldMissing;
+
+        private static MethodBase TargetMethod()
+        {
+            MethodBase method = AccessTools.Method(typeof(NegociationUIManager), "RefreshClientHeader",
+                new Type[] { typeof(StoreClient) });
+            Debug.Log("[DumpingGroundMap] client reason: patch target "
+                + (method == null ? "NOT FOUND" : method.DeclaringType.Name + "." + method.Name));
+            if (method == null) return null;
+            frameField = AccessTools.Field(typeof(NegociationUIManager), "frame");
+            if (frameField == null)
+            {
+                frameFieldMissing = true;
+                Debug.LogWarning("[DumpingGroundMap] client reason: field NegociationUIManager.frame NOT FOUND");
+            }
+            return method;
+        }
+
+        private static void Postfix(NegociationUIManager __instance, StoreClient storeClient)
+        {
+            if (!Core.Enabled || __instance == null || storeClient == null) return;
+            if (frameFieldMissing || frameField == null) return;
+            if (storeClient.identifier != ScavengerClientId) return;
+            if (Reputation.Points < Reputation.Perk20Threshold) return;
+
+            // 已经有原生吸引原因的客人保持原样，只补「本来没有原因」的那些。
+            if (!string.IsNullOrEmpty(storeClient.attractedItemId)
+                || !string.IsNullOrEmpty(storeClient.attractedType)) return;
+
+            try
+            {
+                NegotiationTabletFrame frame = frameField.GetValue(__instance) as NegotiationTabletFrame;
+                if (frame == null || frame.clientSubtitle == null) return;
+
+                string reason = Reputation.Perk20Reason;
+                if (frame.clientSubtitle.text != reason)
+                {
+                    frame.clientSubtitle.text = reason;
+                    Debug.Log("[DumpingGroundMap] client reason: rewritten id=" + storeClient.identifier
+                        + " day=" + StoreStation.GetDayCounter() + " points=" + Reputation.Points
+                        + " text=" + reason);
+                }
+                frame.clientSubtitle.gameObject.SetActive(true);
+                if (frame.clientName != null)
+                {
+                    // 与原生「有吸引原因」时相同的排布参数。
+                    WildNetworkUI.SetRect(frame.clientName.rectTransform, 48f, 70f, 530f, 26f);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] client reason: failed: " + ex.Message);
+            }
+        }
+    }
 }
