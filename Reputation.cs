@@ -184,8 +184,8 @@ namespace DumpingGroundMap
     internal static class ReputationBoardPatch
     {
         private const string RowName = "DGM_ReputationRow";
-        private const string TitleZh = "垃圾场";
-        private const string TitleEn = "The Dump";
+        private const string TitleZh = "拾荒客";
+        private const string TitleEn = "Scavenger";
         private const string TitleColor = "8FA06A";
         private const float BarFullHeight = 65.5f;
         private const string DisasterDayId = "disaster_day";
