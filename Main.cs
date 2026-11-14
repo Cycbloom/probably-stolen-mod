@@ -23,7 +23,6 @@ namespace DumpingGroundMap
         {
             Enabled = true;
             Tuning.Init();
-            Tuning.ResetPity();
             Debug.Log("[DumpingGroundMap] enabled");
         }
 
@@ -834,15 +833,14 @@ namespace DumpingGroundMap
     {
         private const string KeyJunk = "junk_percent";
         private const string KeyHigh = "high_percent";
-        private const string KeyPity = "high_pity";
         private const string LogTag = "[DGM-SLIDER] ";
 
         private static CustomUIWindow window;
         private static CustomUIWindow builtFor;
-        private static CustomUIElement junkValue, highValue, pityValue, specialtyValue;
+        private static CustomUIElement junkValue, highValue, specialtyValue;
         private static CustomUIElement changeLabel;
         private static CustomUIElement[] evLabels;
-        private static CustomUIElement junkSlider, highSlider, pitySlider, specialtySlider;
+        private static CustomUIElement junkSlider, highSlider, specialtySlider;
         private static float[] evBefore;
         private static string changeNote = "";
         private static bool dragging;
@@ -887,7 +885,7 @@ namespace DumpingGroundMap
 
         private static bool IsOurKey(string key)
         {
-            return key == KeyJunk || key == KeyHigh || key == KeyPity
+            return key == KeyJunk || key == KeyHigh
                 || key == Tuning.SpecialtyKey;
         }
 
@@ -920,7 +918,6 @@ namespace DumpingGroundMap
                 }
                 if (key == KeyJunk) junkValue = label;
                 else if (key == KeyHigh) highValue = label;
-                else if (key == KeyPity) pityValue = label;
                 else specialtyValue = label;
             }
             catch (Exception ex)
@@ -951,14 +948,9 @@ namespace DumpingGroundMap
                     highSlider = HookSlider(window, key, 2);
                     highValue = EnsureValueLine(b, key, highValue);
                 }
-                else if (key == KeyPity)
-                {
-                    pitySlider = HookSlider(window, key, 3);
-                    pityValue = EnsureValueLine(b, key, pityValue);
-                }
                 else
                 {
-                    specialtySlider = HookSlider(window, key, 4);
+                    specialtySlider = HookSlider(window, key, 3);
                     specialtyValue = EnsureValueLine(b, key, specialtyValue);
                     AddEvBlock(b);
                 }
@@ -1051,8 +1043,7 @@ namespace DumpingGroundMap
             b.BeginRow(8f, TextAnchor.MiddleLeft);
             PresetButton(b, 0, Copy.Text("默认", "Default"));
             PresetButton(b, 1, Copy.Text("专精拉满", "Specialty max"));
-            PresetButton(b, 2, Copy.Text("稳妥保底", "Safe pity"));
-            PresetButton(b, 3, Copy.Text("赌高档", "Gamble"));
+            PresetButton(b, 2, Copy.Text("赌高档", "Gamble"));
             b.End();
             b.AddSpace(4);
         }
@@ -1092,8 +1083,6 @@ namespace DumpingGroundMap
                 junkValue.SetText(Mathf.RoundToInt(Tuning.JunkPercent) + "%");
             if (highValue != null)
                 highValue.SetText(Tuning.HighPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
-            if (pityValue != null)
-                pityValue.SetText(PityText(Tuning.Pity));
             if (specialtyValue != null)
                 specialtyValue.SetText(Mathf.RoundToInt(Tuning.SpecialtyPercent) + "%");
             if (evLabels == null) return;
@@ -1166,10 +1155,7 @@ namespace DumpingGroundMap
             if (dragKind == 2)
                 return Copy.Text("高档物资出现率 ", "high-value chance ")
                     + Num(dragFrom) + "% → " + Num(Tuning.HighPercent) + "%";
-            if (dragKind == 3)
-                return Copy.Text("高档保底 ", "high-value pity ")
-                    + PityText(Mathf.RoundToInt(dragFrom)) + " → " + PityText(Tuning.Pity);
-            if (dragKind >= 4)
+            if (dragKind >= 3)
                 return Copy.Text("区域专精度 ", "region specialty ")
                     + Num(dragFrom) + "% → " + Num(Tuning.SpecialtyPercent) + "%";
             return Copy.Text("垃圾出现率倍率 ", "junk chance multiplier ")
@@ -1194,21 +1180,13 @@ namespace DumpingGroundMap
                 Tuning.SetHighPercentLive(snapped);
                 LogSlide(2, value, Tuning.HighPercent);
             }
-            else if (kind == 3)
-            {
-                BeginDrag(3, Tuning.Pity);
-                float snapped = Mathf.Round(value);
-                SyncSlider(pitySlider, snapped);
-                Tuning.SetPityLive(Mathf.RoundToInt(snapped));
-                LogSlide(3, value, Tuning.Pity);
-            }
             else
             {
-                BeginDrag(4, Tuning.SpecialtyPercent);
+                BeginDrag(3, Tuning.SpecialtyPercent);
                 float snapped = Mathf.Round(value);
                 SyncSlider(specialtySlider, snapped);
                 Tuning.SetSpecialtyLive(snapped);
-                LogSlide(4, value, Tuning.SpecialtyPercent);
+                LogSlide(3, value, Tuning.SpecialtyPercent);
             }
         }
 
@@ -1217,7 +1195,6 @@ namespace DumpingGroundMap
             EndDrag();
             string[] names = { Copy.Text("默认", "default preset"),
                 Copy.Text("专精拉满", "specialty max preset"),
-                Copy.Text("稳妥保底", "safe pity preset"),
                 Copy.Text("赌高档", "gamble preset") };
             BeginChange(names[Mathf.Clamp(preset, 0, names.Length - 1)]);
             Tuning.ApplyPreset(preset);
@@ -1235,7 +1212,6 @@ namespace DumpingGroundMap
             if (dragging) return;
             SyncSlider(junkSlider, Tuning.JunkPercent);
             SyncSlider(highSlider, Tuning.HighPercent);
-            SyncSlider(pitySlider, Tuning.Pity);
             SyncSlider(specialtySlider, Tuning.SpecialtyPercent);
         }
 
@@ -1264,7 +1240,7 @@ namespace DumpingGroundMap
             lastSlideAt = 0f;
             Tuning.CommitLive();
             Debug.Log(LogTag + "drag end kind=" + dragKind + " callbacks=" + slideCount
-                + " saved=" + Num(Tuning.JunkPercent) + "/" + Num(Tuning.HighPercent) + "/" + Tuning.Pity);
+                + " saved=" + Num(Tuning.JunkPercent) + "/" + Num(Tuning.HighPercent));
             Refresh();
         }
 
@@ -1301,11 +1277,6 @@ namespace DumpingGroundMap
             return value.ToString("0.#", CultureInfo.InvariantCulture);
         }
 
-        private static string PityText(int pity)
-        {
-            return pity <= 0 ? Copy.Text("关闭", "off") : pity + Copy.Text(" 次", " searches");
-        }
-
         internal static void Reset()
         {
             Tuning.CommitLive();
@@ -1318,13 +1289,11 @@ namespace DumpingGroundMap
             builtFor = null;
             junkValue = null;
             highValue = null;
-            pityValue = null;
             specialtyValue = null;
             changeLabel = null;
             evLabels = null;
             junkSlider = null;
             highSlider = null;
-            pitySlider = null;
             specialtySlider = null;
             building = null;
             buildingKey = null;

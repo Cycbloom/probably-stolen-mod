@@ -13,15 +13,12 @@ namespace DumpingGroundMap
     {
         internal const float DefaultJunkPercent = 100f;
         internal const float DefaultHighPercent = 0f;
-        internal const int DefaultPity = 0;
         internal const float DefaultSpecialty = 0f;
 
         internal const float JunkMin = 0f;
         internal const float JunkMax = 200f;
         internal const float HighMin = 0f;
         internal const float HighMax = 30f;
-        internal const int PityMin = 0;
-        internal const int PityMax = 20;
         internal const float SpecialtyMin = 0f;
         internal const float SpecialtyMax = 100f;
 
@@ -35,16 +32,13 @@ namespace DumpingGroundMap
 
         private static ConfigEntry<float> junkEntry;
         private static ConfigEntry<float> highEntry;
-        private static ConfigEntry<int> pityEntry;
         private static ConfigEntry<float> specialtyEntry;
         private static readonly Dictionary<string, EffectiveTable> cache =
             new Dictionary<string, EffectiveTable>();
         private static bool hasLive;
         private static float liveJunk;
         private static float liveHigh;
-        private static int livePity;
         private static float liveSpecialty;
-        private static int sinceHigh;
         private static bool initialized;
 
         private static float EntryJunk()
@@ -61,11 +55,6 @@ namespace DumpingGroundMap
             float value = highEntry.Value;
             if (float.IsNaN(value)) return DefaultHighPercent;
             return Mathf.Round(Mathf.Clamp(value, HighMin, HighMax) * 2f) / 2f;
-        }
-
-        private static int EntryPity()
-        {
-            return pityEntry == null ? DefaultPity : Mathf.Clamp(pityEntry.Value, PityMin, PityMax);
         }
 
         private static float EntrySpecialty()
@@ -93,8 +82,6 @@ namespace DumpingGroundMap
 
         internal static float HighPercent { get { return hasLive ? liveHigh : EntryHigh(); } }
 
-        internal static int Pity { get { return hasLive ? livePity : EntryPity(); } }
-
         /// <summary>True while a slider drag is holding unsaved values in memory.</summary>
         internal static bool HasLive { get { return hasLive; } }
 
@@ -106,11 +93,6 @@ namespace DumpingGroundMap
         internal static float ClampHigh(float value)
         {
             return float.IsNaN(value) ? DefaultHighPercent : Mathf.Clamp(value, HighMin, HighMax);
-        }
-
-        internal static int ClampPity(int value)
-        {
-            return Mathf.Clamp(value, PityMin, PityMax);
         }
 
         internal static float ClampSpecialty(float value)
@@ -161,17 +143,6 @@ namespace DumpingGroundMap
                     },
                     false);
 
-                pityEntry = config.Define("high_pity", DefaultPity, SectionName,
-                    delegate { return Copy.Text("高档保底（次，0–20）", "High-value pity (searches, 0-20)"); },
-                    (int?)0, (int?)20,
-                    delegate
-                    {
-                        return Copy.Text(
-                            "连续这么多次没出高档时，下一次必出一件；出任意高档即重新计数。0 为关闭，需要高档出现率大于 0。范围 0–20 次。",
-                            "After this many searches without a high-value find, the next one is guaranteed. Resets on any high-value find. 0 disables it; needs a high-value chance above 0. Range 0-20 searches.");
-                    },
-                    false);
-
                 specialtyEntry = config.Define(SpecialtyKey, DefaultSpecialty, SectionName,
                     delegate { return Copy.Text("区域专精度（%，0–100）", "Region specialty (%, 0-100)"); },
                     0f, 100f,
@@ -195,12 +166,6 @@ namespace DumpingGroundMap
                     if (snapped != value) highEntry.Set(snapped);
                     Invalidated();
                 };
-                pityEntry.OnChanged += delegate(int value)
-                {
-                    int clamped = ClampPity(value);
-                    if (clamped != value) pityEntry.Set(clamped);
-                    Invalidated();
-                };
                 specialtyEntry.OnChanged += delegate(float value)
                 {
                     float snapped = Mathf.Round(ClampSpecialty(value));
@@ -220,11 +185,6 @@ namespace DumpingGroundMap
             NativeSettings.RefreshIfOpen();
         }
 
-        internal static void ResetPity()
-        {
-            sinceHigh = 0;
-        }
-
         internal static void SetJunkPercent(float value)
         {
             if (junkEntry == null) return;
@@ -237,13 +197,6 @@ namespace DumpingGroundMap
             if (highEntry == null) return;
             hasLive = false;
             highEntry.Set(ClampHigh(value));
-        }
-
-        internal static void SetPity(int value)
-        {
-            if (pityEntry == null) return;
-            hasLive = false;
-            pityEntry.Set(ClampPity(value));
         }
 
         internal static void SetSpecialty(float value)
@@ -271,13 +224,6 @@ namespace DumpingGroundMap
             Invalidated();
         }
 
-        internal static void SetPityLive(int value)
-        {
-            EnsureLive();
-            livePity = ClampPity(value);
-            Invalidated();
-        }
-
         internal static void SetSpecialtyLive(float value)
         {
             EnsureLive();
@@ -291,7 +237,6 @@ namespace DumpingGroundMap
             hasLive = true;
             liveJunk = EntryJunk();
             liveHigh = EntryHigh();
-            livePity = EntryPity();
             liveSpecialty = EntrySpecialty();
         }
 
@@ -304,12 +249,10 @@ namespace DumpingGroundMap
             if (!hasLive) return;
             float junk = liveJunk;
             float high = liveHigh;
-            int pity = livePity;
             float specialty = liveSpecialty;
             hasLive = false;
             if (junkEntry != null && junkEntry.Value != junk) junkEntry.Set(junk);
             if (highEntry != null && highEntry.Value != high) highEntry.Set(high);
-            if (pityEntry != null && pityEntry.Value != pity) pityEntry.Set(pity);
             if (specialtyEntry != null && specialtyEntry.Value != specialty)
                 specialtyEntry.Set(specialty);
             Invalidated();
@@ -320,36 +263,27 @@ namespace DumpingGroundMap
             hasLive = false;
             SetJunkPercent(DefaultJunkPercent);
             SetHighPercent(DefaultHighPercent);
-            SetPity(DefaultPity);
             SetSpecialty(DefaultSpecialty);
-            sinceHigh = 0;
         }
 
         internal static void ApplyPreset(int preset)
         {
             float junk = DefaultJunkPercent;
             float high = DefaultHighPercent;
-            int pity = DefaultPity;
             float specialty = DefaultSpecialty;
             switch (preset)
             {
                 case 1: // every area drops only its own specialties
                     specialty = 100f;
                     break;
-                case 2: // a small high-value chance kept honest by pity
-                    high = 3f;
-                    pity = 10;
-                    break;
-                case 3: // gamble on high-value finds
+                case 2: // gamble on high-value finds
                     high = 8f;
                     break;
             }
             hasLive = false;
             SetJunkPercent(junk);
             SetHighPercent(high);
-            SetPity(pity);
             SetSpecialty(specialty);
-            sinceHigh = 0;
         }
 
         internal static EffectiveTable TableFor(Region region)
@@ -363,17 +297,13 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// Rolls one item for the area, honouring the vanilla junk event and the
-        /// optional high-value pity counter.
+        /// Rolls one item for the area, honouring the vanilla junk event.
         /// </summary>
         internal static string Pick(Region region, float junkScale)
         {
             EffectiveTable table = TableFor(region);
-            bool force = table.Pity > 0 && sinceHigh + 1 >= table.Pity;
-            int index = table.PickIndex(junkScale, force);
+            int index = table.PickIndex(junkScale);
             if (index < 0) return null;
-            if (table.IsHigh[index]) sinceHigh = 0;
-            else ++sinceHigh;
             return table.Items[index];
         }
 
@@ -435,7 +365,6 @@ namespace DumpingGroundMap
             if (otherTotal <= 0f) junkProb = 1f - highChance;
             float normalProb = Mathf.Max(0f, 1f - junkProb - highChance);
 
-            int pity = highChance > 0f ? Mathf.Clamp(Pity, 0, 20) : 0;
             bool withHigh = highChance > 0f;
             int highCount = withHigh ? HighValue.Length : 0;
 
@@ -467,35 +396,13 @@ namespace DumpingGroundMap
                 }
             }
 
-            // 4) Expected value, both plain and with the pity cycle folded in.
-            float plain = 0f;
-            float highSum = 0f;
-            float normalSum = 0f;
-            float normalWeighted = 0f;
+            // 4) Expected value of one roll.
+            float expected = 0f;
             for (int i = 0; i < items.Length; ++i)
-            {
-                float value = ValueOf(items[i]);
-                plain += probs[i] * value;
-                if (isHigh[i]) highSum += probs[i] * value;
-                else
-                {
-                    normalSum += probs[i];
-                    normalWeighted += probs[i] * value;
-                }
-            }
-
-            float expected = plain;
-            if (pity > 0 && highChance > 0f)
-            {
-                float highAverage = highSum / highChance;
-                float normalAverage = normalSum > 0f ? normalWeighted / normalSum : 0f;
-                float cycle = (1f - Mathf.Pow(1f - highChance, pity)) / highChance;
-                if (cycle < 1f) cycle = 1f;
-                expected = highAverage / cycle + normalAverage * (cycle - 1f) / cycle;
-            }
+                expected += probs[i] * ValueOf(items[i]);
 
             float finalJunk = junkIndex >= 0 ? probs[junkIndex] : 0f;
-            return new EffectiveTable(items, probs, isHigh, isJunk, highChance, finalJunk, expected, plain, pity);
+            return new EffectiveTable(items, probs, isHigh, isJunk, highChance, finalJunk, expected);
         }
 
         private static int RegionIndex(Region region)
@@ -675,15 +582,13 @@ namespace DumpingGroundMap
         internal readonly float HighChance;
         internal readonly float JunkChance;
         internal readonly float Ev;
-        internal readonly float EvPlain;
-        internal readonly int Pity;
 
         private readonly bool[] isJunk;
         private readonly int[] order;
         private readonly int junkIndex;
 
         internal EffectiveTable(string[] items, float[] probs, bool[] isHigh, bool[] isJunk,
-            float highChance, float junkChance, float ev, float evPlain, int pity)
+            float highChance, float junkChance, float ev)
         {
             Items = items;
             Probs = probs;
@@ -692,8 +597,6 @@ namespace DumpingGroundMap
             HighChance = highChance;
             JunkChance = junkChance;
             Ev = ev;
-            EvPlain = evPlain;
-            Pity = pity;
             junkIndex = Array.IndexOf(items, "junk");
 
             order = new int[items.Length];
@@ -710,12 +613,11 @@ namespace DumpingGroundMap
         internal float ProbabilityAt(int i) { return Probs[order[i]]; }
         internal string ItemAt(int i) { return Items[order[i]]; }
 
-        internal int PickIndex(float junkScale, bool forceHigh)
+        internal int PickIndex(float junkScale)
         {
             float sum = 0f;
             for (int i = 0; i < Items.Length; ++i)
             {
-                if (forceHigh && !IsHigh[i]) continue;
                 if (Probs[i] <= 0f) continue;
                 sum += i == junkIndex ? Probs[i] * junkScale : Probs[i];
             }
@@ -725,7 +627,6 @@ namespace DumpingGroundMap
             int last = -1;
             for (int i = 0; i < Items.Length; ++i)
             {
-                if (forceHigh && !IsHigh[i]) continue;
                 if (Probs[i] <= 0f) continue;
                 last = i;
                 roll -= i == junkIndex ? Probs[i] * junkScale : Probs[i];
