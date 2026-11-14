@@ -129,6 +129,21 @@ namespace DumpingGroundMap
             totalValue = WriteStored(totalValue + value);
         }
 
+        /// <summary>
+        /// 调试用：把声望直接设成给定点数。只写同一个 rep_total_value 键，
+        /// 内存态立即同步，返回实际写入的累计价值。
+        /// </summary>
+        internal static long SetPoints(float points)
+        {
+            if (points < 0f) points = 0f;
+            double raw = points * (double)ValuePerPoint;
+            long value = raw >= (double)int.MaxValue ? (long)int.MaxValue : (long)Math.Round(raw);
+            if (value < 0L) value = 0L;
+            loadedStore = StoreKey();
+            totalValue = WriteStored(value);
+            return totalValue;
+        }
+
         private static string StoreKey()
         {
             PlayerStore store = PlayerStore.Instance;

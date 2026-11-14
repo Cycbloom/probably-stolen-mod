@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.29
+# 垃圾场拾荒地图 · 0.3.30
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -46,6 +46,7 @@
 - **0.3.26 每次打开都重建**：0.3.25 用 `layout.transform.Find(RowName)` 防重复，原生 `OpenUI` 却是用 `Destroy` 清空 layout（延迟到帧末才真正移除），第二次打开时旧行还挂在父子树里、查找必定命中，于是整行被跳过。现在改为「打开序号」判重：`OpenUI` 的 Prefix 把 `openCount` 加一，Postfix 只在 `builtAtOpen != openCount`（或跨帧）时建行，建完记录序号与帧号；不再查找子物体。日志会打 `open=#N frame=F children=…`，连续开关两次会看到 `open=#1` / `open=#2` 各一条 `added`。
 - **0.3.26 两位小数**：数字改为 `Reputation.ExactPoints`（累计价值 / 100f）的 `F2` 输出，如 `12.34/200`；柱高与图标解锁仍用整数点数（`totalValue / 100` 向下取整），逻辑不变。
 - **0.3.29 声望飘字开关**：`ModConfig` 新增布尔项 `reputation_pop`（分组「声望飘字 / Reputation Pop」，默认开）。标题在对方 mod 未运行时自动变成「声望飘字（需安装 Reputation Pop，当前未安装）」，说明文字写明依赖与关闭后的行为。`ReputationPopBridge.Show()` 先看开关：关 → 直接返回并只记一条 `reputation pop: disabled by setting`；开但对方不在 → 只记一条 `reputation pop: unavailable (mod not running)`；开且对方在运行 → 照常记录 delta。分支只看 `Tuning.ReputationPopEnabled` 与 `IsModRunning`，不改存档。
+- **0.3.30 调试项**：设置里新增分组「调试 / Debug」。`debug_enabled`（「启用调试项」，默认关）打开后，`debug_points`（「设置声望点数」，0–200，0.5 步进）才显示并生效；改动立即把 `rep_total_value` 写成 `round(points × 100)`，同步内存态并打日志 `debug: reputation set to 19.5 points (value=1950)`。关闭时代码不写存档（首次改动只记一条 `debug: reputation setter ignored (debug off)`），标签和滑条用 `CustomUIElement.SetVisible` 隐藏。原生设置界面没有条件可见能力，隐藏只作用于这两个元素，行位仍占空。
 - **0.3.28 读档必须与存档一致**：删掉了 `Reload()` 里「同一个 runID 就跳过读取」的优化。同一局内读回较早的自动存档（如 Shutter Autosave 的快照）时 runID 不变，旧逻辑会保留内存里的较新数值，表现为声望不回退。现在每次 `OnGameLoadedLate` 都无条件 `StoredValue()` 覆盖 `totalValue`，日志带新旧值 `… value=<存档值> points=<点数> previous=<内存旧值>`；同族的「今天已加过拾荒客客人」标记（`ScavengerPerkPatch.lastStore/lastDay`）也在读档与新档时清空，避免读档后当天误跳过或重复加。
 - **0.3.25 累加日志**：每趟拾荒输出一条 `[DumpingGroundMap] scavenge: items=<件数> value=<本次价值> total=<累计价值> points=<当前点数>`；补丁绑定失败会打 `scavenge: patch target NOT FOUND`，找不到 `PlayerStore` 会打 `reputation add skipped`，物品价值全为 0 会打 `items found but total value is 0`。
 - **0.3.24 容器高度检查**：诊断日志会打出 `bar=<当前柱高>px barParent=<父容器高>px expectedAt200=131.0px`；父容器不足 131px 时会额外打 `bar container is only …px, 0–200 scale needs 131.0px` 的警告，此时 200 点会画出可视区，需要回报日志再定方案。

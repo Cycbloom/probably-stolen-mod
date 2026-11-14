@@ -1011,7 +1011,8 @@ namespace DumpingGroundMap
         private static bool IsOurKey(string key)
         {
             return key == KeyJunk || key == KeyHigh
-                || key == Tuning.SpecialtyKey;
+                || key == Tuning.SpecialtyKey
+                || key == Tuning.DebugEnabledKey || key == Tuning.DebugPointsKey;
         }
 
         /// <summary>
@@ -1072,10 +1073,14 @@ namespace DumpingGroundMap
                     highSlider = HookSlider(window, key, 2);
                     highValue = EnsureValueLine(b, key, highValue);
                 }
-                else
+                else if (key == Tuning.SpecialtyKey)
                 {
                     specialtyDropdown = b.Last;
                     AddEvBlock(b);
+                }
+                else if (key == Tuning.DebugPointsKey)
+                {
+                    ApplyDebugVisibility(Tuning.DebugEnabled);
                 }
                 Refresh();
             }
@@ -1184,6 +1189,32 @@ namespace DumpingGroundMap
         {
             if (window == null || !window.IsAlive) return;
             Refresh();
+        }
+
+        /// <summary>
+        /// Debug rows: the native builder has no conditional visibility, so the
+        /// "set reputation points" label and slider are simply hidden while the
+        /// debug toggle is off (the row keeps its slot, which is fine for a test
+        /// option). Called when the row is built and when the toggle changes.
+        /// </summary>
+        internal static void ApplyDebugVisibility(bool visible)
+        {
+            try
+            {
+                if (window == null || !window.IsAlive) return;
+                SetVisible(window.Get(Tuning.DebugPointsKey), visible);
+                SetVisible(window.Get("label_" + Tuning.DebugPointsKey), visible);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning(LogTag + "debug visibility failed: " + ex.Message);
+            }
+        }
+
+        private static void SetVisible(CustomUIElement element, bool visible)
+        {
+            if (element == null || !element.IsAlive) return;
+            element.SetVisible(visible);
         }
 
         /// <summary>

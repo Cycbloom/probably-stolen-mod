@@ -24,10 +24,17 @@ namespace DumpingGroundMap
 
         private const string SectionName = "拾荒掉落 / Loot";
         private const string IntegrationSection = "声望飘字 / Reputation Pop";
+        private const string DebugSection = "调试 / Debug";
 
         /// <summary>声望飘字开关：只在装了 Reputation Pop 时才有实际效果。</summary>
         internal const string ReputationPopKey = "reputation_pop";
         internal const bool DefaultReputationPop = true;
+
+        /// <summary>调试项。默认关闭；关闭时「设置声望点数」不生效、界面里也会被隐藏。</summary>
+        internal const string DebugEnabledKey = "debug_enabled";
+        internal const string DebugPointsKey = "debug_points";
+        internal const float DebugPointsMin = 0f;
+        internal const float DebugPointsMax = 200f;
 
         /// <summary>
         /// One shared tier for every area. Each area still applies it to its
@@ -43,6 +50,9 @@ namespace DumpingGroundMap
         private static ConfigEntry<float> highEntry;
         private static ConfigEntry<string> specialtyEntry;
         private static ConfigEntry<bool> reputationPopEntry;
+        private static ConfigEntry<bool> debugEnabledEntry;
+        private static ConfigEntry<float> debugPointsEntry;
+        private static bool debugIgnoredLogged;
         private static readonly Dictionary<string, EffectiveTable> cache =
             new Dictionary<string, EffectiveTable>();
         private static readonly Dictionary<string, float> baseEvCache =
@@ -94,6 +104,18 @@ namespace DumpingGroundMap
         internal static bool ReputationPopEnabled
         {
             get { return reputationPopEntry == null ? DefaultReputationPop : reputationPopEntry.Value; }
+        }
+
+        /// <summary>调试项总开关；配置项没注册成功时按关闭处理。</summary>
+        internal static bool DebugEnabled
+        {
+            get { return debugEnabledEntry != null && debugEnabledEntry.Value; }
+        }
+
+        /// <summary>界面输入的声望点数（未取整的原始值）。</summary>
+        internal static float DebugPoints
+        {
+            get { return debugPointsEntry == null ? 0f : debugPointsEntry.Value; }
         }
 
         /// <summary>
@@ -196,6 +218,60 @@ namespace DumpingGroundMap
                 reputationPopEntry.OnChanged += delegate(bool value)
                 {
                     Debug.Log("[DumpingGroundMap] reputation pop: setting=" + (value ? "on" : "off"));
+                };
+
+                debugEnabledEntry = config.Define(DebugEnabledKey, false, DebugSection,
+                    delegate { return Copy.Text("启用调试项", "Enable debug options"); },
+                    delegate
+                    {
+                        return Copy.Text(
+                            "打开后下面的「设置声望点数」才会生效，并显示出来。\n仅供测试，默认关闭。",
+                            "Turns on (and reveals) the reputation setter below.\nTesting only; off by default.");
+                    },
+                    false);
+
+                debugEnabledEntry.OnChanged += delegate(bool value)
+                {
+                    Debug.Log("[DumpingGroundMap] debug: options " + (value ? "on" : "off"));
+                    NativeSettings.ApplyDebugVisibility(value);
+                };
+
+                debugPointsEntry = config.Define(DebugPointsKey, 0f, DebugSection,
+                    delegate
+                    {
+                        return DebugEnabled
+                            ? Copy.Text("设置声望点数（直接改写）", "Set reputation points (overwrites)")
+                            : Copy.Text("设置声望点数（需先启用调试项）", "Set reputation points (enable debug first)");
+                    },
+                    DebugPointsMin, DebugPointsMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "仅供测试，会直接改写当前存档的声望（写同一个键 rep_total_value）。\n数值按 0.5 点取整，例如 19.5。\n需先打开上面的「启用调试项」才会生效。",
+                            "Testing only - overwrites the reputation stored in the current save (same rep_total_value key).\nValues snap to 0.5 points, for example 19.5.\nRequires \"Enable debug options\" above to be on.");
+                    },
+                    false);
+
+                debugPointsEntry.OnChanged += delegate(float value)
+                {
+                    float snapped = Mathf.Round(value * 2f) * 0.5f;
+                    if (snapped < DebugPointsMin) snapped = DebugPointsMin;
+                    if (snapped > DebugPointsMax) snapped = DebugPointsMax;
+                    if (snapped != value) debugPointsEntry.Set(snapped);
+                    if (!DebugEnabled)
+                    {
+                        if (!debugIgnoredLogged)
+                        {
+                            debugIgnoredLogged = true;
+                            Debug.Log("[DumpingGroundMap] debug: reputation setter ignored (debug off)");
+                        }
+                        return;
+                    }
+                    debugIgnoredLogged = false;
+                    long stored = Reputation.SetPoints(snapped);
+                    Debug.Log("[DumpingGroundMap] debug: reputation set to "
+                        + snapped.ToString("0.##", CultureInfo.InvariantCulture)
+                        + " points (value=" + stored + ")");
                 };
 
                 junkEntry.OnChanged += delegate(float value)
