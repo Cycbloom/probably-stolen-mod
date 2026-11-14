@@ -14,7 +14,8 @@ namespace DumpingGroundMap
     /// 上限来自设置项 stash_cap（0.1–5.0，步进 0.1）；
     /// 声望不到 60 时上限硬顶 0.1%，但不完全排除。
     ///
-    /// 小奖是独立设置项 minor_percent（0–10%，默认 3%），平常概率单独掷，
+    /// 小奖是独立设置项 minor_percent（0–10%，默认 3%），平常概率单独掷：
+    /// 声望 &lt; 60 时按设置值的 1/10 生效，≥ 60 时全值生效，0 时两档都不出；
     /// 不写 AIMD 状态、不登新闻、不改价格、不触发 25% 加成。
     /// 同一次搜索里大奖命中时完全跳过小奖。
     ///
@@ -250,15 +251,16 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 小奖：声望到 60 才参与，按设置项 minor_percent 独立掷一次。
+        /// 小奖：按设置项 minor_percent 独立掷一次。声望 &lt; 60 时按设置值的 1/10 生效，
+        /// 声望 ≥ 60 时按设置值全值生效；设置值为 0 时两档都是 0。
         /// 命中后从该区的整箱表里随机抽一种，整箱只放同一样东西。
         /// 不写 AIMD 状态、不登新闻、不改价格、不触发 25% 加成。
         /// </summary>
         private static void TryMinor(List<GameItem> items, Region region, int today)
         {
-            if (Reputation.Points < Reputation.Perk60Threshold) return;
             float percent = Tuning.MinorPercent;
             if (percent <= 0f) return;
+            if (Reputation.Points < Reputation.Perk60Threshold) percent *= 0.1f;
 
             MinorBox box = MinorBox.Roll(region.Id);
             if (box == null) return;
@@ -295,7 +297,8 @@ namespace DumpingGroundMap
             Debug.Log("[DumpingGroundMap] stash: minor region=" + region.Id
                 + " day=" + today + " box=" + box.ItemId + " items=" + spawned + "/" + count
                 + " value=" + crateValue + " target=" + Tuning.MinorValue.ToString("F0")
-                + " roll=" + roll.ToString("F3") + " chance=" + percent.ToString("F1"));
+                + " tier=" + (Reputation.Points < Reputation.Perk60Threshold ? "1/10" : "full")
+                + " roll=" + roll.ToString("F3") + " chance=" + percent.ToString("F2"));
         }
 
         /// <summary>
