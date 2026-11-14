@@ -103,6 +103,9 @@ namespace DumpingGroundMap
         /// <summary>累计价值，供日志核对。</summary>
         internal static long TotalValue { get { return totalValue; } }
 
+        /// <summary>未取整的声望点数（累计价值 / 100），用于两位小数显示。</summary>
+        internal static float ExactPoints { get { return totalValue / (float)ValuePerPoint; } }
+
         /// <summary>把一趟拾荒的总价值折成声望；不足 100 的部分留在 modData 里继续累计。</summary>
         internal static void Add(long value)
         {
@@ -210,7 +213,9 @@ namespace DumpingGroundMap
     /// 只在内存里合成一个 StoreReputation，不写 PlayerStore.storeReputations，
     /// 不落盘、不进 ES3。类型全部编译期绑定（typeof / 直接访问公开字段），
     /// 不使用字符串式反射或程序集扫描。
-    /// 唯一的短路是 layout 下已存在同名行；不针对任何其它 mod 做兼容判断，
+    /// 唯一的短路是“本次 OpenUI 已经建过行”（Prefix 记打开序号、Postfix 比对），
+    /// 不查找子物体：原生 OpenUI 用 Destroy 清空 layout，延迟到帧末才移除，
+    /// 查找会命中上一轮的旧行。不针对任何其它 mod 做兼容判断，
     /// 其它 mod 的运行状态只写进日志，不参与分支。
     /// </summary>
     [HarmonyPatch]
@@ -236,6 +241,9 @@ namespace DumpingGroundMap
         private static readonly string[] TierEn = { "Rookie", "Regular", "Old Hand", "Living Map" };
 
         private static bool patchLogged;
+        private static int openCount;
+        private static int builtAtOpen = -1;
+        private static int builtFrame = -1;
 
         private static MethodBase TargetMethod()
         {
@@ -245,9 +253,21 @@ namespace DumpingGroundMap
             return method;
         }
 
+        /// <summary>
+        /// 每次 OpenUI 开始先记一次“本次打开还没建行”。
+        /// 不能用 layout.Find(RowName) 判断重复：OpenUI 里用的是 Destroy，
+        /// 延迟到帧末才真正移除，Postfix 执行时上一轮的旧行还挂在 layout 下，
+        /// 查找必定命中，于是第二次打开就永远跳过。
+        /// </summary>
+        private static void Prefix()
+        {
+            ++openCount;
+        }
+
         private static void Postfix(ReputationUIManager __instance)
         {
             if (!Core.Enabled || __instance == null) return;
+            int thisOpen = openCount;
             try
             {
                 if (!patchLogged)
@@ -257,6 +277,12 @@ namespace DumpingGroundMap
                         + ModHelper.IsModRunning(DisasterDayId) + ", rir="
                         + ModHelper.IsModRunning(ReputationRemakeId) + ")");
                 }
+                if (builtAtOpen == thisOpen && builtFrame == Time.frameCount)
+                {
+                    Debug.Log("[DumpingGroundMap] reputation row: skip, already built for open #"
+                        + thisOpen + " children=" + (__instance.layout == null ? "?" : __instance.layout.transform.childCount.ToString(CultureInfo.InvariantCulture)));
+                    return;
+                }
 
                 GameObject layout = __instance.layout;
                 GameObject prefab = __instance.reputationPrefab;
@@ -264,11 +290,6 @@ namespace DumpingGroundMap
                 {
                     Debug.LogWarning("[DumpingGroundMap] reputation row: layout=" + (layout == null ? "null" : layout.name)
                         + " prefab=" + (prefab == null ? "null" : prefab.name));
-                    return;
-                }
-                if (layout.transform.Find(RowName) != null)
-                {
-                    Debug.Log("[DumpingGroundMap] reputation row: skip, already present");
                     return;
                 }
 
@@ -292,7 +313,11 @@ namespace DumpingGroundMap
                 ApplyRow(element, points);
                 StylePerks(row, points, __instance, before);
                 PlaceRow(row, layout);
+                builtAtOpen = thisOpen;
+                builtFrame = Time.frameCount;
                 Debug.Log("[DumpingGroundMap] reputation row: added " + points
+                    + " open=#" + thisOpen
+                    + " frame=" + builtFrame
                     + " active=" + row.activeSelf
                     + " parent=" + (row.transform.parent == null ? "null" : row.transform.parent.name)
                     + " children=" + layout.transform.childCount
@@ -342,7 +367,7 @@ namespace DumpingGroundMap
         private static void ApplyRow(ReputationElement element, int points)
         {
             if (element.reputationStatus != null) element.reputationStatus.SetText(StatusName(points));
-            if (element.reputationNumber != null) element.reputationNumber.SetText(NumberText(points));
+            if (element.reputationNumber != null) element.reputationNumber.SetText(NumberText());
 
             float barHeight = 0f;
             float containerHeight = 0f;
@@ -355,7 +380,7 @@ namespace DumpingGroundMap
 
             Debug.Log("[DumpingGroundMap] reputation row: text status="
                 + (element.reputationStatus == null ? "missing" : StatusName(points))
-                + " number=" + (element.reputationNumber == null ? "missing" : NumberText(points))
+                + " number=" + (element.reputationNumber == null ? "missing" : NumberText())
                 + " bar=" + barHeight.ToString("F1") + "px"
                 + " barParent=" + containerHeight.ToString("F1") + "px"
                 + " expectedAt200=" + (BarFullHeight * 2f).ToString("F1") + "px");
@@ -448,10 +473,13 @@ namespace DumpingGroundMap
             return Copy.Text(TierZh[tier], TierEn[tier]);
         }
 
-        /// <summary>原生同一套数字：整数点数 / 200。</summary>
-        private static string NumberText(int points)
+        /// <summary>
+        /// 与原生一致显示两位小数：累计价值 / 100，如 12.34/200。
+        /// 柱高与图标解锁仍用整数点数（floor），见 Reputation.Points。
+        /// </summary>
+        private static string NumberText()
         {
-            return points.ToString(CultureInfo.InvariantCulture) + "/200";
+            return Reputation.ExactPoints.ToString("F2", CultureInfo.InvariantCulture) + "/200";
         }
 
         /// <summary>原生 layout 若有布局组就重建；没有就按上一行的高度手动往下排。</summary>

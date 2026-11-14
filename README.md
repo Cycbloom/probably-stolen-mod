@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.25
+# 垃圾场拾荒地图 · 0.3.26
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -30,7 +30,7 @@
 |---|---|
 | 标题 | 拾荒客（英文环境 Scavenger），沿用原生标题的配色与字号 |
 | 状态 | 等级名：生手 / 熟脸 / 老手 / 活地图（Rookie / Regular / Old Hand / Living Map） |
-| 数字 | 0–200 刻度上的整数点数：`x/200` |
+| 数字 | 0–200 刻度上的两位小数：`x.xx/200`（显示值 = 累计价值 / 100，`F2`） |
 | 绿条 | 不自己算比例，直接用原生 `Init → UpdateBar → GetBarHeight(v) = 65.5 × v / 100` |
 | 图标 | 柱上 20 / 40 / 60 三个奖励点，依次用 `spriteSmile` / `spriteHappy` / `spriteStar`；未解锁 alpha 0.35。只有 40 有实际效果；三个图标（含未解锁的）都能悬停，显示自带的中英双语说明 |
 
@@ -40,9 +40,11 @@
 
 - 原生 `layout` 若有布局组（`LayoutGroup`），追加后调用 `LayoutRebuilder.ForceRebuildLayoutImmediate`；没有布局组时按上一行的高度和位置手动往下排。这一条需要在游戏里目视确认，代码里两条路径都保留了。
 - 类型全部编译期绑定：`[HarmonyPatch]` + `AccessTools.Method(typeof(ReputationUIManager), "OpenUI")`，其余字段直接访问公开成员；不使用 `Type.GetType`、`TypeByName`、`Activator` 或程序集扫描，清单能力保持为空。游戏更新改动这些成员时会在编译期暴露，而不是运行期静默失败。
-- **不做跨 mod 兼容判断**：唯一的短路是 `layout` 下已存在 `DGM_ReputationRow`（防止重复追加）。不检查災變日 / ReputationInterfaceRemake 是否在运行，也不判断面板是否被别的 mod 改过；其它 mod 的运行状态只写进诊断日志，不参与任何分支。0.3.22 起删除了此前的 `LighthouseSheet` / `ForeignRunning` 判断。
+- **不做跨 mod 兼容判断**：唯一的短路是「本次打开已建过行」（0.3.26 起按 `openCount` 序号判断，不查找子物体；0.3.25 及以前用 `layout` 下的 `DGM_ReputationRow`，会因原生 `Destroy` 延迟而误跳过第二次打开）。不检查災變日 / ReputationInterfaceRemake 是否在运行，也不判断面板是否被别的 mod 改过；其它 mod 的运行状态只写进诊断日志，不参与任何分支。0.3.22 起删除了此前的 `LighthouseSheet` / `ForeignRunning` 判断。
 - **0.3.25 悬停说明**：原生 tooltip 的取文链路是 `PerkElement.OnPointerEnter → ReputationUIManager.UpdateToolTipContent(perk)`，而 `UpdateToolTipContent` 只会用 `StoreReputationPerk` 的本地化键（`GetLocalizedPerkName/Description/FlavorText`）去 `SetText`，并且**不负责显示 tooltip**（原生 `OnPointerExit` 是空实现，tooltip 的显隐只看 GameObject 是否 active，位置由原生 `UpdateTooltipPosition` 每帧跟随鼠标）。我们没有 `rep_perk_<perkId>_*` 词条，所以把三个图标的 `PerkElement` 关掉（`perk.enabled = false`，Unity 不再向它派发指针事件），在同一个 GameObject 上挂本 mod 的 `DgmPerkTooltip`（`IPointerEnterHandler` / `IPointerExitHandler`）：进入时填 `perkTitle`（名称 + `[已激活/未激活]` + `20/200`）、清空 `perkStatus` / `perkProgress`、填 `perkdescription` 与 `perkFlavorText`，再 `reputationTooltip.SetActive(true)`；离开或组件禁用时 `SetActive(false)`。全部是公开字段访问，不新增资源文件、不反射、不读写文件。
 - **0.3.25 图标归属**：柱上图标不再按子物体索引硬映射（0.3.24 日志出现过 `perks total=4`，第四个来自行预制体自带、会让 20/40/60 错位）。现在在 `Init` 之前记下已有的 `PerkElement`，`Init` 之后把它们移除，剩下的按 `anchoredPosition.y`（= `GetBarHeight(阈值)`）排序，依次对应 20 / 40 / 60。
+- **0.3.26 每次打开都重建**：0.3.25 用 `layout.transform.Find(RowName)` 防重复，原生 `OpenUI` 却是用 `Destroy` 清空 layout（延迟到帧末才真正移除），第二次打开时旧行还挂在父子树里、查找必定命中，于是整行被跳过。现在改为「打开序号」判重：`OpenUI` 的 Prefix 把 `openCount` 加一，Postfix 只在 `builtAtOpen != openCount`（或跨帧）时建行，建完记录序号与帧号；不再查找子物体。日志会打 `open=#N frame=F children=…`，连续开关两次会看到 `open=#1` / `open=#2` 各一条 `added`。
+- **0.3.26 两位小数**：数字改为 `Reputation.ExactPoints`（累计价值 / 100f）的 `F2` 输出，如 `12.34/200`；柱高与图标解锁仍用整数点数（`totalValue / 100` 向下取整），逻辑不变。
 - **0.3.25 累加日志**：每趟拾荒输出一条 `[DumpingGroundMap] scavenge: items=<件数> value=<本次价值> total=<累计价值> points=<当前点数>`；补丁绑定失败会打 `scavenge: patch target NOT FOUND`，找不到 `PlayerStore` 会打 `reputation add skipped`，物品价值全为 0 会打 `items found but total value is 0`。
 - **0.3.24 容器高度检查**：诊断日志会打出 `bar=<当前柱高>px barParent=<父容器高>px expectedAt200=131.0px`；父容器不足 131px 时会额外打 `bar container is only …px, 0–200 scale needs 131.0px` 的警告，此时 200 点会画出可视区，需要回报日志再定方案。
 - **0.3.21 诊断日志**：补丁关键节点各打一条 `Debug.Log`，前缀 `[DumpingGroundMap] reputation row`，包括：目标方法是否取到、Postfix 首次进入（附带 `disaster_day` / `cirno9.reputation_interface_remake` 的运行状态）、`layout` / `prefab` 是否为空、是否因重复行跳过、文本覆盖结果（状态/数字/条比例/标题）、布局组的类型与子物体数、最终 `anchoredPosition` 与 `sizeDelta`。异常走 `Debug.LogError` 打完整堆栈。只写游戏日志，不写文件。
