@@ -17,8 +17,12 @@ namespace DumpingGroundMap
         internal const float DefaultHighPercent = 3f;
         internal const int DefaultSpecialtyTier = 2;
 
-        /// <summary>80 档：每个有箱子的区，补给箱与对应钥匙卡各 0.5% 绝对概率。</summary>
-        internal const float Perk80SpecialChance = 0.005f;
+        /// <summary>80 档：补给箱与钥匙卡的绝对概率，各自一个设置项（默认 0.5%、范围 0–5%）。</summary>
+        internal const string CratePercentKey = "crate_percent";
+        internal const string KeycardPercentKey = "keycard_percent";
+        internal const float DefaultSpecialPercent = 0.5f;
+        internal const float SpecialPercentMin = 0f;
+        internal const float SpecialPercentMax = 5f;
 
         internal const float JunkMin = 0f;
         internal const float JunkMax = 100f;
@@ -57,6 +61,8 @@ namespace DumpingGroundMap
 
         private static ConfigEntry<float> junkEntry;
         private static ConfigEntry<float> highEntry;
+        private static ConfigEntry<float> crateEntry;
+        private static ConfigEntry<float> cardEntry;
         private static ConfigEntry<float> stashCapEntry;
         private static ConfigEntry<string> specialtyEntry;
         private static ConfigEntry<bool> reputationPopEntry;
@@ -71,6 +77,8 @@ namespace DumpingGroundMap
         private static bool hasLive;
         private static float liveJunk;
         private static float liveHigh;
+        private static float liveCrate;
+        private static float liveCard;
         private static bool initialized;
 
         private static float EntryJunk()
@@ -87,6 +95,18 @@ namespace DumpingGroundMap
             float value = highEntry.Value;
             if (float.IsNaN(value)) return DefaultHighPercent;
             return Mathf.Round(Mathf.Clamp(value, HighMin, HighMax) * 2f) / 2f;
+        }
+
+        private static float EntryCratePercent()
+        {
+            if (crateEntry == null) return DefaultSpecialPercent;
+            return ClampSpecialPercent(crateEntry.Value);
+        }
+
+        private static float EntryKeycardPercent()
+        {
+            if (cardEntry == null) return DefaultSpecialPercent;
+            return ClampSpecialPercent(cardEntry.Value);
         }
 
         private static int EntrySpecialtyTier()
@@ -161,6 +181,18 @@ namespace DumpingGroundMap
 
         internal static float HighPercent { get { return hasLive ? liveHigh : EntryHigh(); } }
 
+        /// <summary>80 档补给箱概率（%，0–5，0.1 步进）。</summary>
+        internal static float CratePercent
+        {
+            get { return hasLive ? liveCrate : EntryCratePercent(); }
+        }
+
+        /// <summary>80 档钥匙卡概率（%，0–5，0.1 步进）。</summary>
+        internal static float KeycardPercent
+        {
+            get { return hasLive ? liveCard : EntryKeycardPercent(); }
+        }
+
         /// <summary>True while a slider drag is holding unsaved values in memory.</summary>
         internal static bool HasLive { get { return hasLive; } }
 
@@ -172,6 +204,14 @@ namespace DumpingGroundMap
         internal static float ClampHigh(float value)
         {
             return float.IsNaN(value) ? DefaultHighPercent : Mathf.Clamp(value, HighMin, HighMax);
+        }
+
+        /// <summary>按 0.1 步进吸附并夹在 0–5。</summary>
+        internal static float ClampSpecialPercent(float value)
+        {
+            if (float.IsNaN(value)) return DefaultSpecialPercent;
+            value = Mathf.Round(Mathf.Clamp(value, SpecialPercentMin, SpecialPercentMax) * 10f) / 10f;
+            return Mathf.Clamp(value, SpecialPercentMin, SpecialPercentMax);
         }
 
         /// <summary>按 0.1 步进吸附并夹在 0.1–5.0。</summary>
@@ -232,6 +272,28 @@ namespace DumpingGroundMap
                         return Copy.Text(
                             "每次拾荒单独判断：这一趟会不会出高档物资。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n高档物资换自普通物品，垃圾不受影响。\n本项在声望达到 80（识货行家）后生效：\n80 之前按 0 算（设置值会保留），80 之后完全按滑条数值生效。",
                             "Rolled once per search:\nit decides only whether this haul includes a high-value item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nHigh-value items replace normal items; junk is not affected.\nThis setting activates at 80 reputation (Connoisseur):\nbefore 80 it counts as 0 (your value is kept); from 80 on the slider applies as-is.");
+                    },
+                    false);
+
+                crateEntry = config.Define(CratePercentKey, DefaultSpecialPercent, SectionName,
+                    delegate { return Copy.Text("补给箱概率（%，0–5）", "Supply crate chance (%, 0-5)"); },
+                    SpecialPercentMin, SpecialPercentMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "声望达到 80（识货行家）后，每次拾荒出补给箱的绝对概率。\n默认 0.5%，范围 0–5%，按 0.1 吸附；0% 不出。\n补给箱从普通物品份额里扣，垃圾概率不变。\n只在本区有对应箱子时生效（拆解堆、医疗废弃点、废武器堆）。",
+                            "Absolute chance per search for a supply crate, active at 80 reputation (Connoisseur).\nDefault 0.5%, range 0-5%, 0.1 steps; 0% disables it.\nThe crate share comes out of normal items, so junk chance is unchanged.\nOnly applies where the area has a matching crate (Scrap Pile, Medical Waste, Weapon Dump).");
+                    },
+                    false);
+
+                cardEntry = config.Define(KeycardPercentKey, DefaultSpecialPercent, SectionName,
+                    delegate { return Copy.Text("钥匙卡概率（%，0–5）", "Keycard chance (%, 0-5)"); },
+                    SpecialPercentMin, SpecialPercentMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "声望达到 80（识货行家）后，每次拾荒出对应钥匙卡的绝对概率。\n默认 0.5%，范围 0–5%，按 0.1 吸附；0% 不出。\n钥匙卡从普通物品份额里扣，垃圾概率不变。\n只在本区有对应箱子时生效（拆解堆、医疗废弃点、废武器堆）。",
+                            "Absolute chance per search for the matching keycard, active at 80 reputation (Connoisseur).\nDefault 0.5%, range 0-5%, 0.1 steps; 0% disables it.\nThe keycard share comes out of normal items, so junk chance is unchanged.\nOnly applies where the area has a matching crate (Scrap Pile, Medical Waste, Weapon Dump).");
                     },
                     false);
 
@@ -349,6 +411,18 @@ namespace DumpingGroundMap
                     float snapped = ClampStashCap(value);
                     if (snapped != value) stashCapEntry.Set(snapped);
                 };
+                crateEntry.OnChanged += delegate(float value)
+                {
+                    float snapped = ClampSpecialPercent(value);
+                    if (snapped != value) crateEntry.Set(snapped);
+                    Invalidated();
+                };
+                cardEntry.OnChanged += delegate(float value)
+                {
+                    float snapped = ClampSpecialPercent(value);
+                    if (snapped != value) cardEntry.Set(snapped);
+                    Invalidated();
+                };
                 specialtyEntry.OnChanged += delegate(string value)
                 {
                     Invalidated();
@@ -463,12 +537,30 @@ namespace DumpingGroundMap
             Invalidated();
         }
 
+        /// <summary>补给箱概率滑条预览（0–5%，内存态）。</summary>
+        internal static void SetCratePercentLive(float value)
+        {
+            EnsureLive();
+            liveCrate = ClampSpecialPercent(value);
+            Invalidated();
+        }
+
+        /// <summary>钥匙卡概率滑条预览（0–5%，内存态）。</summary>
+        internal static void SetKeycardPercentLive(float value)
+        {
+            EnsureLive();
+            liveCard = ClampSpecialPercent(value);
+            Invalidated();
+        }
+
         private static void EnsureLive()
         {
             if (hasLive) return;
             hasLive = true;
             liveJunk = EntryJunk();
             liveHigh = EntryHigh();
+            liveCrate = EntryCratePercent();
+            liveCard = EntryKeycardPercent();
         }
 
         /// <summary>
@@ -480,9 +572,13 @@ namespace DumpingGroundMap
             if (!hasLive) return;
             float junk = liveJunk;
             float high = liveHigh;
+            float crate = liveCrate;
+            float card = liveCard;
             hasLive = false;
             if (junkEntry != null && junkEntry.Value != junk) junkEntry.Set(junk);
             if (highEntry != null && highEntry.Value != high) highEntry.Set(high);
+            if (crateEntry != null && crateEntry.Value != crate) crateEntry.Set(crate);
+            if (cardEntry != null && cardEntry.Value != card) cardEntry.Set(card);
             Invalidated();
         }
 
@@ -597,8 +693,10 @@ namespace DumpingGroundMap
             float highChance = Mathf.Clamp(highPercent, 0f, 30f) / 100f;
             string crateId = perk80 ? CrateFor(region.Id) : null;
             string cardId = perk80 ? CardFor(region.Id) : null;
-            float crateChance = crateId != null ? Perk80SpecialChance : 0f;
-            float cardChance = cardId != null ? Perk80SpecialChance : 0f;
+            bool withCrate = crateId != null && CratePercent > 0f;
+            bool withCard = cardId != null && KeycardPercent > 0f;
+            float crateChance = withCrate ? ClampSpecialPercent(CratePercent) / 100f : 0f;
+            float cardChance = withCard ? ClampSpecialPercent(KeycardPercent) / 100f : 0f;
             float reserved = highChance + crateChance + cardChance;
             if (reserved > 0.995f - junkProb)
             {
@@ -613,7 +711,7 @@ namespace DumpingGroundMap
 
             bool withHigh = highChance > 0f;
             int highCount = withHigh ? HighValue.Length : 0;
-            int specialCount = (crateId != null ? 1 : 0) + (cardId != null ? 1 : 0);
+            int specialCount = (withCrate ? 1 : 0) + (withCard ? 1 : 0);
 
             string[] items = new string[count + highCount + specialCount];
             float[] probs = new float[count + highCount + specialCount];
@@ -644,13 +742,13 @@ namespace DumpingGroundMap
             }
 
             int slotNext = count + highCount;
-            if (crateId != null)
+            if (withCrate)
             {
                 items[slotNext] = crateId;
                 probs[slotNext] = crateChance;
                 ++slotNext;
             }
-            if (cardId != null)
+            if (withCard)
             {
                 items[slotNext] = cardId;
                 probs[slotNext] = cardChance;
@@ -682,7 +780,7 @@ namespace DumpingGroundMap
             {
                 case "scrap": return "loot_crate_engineering";
                 case "refuse": return "loot_crate_service";
-                case "medical": return "loot_crate_medical";
+                case "med": return "loot_crate_medical";
                 case "weapons": return "loot_crate_security";
                 default: return null;
             }
@@ -695,7 +793,7 @@ namespace DumpingGroundMap
             {
                 case "scrap": return "eng_keycard";
                 case "refuse": return "ser_keycard";
-                case "medical": return "med_keycard";
+                case "med": return "med_keycard";
                 case "weapons": return "sec_keycard";
                 default: return null;
             }

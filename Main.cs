@@ -969,15 +969,19 @@ namespace DumpingGroundMap
     {
         private const string KeyJunk = "junk_percent";
         private const string KeyHigh = "high_percent";
+        private const string KeyCrate = "crate_percent";
+        private const string KeyCard = "keycard_percent";
         private const string LogTag = "[DGM-SLIDER] ";
 
         private static CustomUIWindow window;
         private static CustomUIWindow builtFor;
         private static CustomUIElement junkValue, highValue;
+        private static CustomUIElement crateValue, cardValue;
         private static CustomUIElement debugValue;
         private static CustomUIElement specialtyDropdown;
         private static CustomUIElement[] evLabels;
         private static CustomUIElement junkSlider, highSlider;
+        private static CustomUIElement crateSlider, cardSlider;
         private static CustomUIElement debugSlider;
         private static bool dragging;
         private static int dragKind;
@@ -1020,6 +1024,7 @@ namespace DumpingGroundMap
         private static bool IsOurKey(string key)
         {
             return key == KeyJunk || key == KeyHigh
+                || key == KeyCrate || key == KeyCard
                 || key == Tuning.SpecialtyKey
                 || key == Tuning.DebugEnabledKey || key == Tuning.DebugPointsKey;
         }
@@ -1035,6 +1040,7 @@ namespace DumpingGroundMap
             {
                 if (element == null || building == null || buildingKey == null) return;
                 if (buildingKey != KeyJunk && buildingKey != KeyHigh
+                    && buildingKey != KeyCrate && buildingKey != KeyCard
                     && buildingKey != Tuning.DebugPointsKey) return;
                 if (!ReferenceEquals(element, building.Last)) return;
                 if (element.slider == null) return;
@@ -1057,6 +1063,8 @@ namespace DumpingGroundMap
                 }
                 if (key == KeyJunk) junkValue = label;
                 else if (key == KeyHigh) highValue = label;
+                else if (key == KeyCrate) crateValue = label;
+                else if (key == KeyCard) cardValue = label;
                 else debugValue = label;
             }
             catch (Exception ex)
@@ -1086,6 +1094,16 @@ namespace DumpingGroundMap
                 {
                     highSlider = HookSlider(window, key, 2);
                     highValue = EnsureValueLine(b, key, highValue);
+                }
+                else if (key == KeyCrate)
+                {
+                    crateSlider = HookSlider(window, key, 3);
+                    crateValue = EnsureValueLine(b, key, crateValue);
+                }
+                else if (key == KeyCard)
+                {
+                    cardSlider = HookSlider(window, key, 4);
+                    cardValue = EnsureValueLine(b, key, cardValue);
                 }
                 else if (key == Tuning.SpecialtyKey)
                 {
@@ -1329,6 +1347,10 @@ namespace DumpingGroundMap
                 junkValue.SetText(Mathf.RoundToInt(Tuning.JunkPercent) + "%");
             if (highValue != null)
                 highValue.SetText(Tuning.HighPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+            if (crateValue != null)
+                crateValue.SetText(Tuning.CratePercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+            if (cardValue != null)
+                cardValue.SetText(Tuning.KeycardPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
             if (debugValue != null)
                 debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
             if (evLabels == null) return;
@@ -1399,6 +1421,22 @@ namespace DumpingGroundMap
                 Tuning.SetHighPercentLive(snapped);
                 LogSlide(2, value, Tuning.HighPercent);
             }
+            else if (kind == 3)
+            {
+                BeginDrag(3, Tuning.CratePercent);
+                float snapped = Mathf.Round(value * 10f) / 10f;
+                SyncSlider(crateSlider, snapped);
+                Tuning.SetCratePercentLive(snapped);
+                LogSlide(3, value, Tuning.CratePercent);
+            }
+            else if (kind == 4)
+            {
+                BeginDrag(4, Tuning.KeycardPercent);
+                float snapped = Mathf.Round(value * 10f) / 10f;
+                SyncSlider(cardSlider, snapped);
+                Tuning.SetKeycardPercentLive(snapped);
+                LogSlide(4, value, Tuning.KeycardPercent);
+            }
         }
 
         private static void ApplyPreset(int preset)
@@ -1423,6 +1461,8 @@ namespace DumpingGroundMap
             if (dragging) return;
             SyncSlider(junkSlider, Tuning.JunkPercent);
             SyncSlider(highSlider, Tuning.HighPercent);
+            SyncSlider(crateSlider, Tuning.CratePercent);
+            SyncSlider(cardSlider, Tuning.KeycardPercent);
         }
 
         private static void BeginDrag(int kind, float from)
@@ -1484,11 +1524,15 @@ namespace DumpingGroundMap
             builtFor = null;
             junkValue = null;
             highValue = null;
+            crateValue = null;
+            cardValue = null;
             debugValue = null;
             specialtyDropdown = null;
             evLabels = null;
             junkSlider = null;
             highSlider = null;
+            crateSlider = null;
+            cardSlider = null;
             debugSlider = null;
             building = null;
             buildingKey = null;
