@@ -142,6 +142,7 @@ namespace DumpingGroundMap
                 hitRegion = region.Id;
                 newsDay = today + 1;
                 SaveState();
+                NotifyFind();
                 Debug.Log("[DumpingGroundMap] stash: jackpot region=" + region.Id
                     + " day=" + today + " roll=" + roll.ToString("F3")
                     + " items=" + JackpotItems + " chance " + before.ToString("F3")
@@ -176,6 +177,33 @@ namespace DumpingGroundMap
                 AddReward(items, template, BonusItems);
                 Debug.Log("[DumpingGroundMap] stash: bonus region=" + region.Id
                     + " day=" + today + " items=" + BonusItems);
+            }
+        }
+
+        /// <summary>
+        /// 中奖当场提示：复用原生拾荒界面「受伤」那套通知
+        /// （StoreUIManager.Instance.Notify(text, "sec")，最终落到
+        /// ReputationUIManager 的同一个 notifier 位置与样式），不另做 UI。
+        /// 两行用 \n 分隔，TMP 文本直接支持；文案短，不挡拾荒面板。
+        /// </summary>
+        private static void NotifyFind()
+        {
+            try
+            {
+                if (StoreUIManager.Instance == null)
+                {
+                    Debug.LogWarning("[DumpingGroundMap] stash: notice skipped, no StoreUIManager");
+                    return;
+                }
+                string text = Copy.Text(
+                    "你翻出了一整间储藏室。\n今天在这个地方，每次搜索都可能多一件东西。",
+                    "You've dug out a whole storeroom.\nEvery search here today may turn up something extra.");
+                StoreUIManager.Instance.Notify(text, "sec");
+                Debug.Log("[DumpingGroundMap] stash: notice shown");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] stash: notice failed: " + ex.Message);
             }
         }
 

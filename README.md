@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.52
+# 垃圾场拾荒地图 · 0.3.53
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -161,6 +161,7 @@ PlayerStore.OnLateShutterOpen()
 - 上限来自设置项 `stash_cap`（默认 1.0%，范围 0.1–5.0%，按 0.1 吸附）。**声望不到 60 时上限压到 0.1%**，不是完全不中。
 - **一趟拾荒最多中一次**：进入某块地后重置这个限制，换区或重新进图才会再给机会。
 - 中奖**当场给 5 件**该区样板物品（日用品，随机/盒装不区分），直接进本次拾荒的返回列表，所以会照常计入声望。
+- 中奖当场复用原生拾荒界面「受伤」那条通知（`StoreUIManager.Instance.Notify(text, "sec")`，最终落在 `ReputationUIManager` 的同一个 notifier 位置与样式），两行提示「你翻出了一整间储藏室。／今天在这个地方，每次搜索都可能多一件东西。」（英文同义），不另做 UI，也不会挡住拾荒面板。
 - 中奖后**当天、同一区域**，后续每次搜索另有 **25%** 概率再给 1 件。不再改任何权重表。
 - 中奖当晚把「次日新闻」写进存档（`stash_news_day`）；第二天开日时由 `StoreEventManager.OnDayStart` 的 Prefix 调原生 `QueueFuturEvent` 排队，`HandleFuturEvent` 在同一次开日里立刻激活它（读档错过开日会在下一次开日补发）。事件名「储藏室出货 / Storeroom Surplus」，报纸标题「垃圾场里翻出的储藏 / A Storeroom Found in the Dump」，正文为店主口吻，当天日用品价格 **−20%**（`HOUSEHOLD_GOOD`）。中英文字面文本直接写在代码里，新闻 UI 不过 `LocHelper`，没有改本地化资源。
 
@@ -168,7 +169,7 @@ PlayerStore.OnLateShutterOpen()
 
 扩展位：`StashTemplate` 里每条样板带奖励池、中英文案与可选的 `ItemType / PricePercent`。没有对应市场品类的区域（例如以后的医疗品）把 `ItemType` 留空，只在报纸正文里提一句，不挂 `NegociationData`。
 
-日志前缀 `[DumpingGroundMap] stash:`：`loaded`、`jackpot`、`miss`、`bonus`、`news queued`、`news queue failed`、`reset for new game`、`spawn failed`；补丁挂载时另打一条 `stash news: patch target StoreEventManager.OnDayStart`。
+日志前缀 `[DumpingGroundMap] stash:`：`loaded`、`jackpot`、`notice shown`、`miss`、`bonus`、`news queued`、`news queue failed`、`reset for new game`、`spawn failed`；补丁挂载时另打一条 `stash news: patch target StoreEventManager.OnDayStart`。
 
 ## 掉落设置
 
