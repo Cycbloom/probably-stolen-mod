@@ -837,9 +837,9 @@ namespace DumpingGroundMap
 
         private static CustomUIWindow window;
         private static CustomUIWindow builtFor;
-        private static CustomUIElement junkValue, highValue, specialtyValue;
+        private static CustomUIElement junkValue, highValue;
         private static CustomUIElement[] evLabels;
-        private static CustomUIElement junkSlider, highSlider, specialtySlider;
+        private static CustomUIElement junkSlider, highSlider;
         private static bool dragging;
         private static int dragKind;
         private static float lastSlideAt;
@@ -912,8 +912,7 @@ namespace DumpingGroundMap
                     label.text.color = Picker.Ink;
                 }
                 if (key == KeyJunk) junkValue = label;
-                else if (key == KeyHigh) highValue = label;
-                else specialtyValue = label;
+                else highValue = label;
             }
             catch (Exception ex)
             {
@@ -945,8 +944,6 @@ namespace DumpingGroundMap
                 }
                 else
                 {
-                    specialtySlider = HookSlider(window, key, 3);
-                    specialtyValue = EnsureValueLine(b, key, specialtyValue);
                     AddEvBlock(b);
                 }
                 Refresh();
@@ -1074,8 +1071,6 @@ namespace DumpingGroundMap
                 junkValue.SetText(Mathf.RoundToInt(Tuning.JunkPercent) + "%");
             if (highValue != null)
                 highValue.SetText(Tuning.HighPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
-            if (specialtyValue != null)
-                specialtyValue.SetText(Mathf.RoundToInt(Tuning.SpecialtyPercent) + "%");
             if (evLabels == null) return;
 
             float baseSum = 0f;
@@ -1124,14 +1119,6 @@ namespace DumpingGroundMap
                 Tuning.SetHighPercentLive(snapped);
                 LogSlide(2, value, Tuning.HighPercent);
             }
-            else
-            {
-                BeginDrag(3, Tuning.SpecialtyPercent);
-                float snapped = Mathf.Round(value);
-                SyncSlider(specialtySlider, snapped);
-                Tuning.SetSpecialtyLive(snapped);
-                LogSlide(3, value, Tuning.SpecialtyPercent);
-            }
         }
 
         private static void ApplyPreset(int preset)
@@ -1152,7 +1139,6 @@ namespace DumpingGroundMap
             if (dragging) return;
             SyncSlider(junkSlider, Tuning.JunkPercent);
             SyncSlider(highSlider, Tuning.HighPercent);
-            SyncSlider(specialtySlider, Tuning.SpecialtyPercent);
         }
 
         private static void BeginDrag(int kind, float from)
@@ -1214,11 +1200,9 @@ namespace DumpingGroundMap
             builtFor = null;
             junkValue = null;
             highValue = null;
-            specialtyValue = null;
             evLabels = null;
             junkSlider = null;
             highSlider = null;
-            specialtySlider = null;
             building = null;
             buildingKey = null;
             dragging = false;

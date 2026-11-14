@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
 using UnityEngine;
 
 namespace DumpingGroundMap
@@ -11,34 +13,37 @@ namespace DumpingGroundMap
     /// </summary>
     internal static class Tuning
     {
-        internal const float DefaultJunkPercent = 100f;
+        internal const float DefaultJunkPercent = 50f;
         internal const float DefaultHighPercent = 0f;
-        internal const float DefaultSpecialty = 0f;
+        internal const int DefaultSpecialtyTier = 2;
 
         internal const float JunkMin = 0f;
-        internal const float JunkMax = 200f;
+        internal const float JunkMax = 100f;
         internal const float HighMin = 0f;
         internal const float HighMax = 30f;
-        internal const float SpecialtyMin = 0f;
-        internal const float SpecialtyMax = 100f;
 
         private const string SectionName = "拾荒掉落 / Loot";
 
         /// <summary>
-        /// One shared slider for all four areas. Each area still applies it to its
-        /// own signature pool, so the same percentage yields different goods.
+        /// One shared tier for all four areas. Each area still applies it to its
+        /// own signature pool, so the same tier yields different goods.
         /// </summary>
         internal const string SpecialtyKey = "specialty";
 
+        /// <summary>Dropdown labels and the percentage each tier stands for.</summary>
+        private static readonly string[] SpecialtyLabels = { "较少", "中等", "较多", "全部" };
+        private static readonly float[] SpecialtyPercents = { 25f, 50f, 75f, 100f };
+
         private static ConfigEntry<float> junkEntry;
         private static ConfigEntry<float> highEntry;
-        private static ConfigEntry<float> specialtyEntry;
+        private static ConfigEntry<string> specialtyEntry;
         private static readonly Dictionary<string, EffectiveTable> cache =
             new Dictionary<string, EffectiveTable>();
+        private static readonly Dictionary<string, float> baseEvCache =
+            new Dictionary<string, float>();
         private static bool hasLive;
         private static float liveJunk;
         private static float liveHigh;
-        private static float liveSpecialty;
         private static bool initialized;
 
         private static float EntryJunk()
@@ -57,21 +62,20 @@ namespace DumpingGroundMap
             return Mathf.Round(Mathf.Clamp(value, HighMin, HighMax) * 2f) / 2f;
         }
 
-        private static float EntrySpecialty()
+        private static int EntrySpecialtyTier()
         {
-            if (specialtyEntry == null) return DefaultSpecialty;
-            float value = specialtyEntry.Value;
-            if (float.IsNaN(value)) return DefaultSpecialty;
-            return Mathf.Round(Mathf.Clamp(value, SpecialtyMin, SpecialtyMax));
+            if (specialtyEntry == null) return DefaultSpecialtyTier;
+            int tier = Array.IndexOf(SpecialtyLabels, specialtyEntry.Value);
+            return tier < 0 ? DefaultSpecialtyTier : tier;
         }
 
         /// <summary>
-        /// 0 = every area keeps its whole mixed table; 100 = only the items that
-        /// belong to each area's own pool survive (junk excluded).
+        /// 25/50/75/100 percent, picked from four fixed tiers. Each area applies it
+        /// to its own signature list, junk excluded.
         /// </summary>
         internal static float SpecialtyPercent
         {
-            get { return hasLive ? liveSpecialty : EntrySpecialty(); }
+            get { return SpecialtyPercents[EntrySpecialtyTier()]; }
         }
 
         /// <summary>
@@ -95,22 +99,14 @@ namespace DumpingGroundMap
             return float.IsNaN(value) ? DefaultHighPercent : Mathf.Clamp(value, HighMin, HighMax);
         }
 
-        internal static float ClampSpecialty(float value)
-        {
-            return float.IsNaN(value) ? DefaultSpecialty : Mathf.Clamp(value, SpecialtyMin, SpecialtyMax);
-        }
-
         internal static float BaseEv(Region region)
         {
-            RegionLootTable table = region.Loot;
-            float total = 0f;
-            float weighted = 0f;
-            for (int i = 0; i < table.Items.Length; ++i)
-            {
-                total += table.Weights[i];
-                weighted += table.Weights[i] * ValueOf(table.Items[i]);
-            }
-            return total > 0f ? weighted / total : 0f;
+            float ev;
+            if (baseEvCache.TryGetValue(region.Id, out ev)) return ev;
+            ev = Build(region, DefaultJunkPercent, DefaultHighPercent,
+                SpecialtyPercents[DefaultSpecialtyTier]).Ev;
+            baseEvCache[region.Id] = ev;
+            return ev;
         }
 
         internal static void Init()
@@ -122,13 +118,13 @@ namespace DumpingGroundMap
                 ModConfig config = ModHelper.GetConfig(Core.Id);
 
                 junkEntry = config.Define("junk_percent", DefaultJunkPercent, SectionName,
-                    delegate { return Copy.Text("垃圾出现率倍率（%，0–200）", "Junk chance multiplier (%, 0-200)"); },
-                    0f, 200f,
+                    delegate { return Copy.Text("垃圾出现率倍率（%，0–100）", "Junk chance multiplier (%, 0-100)"); },
+                    0f, 100f,
                     delegate
                     {
                         return Copy.Text(
-                            "按概率缩放垃圾出现率：50 表示该区垃圾概率减半，让出的份额按原比例分给其它物品。范围 0–200%，步长 1%。",
-                            "Scales the junk chance itself: 50 halves it in every area, and the freed share is split among the other items in their original proportions. Range 0-200%, step 1%.");
+                            "这是倍率，不是「垃圾占全部掉落的百分比」：50 表示该区的基础垃圾出现率减半（入口空地 48.75% → 24.4%），100 表示维持基础值。减少的份额按原比例分给其它物品。范围 0–100%，步长 1%。",
+                            "This is a multiplier, not the junk share of all drops: 50 halves each area's base junk chance (Main Gate 48.75% -> 24.4%), and 100 keeps the base value. The freed share is split among the other items in their original proportions. Range 0-100%, step 1%.");
                     },
                     false);
 
@@ -143,16 +139,19 @@ namespace DumpingGroundMap
                     },
                     false);
 
-                specialtyEntry = config.Define(SpecialtyKey, DefaultSpecialty, SectionName,
-                    delegate { return Copy.Text("区域专精度（%，0–100）", "Region specialty (%, 0-100)"); },
-                    0f, 100f,
+                specialtyEntry = config.Define(SpecialtyKey, SpecialtyLabels[DefaultSpecialtyTier],
+                    SectionName,
+                    delegate { return Copy.Text("区域专精度", "Region specialty"); },
+                    SpecialtyLabels,
                     delegate
                     {
                         return Copy.Text(
-                            "这一趟捡到的东西里，除了垃圾之外有多少是本区才有的特色物品。0% 与默认混搭一致；拉高后，外地的普通物品按比例让位给本区特色物品；100% 时除了垃圾之外只出本区的东西。四个区各有一份自己的特色清单，所以同一个数值在四个区会捡到不同的东西。垃圾是单独一档，出现率不受这条影响，仍由上面的垃圾倍率决定。范围 0–100%，步长 1%。",
-                            "How much of this search's haul, junk aside, is something only found in this region. 0% keeps the default mix; higher values make out-of-region goods yield proportionally to the region's own items, and at 100% only the region's own items (plus junk) remain. Each region has its own list, so one shared number still yields different goods per region. Junk is a separate tier, so its chance is untouched here and stays controlled by the junk multiplier above. Range 0-100%, step 1%.");
+                            "四个区共用一档，决定这一趟捡到的东西里、除垃圾之外有多少是本区才有的特色物品。较少 = 25%，中等 = 50%，较多 = 75%，全部 = 100%（除垃圾外只出本区的东西）。四个区各有一份自己的特色清单，所以同一档在四个区会捡到不同的东西。垃圾是单独一档，出现率不受这一项影响，仍由上面的垃圾倍率决定。",
+                            "One tier shared by all four areas: how much of the haul, junk aside, is something only found in this region. Rare = 25%, Medium = 50%, High = 75%, All = 100% (only the region's own goods, plus junk). Each region has its own list, so the same tier still yields different goods per region. Junk is a separate tier, so its chance is untouched here and stays controlled by the junk multiplier above.");
                     },
                     false);
+
+                MigrateSpecialtyTier(config);
 
                 junkEntry.OnChanged += delegate(float value)
                 {
@@ -166,10 +165,8 @@ namespace DumpingGroundMap
                     if (snapped != value) highEntry.Set(snapped);
                     Invalidated();
                 };
-                specialtyEntry.OnChanged += delegate(float value)
+                specialtyEntry.OnChanged += delegate(string value)
                 {
-                    float snapped = Mathf.Round(ClampSpecialty(value));
-                    if (snapped != value) specialtyEntry.Set(snapped);
                     Invalidated();
                 };
             }
@@ -183,6 +180,52 @@ namespace DumpingGroundMap
         {
             cache.Clear();
             NativeSettings.RefreshIfOpen();
+        }
+
+        /// <summary>
+        /// 0.3.12 turned the 0-100 specialty number into four named tiers. A stored
+        /// number is not one of the choice labels, so the config reader would fall
+        /// back to the default; read the raw value once and map it to the nearest
+        /// tier (0-37 = 较少, 38-62 = 中等, 63-87 = 较多, 88-100 = 全部).
+        /// </summary>
+        private static void MigrateSpecialtyTier(ModConfig config)
+        {
+            if (specialtyEntry == null || config == null) return;
+            string raw;
+            if (!TryReadRaw(config, SpecialtyKey, out raw)) return;
+            float percent;
+            if (!float.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out percent))
+                return;
+            int tier = DefaultSpecialtyTier;
+            float best = float.MaxValue;
+            for (int i = 0; i < SpecialtyPercents.Length; ++i)
+            {
+                float distance = Mathf.Abs(percent - SpecialtyPercents[i]);
+                if (distance < best)
+                {
+                    best = distance;
+                    tier = i;
+                }
+            }
+            specialtyEntry.Set(SpecialtyLabels[tier]);
+        }
+
+        private static bool TryReadRaw(ModConfig config, string key, out string value)
+        {
+            value = null;
+            try
+            {
+                FieldInfo field = typeof(ModConfig).GetField("rawValues",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                if (field == null) return false;
+                Dictionary<string, string> raw =
+                    field.GetValue(config) as Dictionary<string, string>;
+                return raw != null && raw.TryGetValue(key, out value) && value != null;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         internal static void SetJunkPercent(float value)
@@ -199,11 +242,11 @@ namespace DumpingGroundMap
             highEntry.Set(ClampHigh(value));
         }
 
-        internal static void SetSpecialty(float value)
+        internal static void SetSpecialtyTier(int tier)
         {
             if (specialtyEntry == null) return;
             hasLive = false;
-            specialtyEntry.Set(ClampSpecialty(value));
+            specialtyEntry.Set(SpecialtyLabels[Mathf.Clamp(tier, 0, SpecialtyLabels.Length - 1)]);
         }
 
         /// <summary>
@@ -224,20 +267,12 @@ namespace DumpingGroundMap
             Invalidated();
         }
 
-        internal static void SetSpecialtyLive(float value)
-        {
-            EnsureLive();
-            liveSpecialty = ClampSpecialty(value);
-            Invalidated();
-        }
-
         private static void EnsureLive()
         {
             if (hasLive) return;
             hasLive = true;
             liveJunk = EntryJunk();
             liveHigh = EntryHigh();
-            liveSpecialty = EntrySpecialty();
         }
 
         /// <summary>
@@ -249,12 +284,9 @@ namespace DumpingGroundMap
             if (!hasLive) return;
             float junk = liveJunk;
             float high = liveHigh;
-            float specialty = liveSpecialty;
             hasLive = false;
             if (junkEntry != null && junkEntry.Value != junk) junkEntry.Set(junk);
             if (highEntry != null && highEntry.Value != high) highEntry.Set(high);
-            if (specialtyEntry != null && specialtyEntry.Value != specialty)
-                specialtyEntry.Set(specialty);
             Invalidated();
         }
 
@@ -263,18 +295,18 @@ namespace DumpingGroundMap
             hasLive = false;
             SetJunkPercent(DefaultJunkPercent);
             SetHighPercent(DefaultHighPercent);
-            SetSpecialty(DefaultSpecialty);
+            SetSpecialtyTier(DefaultSpecialtyTier);
         }
 
         internal static void ApplyPreset(int preset)
         {
             float junk = DefaultJunkPercent;
             float high = DefaultHighPercent;
-            float specialty = DefaultSpecialty;
+            int tier = DefaultSpecialtyTier;
             switch (preset)
             {
                 case 1: // every area drops only its own specialties
-                    specialty = 100f;
+                    tier = SpecialtyLabels.Length - 1;
                     break;
                 case 2: // gamble on high-value finds
                     high = 8f;
@@ -283,7 +315,7 @@ namespace DumpingGroundMap
             hasLive = false;
             SetJunkPercent(junk);
             SetHighPercent(high);
-            SetSpecialty(specialty);
+            SetSpecialtyTier(tier);
         }
 
         internal static EffectiveTable TableFor(Region region)
@@ -291,7 +323,7 @@ namespace DumpingGroundMap
             Init();
             EffectiveTable table;
             if (cache.TryGetValue(region.Id, out table)) return table;
-            table = Build(region);
+            table = Build(region, JunkPercent, HighPercent, SpecialtyPercent);
             cache[region.Id] = table;
             return table;
         }
@@ -307,16 +339,17 @@ namespace DumpingGroundMap
             return table.Items[index];
         }
 
-        private static EffectiveTable Build(Region region)
+        private static EffectiveTable Build(Region region, float junkPercent,
+            float highPercent, float specialtyPercent)
         {
             RegionLootTable baseTable = region.Loot;
             string[] ids = baseTable.Items;
             int count = ids.Length;
             int junkIndex = Array.IndexOf(ids, "junk");
             int regionIndex = RegionIndex(region);
-            // One shared percentage for all four areas; each area applies it to its
-            // own specialty pool below, so the same f still yields different goods.
-            float specialty = Mathf.Clamp(SpecialtyPercent, SpecialtyMin, SpecialtyMax) / 100f;
+            // One shared tier for all four areas; each area applies it to its own
+            // specialty pool below, so the same value still yields different goods.
+            float specialty = Mathf.Clamp(specialtyPercent, 0f, 100f) / 100f;
 
             // 1) The specialty share only reshapes the non-junk part: inside that
             //    part, everything that is not this area's specialty is scaled by
@@ -357,10 +390,10 @@ namespace DumpingGroundMap
             float junkBase = junkIndex >= 0 && baseTotal > 0f
                 ? baseTable.Weights[junkIndex] / (float)baseTotal
                 : 0f;
-            float junkProb = Mathf.Clamp(junkBase * JunkPercent / 100f, 0f, 0.995f);
+            float junkProb = Mathf.Clamp(junkBase * junkPercent / 100f, 0f, 0.995f);
 
             // 3) The high-value share is carved out of the non-junk items only.
-            float highChance = Mathf.Clamp(HighPercent, 0f, 30f) / 100f;
+            float highChance = Mathf.Clamp(highPercent, 0f, 30f) / 100f;
             if (highChance > 0.995f - junkProb) highChance = Mathf.Max(0f, 0.995f - junkProb);
             if (otherTotal <= 0f) junkProb = 1f - highChance;
             float normalProb = Mathf.Max(0f, 1f - junkProb - highChance);
