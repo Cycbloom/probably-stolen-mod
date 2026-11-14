@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
 using HarmonyLib;
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -176,8 +175,8 @@ namespace DumpingGroundMap
     /// 声望在评价箱（FeedbackBox → ReputationUIManager）里的展示。
     /// 在原生面板打开后追加一行「垃圾场」：复用原生行预制体与排版，
     /// 只在内存里合成一个 StoreReputation，不写 PlayerStore.storeReputations，
-    /// 不落盘、不进 ES3。字段与方法全部按名字取，取不到就整行跳过。
-    /// 装了 災變日 / ReputationInterfaceRemake 时让路，避免空行或双行。
+    /// 不落盘、不进 ES3。类型全部编译期绑定（typeof / 直接访问公开字段），
+    /// 不使用字符串式反射或程序集扫描；装了 災變日 / ReputationInterfaceRemake 时让路。
     /// </summary>
     [HarmonyPatch]
     internal static class ReputationBoardPatch
@@ -187,34 +186,19 @@ namespace DumpingGroundMap
         private const string TitleEn = "The Dump";
         private const string TitleColor = "8FA06A";
         private const float BarFullHeight = 65.5f;
+        private const string DisasterDayId = "disaster_day";
+        private const string ReputationRemakeId = "cirno9.reputation_interface_remake";
 
         private static readonly int[] Thresholds = { 40, 50, 60 };
         private static readonly string[] TierZh = { "拾荒客", "熟脸", "老手", "活地图" };
         private static readonly string[] TierEn = { "Scavenger", "Regular", "Old Hand", "Living Map" };
 
-        private static Type uiType;
-        private static Type elementType;
-        private static Type repType;
-        private static FieldInfo layoutField;
-        private static FieldInfo prefabField;
-        private static FieldInfo statusField;
-        private static FieldInfo numberField;
-        private static FieldInfo greenField;
-        private static FieldInfo redField;
-        private static FieldInfo displayField;
-        private static FieldInfo colorField;
-        private static FieldInfo perksField;
-        private static MethodInfo initMethod;
-        private static MethodInfo setRepMethod;
-        private static bool resolved;
-        private static bool usable;
         private static bool foreignChecked;
         private static bool foreign;
 
         private static MethodBase TargetMethod()
         {
-            Type type = AccessTools.TypeByName("ReputationUIManager");
-            return type == null ? null : AccessTools.Method(type, "OpenUI", new Type[0]);
+            return AccessTools.Method(typeof(ReputationUIManager), "OpenUI", new Type[0]);
         }
 
         private static void Postfix(ReputationUIManager __instance)
@@ -222,28 +206,27 @@ namespace DumpingGroundMap
             if (!Core.Enabled || __instance == null) return;
             try
             {
-                if (!Resolve() || ForeignRunning()) return;
-                GameObject layout = Read(layoutField, __instance) as GameObject;
-                GameObject prefab = Read(prefabField, __instance) as GameObject;
+                if (ForeignRunning()) return;
+                GameObject layout = __instance.layout;
+                GameObject prefab = __instance.reputationPrefab;
                 if (layout == null || prefab == null) return;
                 if (layout.transform.Find(RowName) != null) return;
 
                 int points = Reputation.Points;
-                object entry = BuildEntry(points);
-                if (entry == null) return;
+                StoreReputation entry = BuildEntry(points);
 
                 GameObject row = UnityEngine.Object.Instantiate(prefab, layout.transform, false) as GameObject;
                 if (row == null) return;
                 row.name = RowName;
 
-                Component element = row.GetComponent(elementType);
+                ReputationElement element = row.GetComponent<ReputationElement>();
                 if (element == null)
                 {
                     UnityEngine.Object.Destroy(row);
                     return;
                 }
 
-                initMethod.Invoke(element, new object[] { entry });
+                element.Init(entry);
                 ApplyRow(element, points);
                 PlaceRow(row, layout);
                 Debug.Log("[DumpingGroundMap] reputation row shown: " + points);
@@ -255,42 +238,31 @@ namespace DumpingGroundMap
         }
 
         /// <summary>合成一个只存在于内存里的派系声望，供原生 Init 读取。</summary>
-        private static object BuildEntry(int points)
+        private static StoreReputation BuildEntry(int points)
         {
-            object entry = Activator.CreateInstance(repType);
-            if (entry == null) return null;
-
-            Write(displayField, entry, Copy.Text(TitleZh, TitleEn));
-            Write(colorField, entry, TitleColor);
-            if (perksField != null && perksField.FieldType.IsGenericType)
-            {
-                Type perkType = perksField.FieldType.GetGenericArguments()[0];
-                Write(perksField, entry, Activator.CreateInstance(typeof(List<>).MakeGenericType(perkType)));
-            }
-            setRepMethod.Invoke(entry, new object[] { (double)points });
+            StoreReputation entry = new StoreReputation();
+            entry.factionDisplay = Copy.Text(TitleZh, TitleEn);
+            entry.factionColor2 = TitleColor;
+            entry.perks = new List<StoreReputationPerk>();
+            entry.SetReputation(points);
             return entry;
         }
 
         /// <summary>Init 之后覆盖状态、数字与条：等级名 + 下一门槛 + 0–60 总进度。</summary>
-        private static void ApplyRow(object element, int points)
+        private static void ApplyRow(ReputationElement element, int points)
         {
-            TextMeshProUGUI status = Read(statusField, element) as TextMeshProUGUI;
-            if (status != null) status.SetText(StatusName(points));
+            if (element.reputationStatus != null) element.reputationStatus.SetText(StatusName(points));
+            if (element.reputationNumber != null) element.reputationNumber.SetText(NumberText(points));
 
-            TextMeshProUGUI number = Read(numberField, element) as TextMeshProUGUI;
-            if (number != null) number.SetText(NumberText(points));
-
-            Image green = Read(greenField, element) as Image;
-            if (green != null)
+            if (element.greenImage != null)
             {
-                green.gameObject.SetActive(true);
-                RectTransform rect = green.rectTransform;
+                element.greenImage.gameObject.SetActive(true);
+                RectTransform rect = element.greenImage.rectTransform;
                 Vector2 size = rect.sizeDelta;
                 size.y = BarFullHeight * BarRatio(points);
                 rect.sizeDelta = size;
             }
-            Image red = Read(redField, element) as Image;
-            if (red != null) red.gameObject.SetActive(false);
+            if (element.redImage != null) element.redImage.gameObject.SetActive(false);
         }
 
         private static string StatusName(int points)
@@ -351,64 +323,22 @@ namespace DumpingGroundMap
             rect.anchoredPosition = previous.anchoredPosition - new Vector2(0f, step);
         }
 
-        private static bool Resolve()
-        {
-            if (resolved) return usable;
-            resolved = true;
-            uiType = AccessTools.TypeByName("ReputationUIManager");
-            elementType = AccessTools.TypeByName("ReputationElement");
-            repType = AccessTools.TypeByName("StoreReputation");
-            if (uiType == null || elementType == null || repType == null) return false;
-
-            layoutField = AccessTools.Field(uiType, "layout");
-            prefabField = AccessTools.Field(uiType, "reputationPrefab");
-            statusField = AccessTools.Field(elementType, "reputationStatus");
-            numberField = AccessTools.Field(elementType, "reputationNumber");
-            greenField = AccessTools.Field(elementType, "greenImage");
-            redField = AccessTools.Field(elementType, "redImage");
-            displayField = AccessTools.Field(repType, "factionDisplay");
-            colorField = AccessTools.Field(repType, "factionColor2");
-            perksField = AccessTools.Field(repType, "perks");
-            initMethod = AccessTools.Method(elementType, "Init", new Type[] { repType });
-            setRepMethod = AccessTools.Method(repType, "SetReputation", new Type[] { typeof(double) });
-
-            usable = layoutField != null && prefabField != null && displayField != null
-                && colorField != null && perksField != null && initMethod != null
-                && setRepMethod != null && statusField != null && numberField != null
-                && greenField != null;
-            if (!usable) Debug.LogWarning("[DumpingGroundMap] reputation row: native API not found");
-            return usable;
-        }
-
         /// <summary>災變日 与 ReputationInterfaceRemake 都会重写这块面板，存在时让路。</summary>
         private static bool ForeignRunning()
         {
             if (foreignChecked) return foreign;
             foreignChecked = true;
-            Assembly[] all = AppDomain.CurrentDomain.GetAssemblies();
-            for (int i = 0; i < all.Length; ++i)
+            if (ModHelper.IsModRunning(DisasterDayId))
             {
-                string name = all[i].GetName().Name;
-                if (name == "DisasterDayMod" || name == "ReputationInterfaceRemake")
-                {
-                    foreign = true;
-                    Debug.Log("[DumpingGroundMap] reputation row skipped: " + name + " is loaded");
-                    break;
-                }
+                foreign = true;
+                Debug.Log("[DumpingGroundMap] reputation row skipped: " + DisasterDayId);
+            }
+            else if (ModHelper.IsModRunning(ReputationRemakeId))
+            {
+                foreign = true;
+                Debug.Log("[DumpingGroundMap] reputation row skipped: " + ReputationRemakeId);
             }
             return foreign;
-        }
-
-        private static object Read(FieldInfo field, object target)
-        {
-            if (field == null || target == null) return null;
-            return field.GetValue(target);
-        }
-
-        private static void Write(FieldInfo field, object target, object value)
-        {
-            if (field == null || target == null) return;
-            field.SetValue(target, value);
         }
     }
 }
