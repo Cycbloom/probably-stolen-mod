@@ -78,6 +78,12 @@ namespace DumpingGroundMap
             get { return SpecialtyPercents[EntrySpecialtyTier()]; }
         }
 
+        /// <summary>0-based tier index: 0 = 较少, 1 = 中等, 2 = 较多, 3 = 全部.</summary>
+        internal static int SpecialtyTier
+        {
+            get { return EntrySpecialtyTier(); }
+        }
+
         /// <summary>
         /// While a slider is being dragged the values live here instead of in the
         /// config entries, so the file is written once when the drag ends.
@@ -99,12 +105,16 @@ namespace DumpingGroundMap
             return float.IsNaN(value) ? DefaultHighPercent : Mathf.Clamp(value, HighMin, HighMax);
         }
 
+        /// <summary>
+        /// Vanilla reference: the untouched weight tables (junk at 100%, no
+        /// specialty, no high-value share), i.e. 12.26 in every area. This is a
+        /// fixed yardstick and does not follow the player's current settings.
+        /// </summary>
         internal static float BaseEv(Region region)
         {
             float ev;
             if (baseEvCache.TryGetValue(region.Id, out ev)) return ev;
-            ev = Build(region, DefaultJunkPercent, DefaultHighPercent,
-                SpecialtyPercents[DefaultSpecialtyTier]).Ev;
+            ev = Build(region, 100f, 0f, 0f).Ev;
             baseEvCache[region.Id] = ev;
             return ev;
         }

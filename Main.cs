@@ -838,6 +838,7 @@ namespace DumpingGroundMap
         private static CustomUIWindow window;
         private static CustomUIWindow builtFor;
         private static CustomUIElement junkValue, highValue;
+        private static CustomUIElement specialtyDropdown;
         private static CustomUIElement[] evLabels;
         private static CustomUIElement junkSlider, highSlider;
         private static bool dragging;
@@ -944,6 +945,7 @@ namespace DumpingGroundMap
                 }
                 else
                 {
+                    specialtyDropdown = b.Last;
                     AddEvBlock(b);
                 }
                 Refresh();
@@ -1019,6 +1021,13 @@ namespace DumpingGroundMap
             if (header.text != null) header.text.color = Picker.Accent;
             Picker.Size(header, -1, 26);
 
+            // Fixed yardstick above the four rows: the untouched vanilla tables.
+            b.AddLabel("", "dgm_ev_reference");
+            CustomUIElement reference = b.Last;
+            Picker.Size(reference, -1, 24);
+            reference.SetText(ReferenceLine());
+            if (reference.text != null) reference.text.color = Picker.Ink;
+
             evLabels = new CustomUIElement[Region.All.Length + 1];
             for (int i = 0; i < evLabels.Length; ++i)
             {
@@ -1091,10 +1100,22 @@ namespace DumpingGroundMap
             SyncWidgets();
         }
 
+        private static string ReferenceLine()
+        {
+            string text = Copy.Text("原版参考（垃圾 100%、无专精）：",
+                "Vanilla reference (100% junk, no specialty): ");
+            for (int i = 0; i < Region.All.Length; ++i)
+            {
+                if (i > 0) text += " / ";
+                text += Tuning.BaseEv(Region.All[i]).ToString("0.00", CultureInfo.InvariantCulture);
+            }
+            return text;
+        }
+
         private static string Line(string name, float before, float after)
         {
             float change = before > 0f ? (after - before) / before * 100f : 0f;
-            return name + "　" + Copy.Text("默认 ", "default ")
+            return name + "　" + Copy.Text("原版 ", "vanilla ")
                 + before.ToString("0.00", CultureInfo.InvariantCulture) + "  →  "
                 + Copy.Text("现在 ", "now ")
                 + after.ToString("0.00", CultureInfo.InvariantCulture)
@@ -1125,6 +1146,10 @@ namespace DumpingGroundMap
         {
             EndDrag();
             Tuning.ApplyPreset(preset);
+            // The native dropdown owns its own selection; writing the config entry
+            // does not move it, so drive the widget explicitly.
+            if (specialtyDropdown != null)
+                specialtyDropdown.SetIndex(Tuning.SpecialtyTier, false);
             Refresh();
         }
 
@@ -1200,6 +1225,7 @@ namespace DumpingGroundMap
             builtFor = null;
             junkValue = null;
             highValue = null;
+            specialtyDropdown = null;
             evLabels = null;
             junkSlider = null;
             highSlider = null;
