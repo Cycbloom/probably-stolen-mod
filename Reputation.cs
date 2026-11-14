@@ -430,7 +430,7 @@ namespace DumpingGroundMap
         private static readonly int[] Thresholds = { 40, 50, 60 };
         /// <summary>
         /// 柱子上的三个奖励点，与原生 perk 同一套刻度（0–200）。
-        /// 20：每天多一名拾荒客客人，已生效（ScavengerPerkPatch）。
+        /// 20：每天多一名拾荒客客人 + 首次达到 20 点的一枚「拾荒者信物」（ScavMedal，仅一次，已生效）。
         /// 40：三个高级区（拆解堆 / 医疗废弃点 / 废武器堆）的统一解锁门槛，已生效。
         /// TODO 60：待定（未实现，仅图标占位）。
         /// </summary>
@@ -794,8 +794,8 @@ namespace DumpingGroundMap
                 return Copy.Text("开放高级拾荒区域：拆解堆、医疗废弃点、废武器堆",
                     "Unlocks the high-tier scavenging areas: Scrap Pile, Medical Waste, Weapon Dump");
             }
-            return Copy.Text("每天多一名拾荒客客人",
-                "One extra scavenger customer per day");
+            return Copy.Text("每天多一名拾荒客客人；首次达到 20 点额外获得一枚「拾荒者信物」放在前台（仅一次）",
+                "One extra scavenger customer per day; the first time you reach 20 you also get one Scavenger's Token on the front counter (one-time only)");
         }
 
         private string Flavor()

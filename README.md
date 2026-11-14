@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.35
+# 垃圾场拾荒地图 · 0.3.36
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -62,6 +62,8 @@
 - **完全不碰 `GetNormalCustomerCount`**，所以与拾荒人开局、囤积癖短眠者之类改客人数量/睡眠的 mod 各改各的，不会重复加。只读 `Reputation.Points`，不写存档结构。
 
 日志：补丁绑定时一条 `scavenger perk: patch target StoreClientManager.GenerateClient`；生效时一条 `scavenger perk: +1 scavenger client day=<天数> points=<点数> identifier=scavGeneral`；失败分别打 `CreateScavGeneral returned null` / `add failed: …`。
+
+**悬停说明（0.3.36）**：20 点这一档实际是两件事——每天多一名拾荒客客人，以及首次达到 20 点时一次性获得一枚「拾荒者信物」放在前台。图标悬停文案已补成两件并标明信物只给一次，中英文同步。
 
 ### Reputation Pop 联动（0.3.27）
 
