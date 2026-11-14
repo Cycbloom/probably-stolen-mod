@@ -324,133 +324,140 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 每区的主题表。非垃圾权重统一归一化到 1000，垃圾权重单独给，
-        /// 这样专精插值可以在两张表之间按比例混合。
+        /// 每区的主题表，全部按「大类 → 子项」两层定义：Share 是大类在整表
+        /// （10000 份）里的份额，类内权重只决定彼此的相对比例。
+        ///
+        /// 两条固定规则：
+        /// 1. 垃圾份额沿用各区原有基准，不搞一刀切（入口 48.75%、拆解 59.89%、
+        ///    生活 47.67%、医疗 46.47%、废武器 50%），这样专精与垃圾倍率的
+        ///    插值结果和以前一致。
+        /// 2. 类内权重与单价成反比：同一大类里单价越低权重越大，单价越高越靠后，
+        ///    避免单一高价物品概率过高、也让 EV 不再随高价件膨胀。
+        ///    材料是唯一有额外系数的：按枪匠 3D 打印机 / 机床芯片的实际消耗量
+        ///    调整后，废金属、3D 打印耗材最高，线缆、金属螺丝压低
+        ///    （明细见 docs/掉落权重与期望收益.md）。
         /// </summary>
         private static Dictionary<string, RegionLootTable> BuildThemes()
         {
             Dictionary<string, RegionLootTable> result = new Dictionary<string, RegionLootTable>();
 
-            // 拆解堆：材料 / 工具 / 电子废料，垃圾比例最高。
-            Builder b = new Builder();
-            b.Add("junk", 1493);
-            b.Add("flux_agent", 167);
-            b.Add("gun_part", 167);
-            b.Add("kotton_fabric", 167);
-            b.Add("nuts_metal", 167);
-            b.Add("scrap_metal", 167);
-            b.Add("metal_ingot", 47);
-            b.Add("common_electronic", 20);
-            b.Add("printer_plastic", 20);
-            b.Add("wire", 20);
-            b.Add("glass_shard", 18);
-            b.Add("module_extractor", 4);
-            b.Add("screwdriver", 4);
-            b.Add("turbo_booster", 4);
-            b.Add("welder", 4);
-            b.Add("wire_cutter", 4);
-            b.Add("system_module_performance", 3);
-            b.Add("blank_module", 2);
-            b.Add("random_efficiency_module", 2);
-            b.Add("random_performance_module", 2);
-            b.Add("random_quality_module", 2);
-            b.Add("system_module_corrupt", 2);
-            b.Add("system_module_eco", 2);
-            b.Add("system_module_fineness", 2);
-            b.Add("system_module_ruined", 2);
-            b.Add("rare_electronic", 1);
-            result["scrap"] = b.Build();
+            // 入口空地：通用杂项，保持原版的构成比例（垃圾 48.75%）。
+            result["gate"] = BuildCategories(
+                Cat(4875, new[] { "junk" }, new[] { 1 }),
+                Cat(1750,
+                    new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire", "gun_part",
+                        "common_electronic", "metal_ingot" },
+                    new[] { 140, 120, 20, 18, 12, 8, 4 }),
+                Cat(1000,
+                    new[] { "zerochew", "processed_juice", "soda_red", "cat_bar", "processed_milk",
+                        "li_eat_snackbar", "energy_drink", "red_beer", "cup_noodle", "galaxy_blend",
+                        "processed_meat", "beis_icecream", "nudka" },
+                    new[] { 75, 43, 40, 40, 38, 35, 33, 33, 30, 24, 24, 15, 7 }),
+                Cat(850,
+                    new[] { "caffeine_pill", "toothpaste", "water_filter", "toilet_paper", "shampoo",
+                        "full_water_test_strip_box", "paper_towel", "full_water_purification_tablet_box" },
+                    new[] { 60, 40, 24, 24, 20, 19, 17, 11 }),
+                Cat(450,
+                    new[] { "bandage_item", "hemostatic_bandage_item", "topical_bandage_item" },
+                    new[] { 75, 38, 38 }),
+                Cat(500,
+                    new[] { "glass_shard_shiv", "pipe_weapon", "box_cutter", "kitchen_knife" },
+                    new[] { 75, 40, 21, 13 }),
+                Cat(350,
+                    new[] { "screwdriver", "wire_cutter", "welder", "module_extractor" },
+                    new[] { 24, 15, 8, 6 }),
+                Cat(225,
+                    new[] { "glass_shard", "empty_beer_bottle", "scratcher", "system_module_ruined", "turbo_booster" },
+                    new[] { 300, 120, 30, 20, 17 }));
 
-            // 生活废料带：食品 / 日用为主，掺一点便宜药品。
-            b = new Builder();
-            b.Add("junk", 911);
-            b.Add("empty_beer_bottle", 159);
-            b.Add("cat_bar", 44);
-            b.Add("cup_noodle", 44);
-            b.Add("energy_drink", 44);
-            b.Add("galaxy_blend", 44);
-            b.Add("li_eat_snackbar", 44);
-            b.Add("processed_juice", 44);
-            b.Add("processed_meat", 44);
-            b.Add("processed_milk", 44);
-            b.Add("red_beer", 44);
-            b.Add("soda_red", 44);
-            b.Add("zerochew", 44);
-            b.Add("caffeine_pill", 34);
-            b.Add("full_water_purification_tablet_box", 34);
-            b.Add("full_water_test_strip_box", 34);
-            b.Add("paper_towel", 34);
-            b.Add("shampoo", 34);
-            b.Add("toilet_paper", 34);
-            b.Add("toothpaste", 34);
-            b.Add("water_filter", 34);
-            b.Add("beis_icecream", 27);
-            b.Add("nudka", 27);
-            b.Add("fanta_pill", 6);
-            b.Add("birth_control_pill", 5);
-            b.Add("bandage_item", 4);
-            b.Add("dream_dust", 4);
-            b.Add("hemostatic_bandage_item", 4);
-            b.Add("smelling_salt", 4);
-            b.Add("topical_bandage_item", 4);
-            result["refuse"] = b.Build();
+            // 拆解堆：材料 / 工具 / 模组，垃圾比例最高（59.89%）。
+            result["scrap"] = BuildCategories(
+                Cat(5989, new[] { "junk" }, new[] { 1 }),
+                Cat(2900,
+                    new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire", "gun_part",
+                        "common_electronic", "metal_ingot" },
+                    new[] { 140, 120, 20, 18, 12, 8, 4 }),
+                Cat(520,
+                    new[] { "screwdriver", "turbo_booster", "wire_cutter", "welder", "module_extractor" },
+                    new[] { 24, 17, 15, 8, 6 }),
+                Cat(400,
+                    new[] { "system_module_ruined", "system_module_corrupt", "blank_module",
+                        "random_performance_module", "random_efficiency_module", "random_quality_module",
+                        "system_module_performance", "system_module_eco", "system_module_fineness" },
+                    new[] { 20, 13, 10, 9, 9, 9, 9, 6, 6 }),
+                Cat(191,
+                    new[] { "glass_shard", "crowbar" },
+                    new[] { 300, 8 }));
 
-            // 医疗废弃点：医疗品为主，垃圾比例低于低级区。
-            b = new Builder();
-            b.Add("junk", 868);
-            b.Add("fanta_pill", 117);
-            b.Add("birth_control_pill", 93);
-            b.Add("bandage_item", 88);
-            b.Add("hemostatic_bandage_item", 88);
-            b.Add("rubbing_alcohol", 88);
-            b.Add("smelling_salt", 88);
-            b.Add("topical_bandage_item", 88);
-            b.Add("dream_dust", 78);
-            b.Add("salve", 58);
-            b.Add("phagimycin_pill", 56);
-            b.Add("blood_bag", 42);
-            b.Add("zyanide_pill", 42);
-            b.Add("nightmare_dust", 39);
-            b.Add("common_medical", 35);
-            result["med"] = b.Build();
+            // 生活废料带：食品 / 日用品 / 便宜药品，垃圾 47.67%。
+            result["refuse"] = BuildCategories(
+                Cat(4767, new[] { "junk" }, new[] { 1 }),
+                Cat(2600,
+                    new[] { "zerochew", "processed_juice", "soda_red", "cat_bar", "processed_milk",
+                        "li_eat_snackbar", "energy_drink", "red_beer", "cup_noodle", "galaxy_blend",
+                        "processed_meat", "beis_icecream", "nudka" },
+                    new[] { 75, 43, 40, 40, 38, 35, 33, 33, 30, 24, 24, 15, 7 }),
+                Cat(1800,
+                    new[] { "caffeine_pill", "toothpaste", "water_filter", "toilet_paper", "shampoo",
+                        "full_water_test_strip_box", "paper_towel", "full_water_purification_tablet_box" },
+                    new[] { 60, 40, 24, 24, 20, 19, 17, 11 }),
+                Cat(500,
+                    new[] { "bandage_item", "fanta_pill", "birth_control_pill", "smelling_salt",
+                        "hemostatic_bandage_item", "topical_bandage_item", "dream_dust" },
+                    new[] { 75, 50, 40, 40, 38, 38, 33 }),
+                Cat(333, new[] { "empty_beer_bottle" }, new[] { 1 }));
 
-            // 废武器堆：按大类分（一张表 10000 份）。
-            // 垃圾 5000、材料 2000、近战 1500、子弹 480、配件 520、枪支 500。
+            // 医疗废弃点：医疗耗材 / 药品 / 器械，垃圾 46.47%。
+            result["med"] = BuildCategories(
+                Cat(4647, new[] { "junk" }, new[] { 1 }),
+                Cat(3200,
+                    new[] { "bandage_item", "hemostatic_bandage_item", "topical_bandage_item",
+                        "blood_bag", "rubbing_alcohol", "salve" },
+                    new[] { 75, 38, 38, 18, 17, 8 }),
+                Cat(2000,
+                    new[] { "fanta_pill", "birth_control_pill", "smelling_salt", "dream_dust",
+                        "phagimycin_pill", "zyanide_pill", "nightmare_dust" },
+                    new[] { 50, 40, 40, 33, 24, 18, 17 }),
+                Cat(153,
+                    new[] { "common_medical", "surgery_tool" },
+                    new[] { 15, 3 }));
+
+            // 废武器堆：垃圾 5000、材料 2000、近战 1500、子弹 480、配件 520、枪支 500。
             // 子弹与配件名义上各 5%，把 20 份从子弹挪给配件，让配件总量略高于子弹。
             result["weapons"] = BuildCategories(
-                // 垃圾：5000。主题表的垃圾权重等于非垃圾权重和，专精 100% +
-                // 垃圾倍率 100% 时正好占一半（见 Tuning.Build 的 junk 插值）。
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
-                // 材料：枪械零件最多，其次金属锭、电子元件，其余基础材料递减。
+                // 材料：按枪匠配方，废金属与 3D 打印耗材最高，线缆、金属螺丝压低。
                 Cat(2000,
-                    new[] { "gun_part", "metal_ingot", "common_electronic", "wire", "printer_plastic", "nuts_metal", "scrap_metal" },
-                    new[] { 40, 22, 16, 11, 8, 6, 5 }),
-                // 近战：便宜的日用品刀、工具、美工刀占多数，贵重近战很少。
+                    new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire", "gun_part",
+                        "common_electronic", "metal_ingot" },
+                    new[] { 140, 120, 20, 18, 12, 8, 4 }),
+                // 近战：玻璃刀、铅管、美工刀等便宜常见品最多，贵重近战在尾部。
                 Cat(1500,
-                    new[] { "box_cutter", "pipe_weapon", "glass_shard_shiv", "crowbar", "kitchen_knife",
-                        "hatchet", "kitchen_cleaver", "combat_knife", "skinning_knife", "combat_machete", "stun_baton" },
-                    new[] { 26, 22, 18, 12, 8, 5, 4, 3, 1, 1, 1 }),
-                // 子弹：先归一个大类，再在类内抽具体弹种；多数是便宜的 .22。
+                    new[] { "glass_shard_shiv", "pipe_weapon", "box_cutter", "kitchen_knife", "hatchet",
+                        "kitchen_cleaver", "crowbar", "combat_knife", "skinning_knife", "stun_baton",
+                        "combat_machete" },
+                    new[] { 30, 26, 20, 14, 10, 8, 6, 5, 3, 2, 1 }),
+                // 子弹：先归一个大类，再在类内按单价反比抽具体弹种。
                 Cat(480,
-                    new[] { "small_pistol_ammo", "small_pistol_ammo_nl", "heavy_pistol_ammo",
-                        "small_pistol_ammo_p", "heavy_pistol_ammo_nl", "heavy_pistol_ammo_p", "lou_etched_round" },
-                    new[] { 30, 20, 20, 12, 10, 6, 2 }),
-                // 配件：便宜的弹匣、消音器、激光笔最常见，高档件只作点缀。
+                    new[] { "small_pistol_ammo_nl", "small_pistol_ammo", "heavy_pistol_ammo_nl",
+                        "small_pistol_ammo_p", "heavy_pistol_ammo", "lou_etched_round",
+                        "heavy_pistol_ammo_p" },
+                    new[] { 30, 24, 20, 18, 14, 13, 10 }),
+                // 配件：便宜的弹匣、消音器、激光笔最常见，高价件只作点缀。
                 Cat(520,
                     new[] { "mag_22", "silencer_makeshift", "laser_toy", "internal_springs_improved",
-                        "mag_22_high", "rds_makeshift", "mag_10mm", "internal_springs", "short_stock", "grip", "bipod",
-                        "mag_22_ext", "mag_10mm_high", "mag_10mm_ext", "barrel", "compensator", "laser",
-                        "stock", "rds", "silencer", "trigger_group", "mag_10mm_smg", "mag_10mm_smg_high",
-                        "mag_10mm_smg_box", "match_barrel", "silencer2", "laser2", "ammo_display", "grip_gel" },
-                    new[] { 14, 12, 10, 9, 7, 6, 5, 4, 4, 4, 3,
-                        3, 3, 2, 2, 2, 2,
-                        1, 1, 1, 1, 1, 1,
-                        1, 1, 1, 1, 1, 1 }),
-                // 枪支：土枪、打印枪最多，制式手枪次之，冲锋枪与霰弹枪最稀有。
+                        "mag_22_high", "rds_makeshift", "mag_10mm", "short_stock", "mag_22_ext", "grip",
+                        "internal_springs", "bipod", "mag_10mm_high", "mag_10mm_ext", "compensator",
+                        "laser", "trigger_group", "stock", "mag_10mm_smg", "silencer", "rds", "barrel",
+                        "mag_10mm_smg_high", "ammo_display", "grip_gel", "match_barrel",
+                        "mag_10mm_smg_box", "silencer2", "laser2" },
+                    new[] { 40, 40, 33, 30, 24, 24, 20, 17, 17, 15, 15, 15, 15, 12, 12, 12, 12, 15,
+                        11, 11, 10, 10, 9, 9, 9, 8, 7, 7, 6 }),
+                // 枪支：打印枪最常见，土枪次之，冲锋枪与霰弹枪最稀有。
                 Cat(500,
                     new[] { "printed_gun", "handmade_pistol", "heavy_handmade_pistol", "glock_receiver",
                         "revolver", "stun_gun", "smg", "shotgun" },
-                    new[] { 40, 24, 16, 8, 5, 3, 2, 2 }));
+                    new[] { 40, 22, 14, 9, 6, 4, 3, 2 }));
 
             return result;
         }
@@ -499,12 +506,15 @@ namespace DumpingGroundMap
                 "blood_bag", "rubbing_alcohol", "salve", "surgery_tool", "birth_control_pill",
                 "fanta_pill", "phagimycin_pill", "zyanide_pill", "smelling_salt", "dream_dust",
                 "nightmare_dust", "common_medical");
-            // 高档池里的物品在开启前不会出现，这里只是给 ModHook 报一个合理的原版表名。
+            // 贵重品池里的物品在开启前不会出现，这里只是给 ModHook 报一个合理的原版表名。
             AddAll(result, "householdTable",
                 "water_filter_adv", "portable_water_purifier", "bottled_water_premium");
             AddAll(result, "dumpingGroundMedical", "blue_blood_bag", "black_injector");
-            AddAll(result, "materialTable", "rare_electronic");
-            AddAll(result, "toolTable", "module_extractor_advanced");
+            AddAll(result, "materialTable", "rare_electronic", "advanced_flux_agent", "hypertech_electronic");
+            AddAll(result, "toolTable", "module_extractor_advanced", "xray_scanner");
+            AddAll(result, "t2moduleTable",
+                "printer_chip_pistol_double", "printer_chip_heavy_handmade_pistol_frame",
+                "printer_chip_combat_machete", "printer_chip_gun_part", "printer_chip_10_mag_ext");
             return result;
         }
 
@@ -1318,7 +1328,7 @@ namespace DumpingGroundMap
             b.BeginRow(8f, TextAnchor.MiddleLeft);
             PresetButton(b, 0, Copy.Text("默认", "Default"));
             PresetButton(b, 1, Copy.Text("专精拉满", "Specialty max"));
-            PresetButton(b, 2, Copy.Text("赌高档", "Gamble"));
+            PresetButton(b, 2, Copy.Text("赌贵重品", "Gamble"));
             b.End();
             b.AddSpace(2);
             b.BeginRow(8f, TextAnchor.MiddleLeft);

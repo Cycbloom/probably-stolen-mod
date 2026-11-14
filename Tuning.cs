@@ -291,7 +291,7 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// Vanilla reference: the untouched weight tables (junk at 100%, no
-        /// specialty, no high-value share), i.e. 12.26 in every area. This is a
+        /// specialty, no valuable share), i.e. 12.26 in every area. This is a
         /// fixed yardstick and does not follow the player's current settings.
         /// </summary>
         internal static float BaseEv(Region region)
@@ -323,13 +323,13 @@ namespace DumpingGroundMap
                     false);
 
                 highEntry = config.Define("high_percent", DefaultHighPercent, SectionName,
-                    delegate { return Copy.Text("高档物资出现率（%，0–30）", "High-value find chance (%, 0-30)"); },
+                    delegate { return Copy.Text("贵重品出现率（%，0–30）", "Valuable find chance (%, 0-30)"); },
                     0f, 30f,
                     delegate
                     {
                         return Copy.Text(
-                            "每次拾荒单独判断：这一趟会不会出高档物资。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n高档物资换自普通物品，垃圾不受影响。\n本项在声望达到 80（识货行家）后生效：\n80 之前按 0 算（设置值会保留），80 之后完全按滑条数值生效。",
-                            "Rolled once per search:\nit decides only whether this haul includes a high-value item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nHigh-value items replace normal items; junk is not affected.\nThis setting activates at 80 reputation (Connoisseur):\nbefore 80 it counts as 0 (your value is kept); from 80 on the slider applies as-is.");
+                            "每次拾荒单独判断：这一趟会不会出贵重品。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n贵重品换自普通物品，垃圾不受影响。\n本项在声望达到 80（识货行家）后生效：\n80 之前按 0 算（设置值会保留），80 之后完全按滑条数值生效。",
+                            "Rolled once per search:\nit decides only whether this haul includes a valuable item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nValuable items replace normal items; junk is not affected.\nThis setting activates at 80 reputation (Connoisseur):\nbefore 80 it counts as 0 (your value is kept); from 80 on the slider applies as-is.");
                     },
                     false);
 
@@ -707,7 +707,7 @@ namespace DumpingGroundMap
 
         internal static void ApplyPreset(int preset)
         {
-            // 3 / 4 只改「小奖整箱价值」，不动垃圾、高档与专精。
+            // 3 / 4 只改「小奖整箱价值」，不动垃圾、贵重品与专精。
             if (preset == 3 || preset == 4)
             {
                 hasLive = false;
@@ -723,7 +723,7 @@ namespace DumpingGroundMap
                 case 1: // every area drops only its own specialties
                     tier = SpecialtyLabels.Length - 1;
                     break;
-                case 2: // gamble on high-value finds
+                case 2: // gamble on valuable finds
                     high = 8f;
                     break;
             }
@@ -744,7 +744,7 @@ namespace DumpingGroundMap
             }
             EffectiveTable table;
             if (cache.TryGetValue(region.Id, out table)) return table;
-            // 80 档门控：声望不到 80 时高档一律按 0 算，滑条上的值只保留、不生效。
+            // 80 档门控：声望不到 80 时贵重品一律按 0 算，滑条上的值只保留、不生效。
             float highPercent = perk80 ? HighPercent : 0f;
             table = Build(region, JunkPercent, highPercent, SpecialtyPercent, perk80);
             cache[region.Id] = table;
@@ -811,7 +811,7 @@ namespace DumpingGroundMap
             float junkBase = junkPerNonJunk / (junkPerNonJunk + 1f);
             float junkProb = Mathf.Clamp(junkBase * junkPercent / 100f, 0f, 0.995f);
 
-            // 3) The high-value share and the 80-tier crate/keycard shares are
+            // 3) The valuable share and the 80-tier crate/keycard shares are
             //    carved out of the non-junk items only.
             float highChance = Mathf.Clamp(highPercent, 0f, 30f) / 100f;
             string crateId = perk80 ? CrateFor(region.Id) : null;
@@ -929,27 +929,41 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// High-value pool (unitValue 250–400). Not part of the base tables; they
-        /// only enter when the high-value chance is raised above zero.
+        /// 贵重品池：原版没有单独的索引，这里是本模组自己拼的一池稀有物品，
+        /// 分四类——芯片类（打印枪、弹匣、近战的打印芯片）、贵重枪支、
+        /// 贵重刀具 / 近战、枪匠需要的高价材料与工具，另有原来那 7 件。
+        /// 与游戏自带的「奢侈品 / LUXURY_ITEM」类别不是一回事：那一类是
+        /// 买卖与展览用的奢侈品标签，本池只是拾荒时按概率抽取的物品清单。
+        /// 它们不进基础表，只有贵重品出现率大于 0 且声望达到 80 时才进最终表。
         /// </summary>
         private static readonly string[] HighValue =
         {
+            // 原有 7 件
             "blue_blood_bag", "water_filter_adv",
             "portable_water_purifier", "bottled_water_premium", "black_injector",
-            "rare_electronic", "module_extractor_advanced"
+            "rare_electronic", "module_extractor_advanced",
+            // 芯片类
+            "printer_chip_pistol_double", "printer_chip_heavy_handmade_pistol_frame",
+            "printer_chip_combat_machete", "printer_chip_gun_part", "printer_chip_10_mag_ext",
+            // 贵重枪支
+            "revolver", "stun_gun", "smg", "shotgun",
+            // 贵重刀具 / 近战
+            "combat_machete", "stun_baton",
+            // 枪匠需要的高价材料与工具
+            "advanced_flux_agent", "xray_scanner", "hypertech_electronic"
         };
 
         /// <summary>
-        /// Per-area high-value mix, in Region.All order (gate, scrap, refuse,
-        /// medical, weapons).
+        /// Per-area valuable mix, in Region.All order (gate, scrap, refuse,
+        /// medical, weapons). 每个区都能掉到池里的全部四类，只是权重偏向本区主题。
         /// </summary>
         private static readonly int[][] HighWeights =
         {
-            new[] { 2, 2, 1, 2, 1, 1, 1 }, // Main Gate
-            new[] { 1, 1, 1, 1, 1, 3, 4 }, // Scrap Pile
-            new[] { 3, 3, 3, 3, 1, 1, 1 }, // Refuse Lane
-            new[] { 4, 1, 1, 1, 5, 1, 1 }, // Medical Waste
-            new[] { 1, 2, 2, 2, 3, 1, 3 }  // Weapon Dump
+            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1 }, // Main Gate
+            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 2, 1 }, // Scrap Pile
+            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1 }, // Refuse Lane
+            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1 }, // Medical Waste
+            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1, 1 }  // Weapon Dump
         };
 
         /// <summary>
@@ -1086,6 +1100,15 @@ namespace DumpingGroundMap
                 { "black_injector", 350f },
                 { "rare_electronic", 350f },
                 { "module_extractor_advanced", 350f },
+                // 贵重品池新增：芯片、贵重枪械、贵重近战、枪匠高价材料与工具。
+                { "printer_chip_pistol_double", 400f },
+                { "printer_chip_heavy_handmade_pistol_frame", 450f },
+                { "printer_chip_combat_machete", 480f },
+                { "printer_chip_gun_part", 300f },
+                { "printer_chip_10_mag_ext", 400f },
+                { "advanced_flux_agent", 300f },
+                { "xray_scanner", 400f },
+                { "hypertech_electronic", 2500f },
                 // 80 档补给箱按满箱内容估的均价，只用于界面的期望价值。
                 { "loot_crate_engineering", 450f },
                 { "loot_crate_service", 350f },
