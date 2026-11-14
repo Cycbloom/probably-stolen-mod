@@ -73,11 +73,17 @@ namespace DumpingGroundMap
                     Debug.LogWarning("[DumpingGroundMap] scavenger perk: CreateScavGeneral returned null");
                     return;
                 }
+                // 用游戏自带的 mod 来源标记这位客人：ModHelper.SetClientSource 只写
+                // StoreClient.sourceModId，不参与任何玩法判定，随客人对象一起生灭。
+                // UI 侧据此识别「我们加的那位」——identifier 不可靠，原生随机客池、
+                // 剧情与拖车摊贩也会生成 scavGeneral。
+                ModHelper.SetClientSource(client, Core.Id);
                 __instance.AddClient(client);
                 lastStore = store;
                 lastDay = day;
                 Debug.Log("[DumpingGroundMap] scavenger perk: +1 scavenger client day=" + day
-                    + " points=" + points + " identifier=" + client.identifier);
+                    + " points=" + points + " identifier=" + client.identifier
+                    + " source=" + client.sourceModId);
             }
             catch (Exception ex)
             {
@@ -93,15 +99,16 @@ namespace DumpingGroundMap
     /// 表达不了「被这位店主的名声吸引」，所以不在数据上做文章，改在 UI 侧覆盖：
     /// 副标题由 NegociationUIManager.RefreshClientHeader(StoreClient) 最后拼装并
     /// 赋给 frame.clientSubtitle（TextMeshProUGUI），我们在这个方法的 Postfix 里
-    /// 覆盖文本。每次刷新都会重跑，文本不会累积；只对
-    /// identifier = scavGeneral 且声望 >= 20 档的客人生效，其它客人完全不动。
+    /// 覆盖文本。每次刷新都会重跑，文本不会累积。
     ///
-    /// 两个判断口径的取舍：
-    /// - 只认「我们加出来的那位」需要持久标记；StoreClient 没有可用的自定义字段，
-    ///   用内存集合会在读档后失效（客人是反序列化出来的新对象）。
-    /// - 因此采用「所有没有原生吸引原因的拾荒客」：既覆盖我们每天加的那位，也覆盖
-    ///   原生随机生成的、本来就没写吸引原因的拾荒客；带原生原因的（例如展示柜吸引）
-    ///   一律跳过，不覆盖真实信息。无需额外标记，读档后依然成立。
+    /// 判据是「我们加的那位」本身：ScavengerPerkPatch 创建客人时调用
+    /// ModHelper.SetClientSource(client, Core.Id)，写的是 StoreClient.sourceModId。
+    /// 这里只认 sourceModId == Core.Id 且声望 >= 20 的客人，其它客人（包括原生
+    /// 随机客池 / 剧情 / 拖车摊贩生成的拾荒客，以及带原生吸引原因的客人）完全不动。
+    /// 不再用 identifier == scavGeneral：那个值有多个原生来源，无法区分是不是我们加的。
+    ///
+    /// sourceModId 是普通字符串字段，跟着客人对象一起生灭；客人每天开张时重新生成、
+    /// 结束日清空，不进存档，所以读档后当天重新开张会重新打标，行为一致。
     ///
     /// frame 是 private 字段，用 AccessTools.Field 取一次并缓存（与现有
     /// AccessTools.Method 取 GenerateClient 同一种做法），不用字符串拼反射。
@@ -111,8 +118,6 @@ namespace DumpingGroundMap
     [HarmonyPatch]
     internal static class ClientReasonPatch
     {
-        private const string ScavengerClientId = "scavGeneral";
-
         private static FieldInfo frameField;
         private static bool frameFieldMissing;
 
@@ -136,12 +141,9 @@ namespace DumpingGroundMap
         {
             if (!Core.Enabled || __instance == null || storeClient == null) return;
             if (frameFieldMissing || frameField == null) return;
-            if (storeClient.identifier != ScavengerClientId) return;
+            // 只认我们加的那位：来源标记由 ScavengerPerkPatch 在创建时写入。
+            if (storeClient.sourceModId != Core.Id) return;
             if (Reputation.Points < Reputation.Perk20Threshold) return;
-
-            // 已经有原生吸引原因的客人保持原样，只补「本来没有原因」的那些。
-            if (!string.IsNullOrEmpty(storeClient.attractedItemId)
-                || !string.IsNullOrEmpty(storeClient.attractedType)) return;
 
             try
             {

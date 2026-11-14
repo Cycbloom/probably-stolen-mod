@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.37
+# 垃圾场拾荒地图 · 0.3.38
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -56,12 +56,12 @@
 
 客人的生成链路是 `PlayerStore.OnShutterOpened()`（每天开张调用一次）→ `StoreClientManager.GenerateClient()`，后者依次跑 `HandleNormalClient`（数量来自 `GetNormalCustomerCount`）、`HandlePerkClient`、`HandleServiceClient` 等。注入点选在 `GenerateClient()` 的 Postfix（全程序集只有 `OnShutterOpened` 一处调用它，一天恰好一次）：
 
-- `Reputation.Points >= ScavengerPerkPatch.Threshold`（常量 20）时，`StoreClientList.CreateScavGeneral()` 造一名原生拾荒客客人，再 `AddClient(client)` 加进去。
+- `Reputation.Points >= ScavengerPerkPatch.Threshold`（常量 20）时，`StoreClientList.CreateScavGeneral()` 造一名原生拾荒客客人，`ModHelper.SetClientSource(client, Core.Id)` 打上本 mod 来源标记，再 `AddClient(client)` 加进去。
 - 用 `AddClient` 而非 `TryAddClient`：后者会先过 `IsClientOnCooldown`，`scavGeneral` 出现过一次后 `clientTracker` 就长期非 0，会把每日奖励永久拦掉；`AddClient` 与原生 `HandlePerkClient` 的做法一致。
 - 同日防重：记下 `runID + StoreStation.GetDayCounter()`，同一天再来一次（理论上不会）会打 `skip, already added` 并跳过。
 - **完全不碰 `GetNormalCustomerCount`**，所以与拾荒人开局、囤积癖短眠者之类改客人数量/睡眠的 mod 各改各的，不会重复加。只读 `Reputation.Points`，不写存档结构。
 
-日志：补丁绑定时一条 `scavenger perk: patch target StoreClientManager.GenerateClient`；生效时一条 `scavenger perk: +1 scavenger client day=<天数> points=<点数> identifier=scavGeneral`；失败分别打 `CreateScavGeneral returned null` / `add failed: …`。
+日志：补丁绑定时一条 `scavenger perk: patch target StoreClientManager.GenerateClient`；生效时一条 `scavenger perk: +1 scavenger client day=<天数> points=<点数> identifier=scavGeneral source=local.dumping_ground_map`；失败分别打 `CreateScavGeneral returned null` / `add failed: …`。
 
 **悬停说明（0.3.36）**：20 点这一档实际是两件事——每天多一名拾荒客客人，以及首次达到 20 点时一次性获得一枚「拾荒者信物」放在前台。图标悬停文案已补成两件并标明信物只给一次，中英文同步。
 
@@ -72,7 +72,13 @@
 - 两件原子发放：先放信物再放便条；便条放不下就 `RemoveItemFromStoreInventory` 把信物收回来、**不写** `scav_medal_given`，次日重来。前台满时连物品都不创建，避免泄漏。
 - 悬停说明改成三件并述（每天一位客人 + 一枚信物 + 一张便条，仅一次）。
 
-**客人来访原因（0.3.37）**：原生 `StoreClient.attractedType` / `attractedItemId` 只能填类型名或物品名，表达不了「被名声吸引」，所以改在 UI 侧：给 `NegociationUIManager.RefreshClientHeader(StoreClient)` 加 Postfix，在 `frame.clientSubtitle` 赋值之后覆盖文本。条件：`identifier == scavGeneral`、声望 ≥ 20、且该客人**没有**原生吸引原因（有原生原因的一律跳过，不覆盖展示柜等真实信息）。文案「被「拾荒老手」的名声吸引 / Drawn by a Scavenger Veteran's reputation」。副标题原生在无原因时是隐藏的、客人名上移 13px，补文本后用原版同样的 `SetRect(48, 70, 530, 26)` 恢复排布。选「所有无原生原因的拾荒客」而不是「只我们加的那位」：StoreClient 没有可挂的自定义字段，内存集合读档即失效；按「无原生原因」判断无需标记、读档后依然成立。日志 `client reason: rewritten …` 只在文本真的变化时打一条，不刷屏。
+**客人来访原因（0.3.38）**：原生 `StoreClient.attractedType` / `attractedItemId` 只能填类型名或物品名，表达不了「被名声吸引」，所以改在 UI 侧：给 `NegociationUIManager.RefreshClientHeader(StoreClient)` 加 Postfix，在 `frame.clientSubtitle` 赋值之后覆盖文本。
+
+- 判据：`storeClient.sourceModId == Core.Id` 且声望 ≥ 20。标记由 `ScavengerPerkPatch` 创建客人时调用 `ModHelper.SetClientSource(client, Core.Id)` 写入（就是 `StoreClient.sourceModId` 这个 public 字符串字段，不是 getter）。不再用 `identifier == scavGeneral`：原生随机客池、开场剧情、拖车摊贩与展示柜预测都会生成同 identifier 的拾荒客，无法区分是不是我们加的。
+- 文案「被「拾荒老手」的名声吸引 / Drawn by a Scavenger Veteran's reputation」。副标题原生在无原因时是隐藏的、客人名上移 13px，补文本后用原版同样的 `SetRect(48, 70, 530, 26)` 恢复排布。
+- 读档语义：客人不进存档（每天开张 `GenerateClient` 整批新建、`EndDay` → `DismissClientStack` 清空），读档后当天重新开张会重新生成并重新打标，因此行为确定，不存在「标记丢了对不上」的情况。
+- 该标记的其它读取点只有原生的 `ModSourceHelper.GetClientModName` → 客人到达时 `RecordClientSource` 在对话记录里加一行「来自 mod 垃圾场拾荒地图 / Dumping Ground Map」（受原生选项 `showModSourceInRecorder` 控制，默认开）。除这一行外没有别处读它，不影响议价、价格与存档。
+- 日志 `client reason: rewritten id=<identifier> day=<天数> points=<点数> text=…` 只在文本真的变化时打一条，不刷屏。
 
 ### Reputation Pop 联动（0.3.27）
 
