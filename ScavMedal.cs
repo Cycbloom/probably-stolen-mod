@@ -28,7 +28,8 @@ namespace DumpingGroundMap
     /// 便条用原生便签 handnote + PreBuiltItemHelper.CreateHandnote：
     /// 小面板，只有标题 / 正文 / 落款三段，点开是 HandnoteUIManager 的小纸条，
     /// 不是 slip 那种整页文档；标题同时是物品名。
-    /// 文案用拾荒者自己的第一人称复数口吻（“我们认你”），不是旁观者描述。
+    /// 文案是拾荒者的第一人称复数口吻（正文见 NoteBody，落款「拾荒者们」）。
+    /// 标题同时是物品名，用朴素的「写给店主 / To the shopkeeper」。
     ///
     /// 一次性：标记写在 PlayerStore.modData（键 scav_medal_given），随存档保存，
     /// 即“每个存档时间线一次”。读回发过之后的存档不再发；回档到发之前的存档
@@ -42,18 +43,20 @@ namespace DumpingGroundMap
         private const string ItemId = "scav_token";
         private const string GivenKey = "scav_medal_given";
 
-        private const string NoteTitleZh = "我们认你";
-        private const string NoteTitleEn = "You're one of us";
+        private const string NoteTitleZh = "写给店主";
+        private const string NoteTitleEn = "To the shopkeeper";
 
         private const string NoteBodyZh =
-            "这枚信物是我们给的。往后你在这片垃圾场里，我们的人会多来你店里。";
+            "这枚信物是拾荒者能力的象征。你拾荒的能力赢得了我们的尊重。"
+            + "往后的日子里，我们的人会常来你的店里。";
 
         private const string NoteBodyEn =
-            "This token is from us. From now on, out in the dump, "
-            + "our people will come by your shop more often.";
+            "This token is a symbol of a scavenger's skill. Your scavenging skill "
+            + "has won our respect. In the days to come, our people will often come "
+            + "to your shop.";
 
-        private const string NoteSignZh = "——我们";
-        private const string NoteSignEn = "— us";
+        private const string NoteSignZh = "拾荒者们";
+        private const string NoteSignEn = "— the scavengers";
 
         internal static void OnShutterOpenedLate()
         {
