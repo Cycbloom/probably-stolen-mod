@@ -31,16 +31,17 @@ namespace DumpingGroundMap
 
     /// <summary>
     /// 声望。每趟拾荒捡到的东西按当前金币价值累计，每 100 点价值记 1 点声望。
-    /// 必须按存档隔离：写到 persistentDataPath/DumpingGroundMap/rep_&lt;runID&gt;.txt，
-    /// runID 是 PlayerStore 里每个存档独有的 GUID，所以不进 ModConfig，
-    /// 换存档、开新档都从 0 开始。
+    /// 按存档隔离：写进 PlayerStore.modData（ModHelper.Get/SetModDataInt），
+    /// 随存档本体保存，一天结束时落盘。key 是 rep_total_value，存累计价值，
+    /// 不足 100 的余数不会丢。中途强退时当晚声望会丢，与当晚其它收益一致。
     /// </summary>
     internal static class Reputation
     {
         internal const long ValuePerPoint = 100L;
+        internal const string DataKey = "rep_total_value";
 
         private static long totalValue;
-        private static string loadedRun;
+        private static string loadedStore;
         private static bool hooked;
 
         internal static int Points { get { return (int)(totalValue / ValuePerPoint); } }
@@ -69,45 +70,104 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 新开一局：runID 已经换掉，读到的通常是不存在的文件，自然归零。
+        /// 新开一局：新的 PlayerStore.modData 是空字典，读到 0，自然归零。
         /// </summary>
         private static void NewGame(string saveName)
         {
-            Reload();
+            loadedStore = StoreKey();
+            totalValue = 0L;
+            Debug.Log("[DumpingGroundMap] reputation reset for new game");
         }
 
-        /// <summary>按当前存档读一次；同一个 runID 重复触发时不再读盘。</summary>
+        /// <summary>存档加载完成后读一次；同一个存档重复触发时不再读。</summary>
         internal static void Reload()
         {
-            string run = RunId();
-            if (run == null || run == loadedRun) return;
-            loadedRun = run;
-            totalValue = ReadFile(run);
-            Debug.Log("[DumpingGroundMap] reputation " + Points + " (" + run + ")");
+            string store = StoreKey();
+            if (store == null || store == loadedStore) return;
+            loadedStore = store;
+            totalValue = StoredValue();
+            MigrateLegacy(store);
+            Debug.Log("[DumpingGroundMap] reputation " + Points + " (" + store + ")");
         }
 
-        /// <summary>把一趟拾荒的总价值折成声望；不足 100 的部分留在文件里继续累计。</summary>
+        /// <summary>把一趟拾荒的总价值折成声望；不足 100 的部分留在 modData 里继续累计。</summary>
         internal static void Add(long value)
         {
             if (value <= 0L) return;
-            string run = RunId();
-            if (run == null) return;
-            if (run != loadedRun)
+            string store = StoreKey();
+            if (store == null) return;
+            if (store != loadedStore)
             {
-                loadedRun = run;
-                totalValue = ReadFile(run);
+                loadedStore = store;
+                totalValue = StoredValue();
+                MigrateLegacy(store);
             }
-            totalValue += value;
-            WriteFile(loadedRun, totalValue);
+            totalValue = WriteStored(totalValue + value);
         }
 
-        private static string RunId()
+        private static string StoreKey()
         {
             PlayerStore store = PlayerStore.Instance;
             if (store == null) return null;
             if (!string.IsNullOrEmpty(store.runID)) return store.runID;
-            // 理论上不会走到这里；真拿不到 runID 时退化成按槽位隔离。
+            // 理论上不会走到这里；真拿不到 runID 时退化成按槽位区分，仅用于日志。
             return "slot_" + store.saveSlotId.ToString(CultureInfo.InvariantCulture);
+        }
+
+        private static long StoredValue()
+        {
+            try
+            {
+                int stored = ModHelper.GetModDataInt(Core.Id, DataKey, 0);
+                return stored < 0 ? 0L : stored;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] could not read reputation mod data: " + ex.Message);
+                return 0L;
+            }
+        }
+
+        /// <summary>写入 PlayerStore.modData，返回实际写入（int 范围内）的累计价值。</summary>
+        private static long WriteStored(long value)
+        {
+            if (value < 0L) value = 0L;
+            if (value > int.MaxValue) value = int.MaxValue;
+            try
+            {
+                ModHelper.SetModDataInt(Core.Id, DataKey, (int)value);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] could not write reputation mod data: " + ex.Message);
+            }
+            return value;
+        }
+
+        /// <summary>
+        /// 0.3.16 及以前把声望写在 persistentDataPath/DumpingGroundMap/rep_&lt;runID&gt;.txt。
+        /// 只有当 modData 里没有值（0）且旧文件可读且大于 0 时才导入一次，
+        /// 然后改名成 .migrated 留作备份；modData 已有值时不覆盖，文件损坏时不动文件。
+        /// </summary>
+        private static void MigrateLegacy(string store)
+        {
+            if (totalValue > 0L) return;
+            string run = LegacyRunId();
+            if (run == null) return;
+            string path = PathFor(run);
+            long legacy = ReadLegacy(path);
+            if (legacy <= 0L) return;
+            totalValue = WriteStored(legacy);
+            RetireLegacy(path);
+            Debug.Log("[DumpingGroundMap] migrated reputation " + Points + " from " + Path.GetFileName(path));
+        }
+
+        /// <summary>只有拿到真正的 runID 才能定位旧文件；槽位退化名对不上，直接放弃迁移。</summary>
+        private static string LegacyRunId()
+        {
+            PlayerStore store = PlayerStore.Instance;
+            if (store == null || string.IsNullOrEmpty(store.runID)) return null;
+            return store.runID;
         }
 
         private static string Folder
@@ -128,36 +188,43 @@ namespace DumpingGroundMap
             return Path.Combine(Folder, "rep_" + new string(chars) + ".txt");
         }
 
-        private static long ReadFile(string run)
+        private static long ReadLegacy(string path)
         {
             try
             {
-                string path = PathFor(run);
                 if (!File.Exists(path)) return 0L;
                 string text = File.ReadAllText(path).Trim();
                 long value;
                 if (!long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value))
+                {
+                    Debug.LogWarning("[DumpingGroundMap] legacy reputation file is not a number, left untouched: " + path);
                     return 0L;
+                }
                 return value < 0L ? 0L : value;
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] could not read reputation: " + ex.Message);
+                Debug.LogWarning("[DumpingGroundMap] could not read legacy reputation: " + ex.Message);
                 return 0L;
             }
         }
 
-        private static void WriteFile(string run, long value)
+        /// <summary>把旧文件改名为 .migrated；目标已存在时保留原文件，不删任何东西。</summary>
+        private static void RetireLegacy(string path)
         {
+            string done = path + ".migrated";
             try
             {
-                string folder = Folder;
-                if (!System.IO.Directory.Exists(folder)) System.IO.Directory.CreateDirectory(folder);
-                File.WriteAllText(PathFor(run), value.ToString(CultureInfo.InvariantCulture));
+                if (File.Exists(done))
+                {
+                    Debug.LogWarning("[DumpingGroundMap] " + Path.GetFileName(done) + " already exists, legacy file kept: " + path);
+                    return;
+                }
+                File.Move(path, done);
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] could not save reputation: " + ex.Message);
+                Debug.LogWarning("[DumpingGroundMap] could not rename legacy reputation: " + ex.Message);
             }
         }
     }
