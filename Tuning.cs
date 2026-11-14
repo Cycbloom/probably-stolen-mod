@@ -25,6 +25,12 @@ namespace DumpingGroundMap
         internal const float HighMin = 0f;
         internal const float HighMax = 30f;
 
+        /// <summary>60 档爆大奖的概率上限；声望不到 60 时实际生效值会被压到 0.1%。</summary>
+        internal const string StashCapKey = "stash_cap";
+        internal const float DefaultStashCap = 1.0f;
+        internal const float StashCapMin = 0.1f;
+        internal const float StashCapMax = 5.0f;
+
         private const string SectionName = "拾荒掉落 / Loot";
         private const string IntegrationSection = "声望飘字 / Reputation Pop";
         private const string DebugSection = "调试 / Debug";
@@ -51,6 +57,7 @@ namespace DumpingGroundMap
 
         private static ConfigEntry<float> junkEntry;
         private static ConfigEntry<float> highEntry;
+        private static ConfigEntry<float> stashCapEntry;
         private static ConfigEntry<string> specialtyEntry;
         private static ConfigEntry<bool> reputationPopEntry;
         private static ConfigEntry<bool> debugEnabledEntry;
@@ -167,6 +174,23 @@ namespace DumpingGroundMap
             return float.IsNaN(value) ? DefaultHighPercent : Mathf.Clamp(value, HighMin, HighMax);
         }
 
+        /// <summary>按 0.1 步进吸附并夹在 0.1–5.0。</summary>
+        internal static float ClampStashCap(float value)
+        {
+            if (float.IsNaN(value)) return DefaultStashCap;
+            value = Mathf.Round(Mathf.Clamp(value, StashCapMin, StashCapMax) * 10f) / 10f;
+            return Mathf.Clamp(value, StashCapMin, StashCapMax);
+        }
+
+        internal static float StashCap
+        {
+            get
+            {
+                if (stashCapEntry == null) return DefaultStashCap;
+                return ClampStashCap(stashCapEntry.Value);
+            }
+        }
+
         /// <summary>
         /// Vanilla reference: the untouched weight tables (junk at 100%, no
         /// specialty, no high-value share), i.e. 12.26 in every area. This is a
@@ -208,6 +232,17 @@ namespace DumpingGroundMap
                         return Copy.Text(
                             "每次拾荒单独判断：这一趟会不会出高档物资。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n高档物资换自普通物品，垃圾不受影响。\n本项在声望达到 80（识货行家）后生效：\n80 之前按 0 算（设置值会保留），80 之后完全按滑条数值生效。",
                             "Rolled once per search:\nit decides only whether this haul includes a high-value item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nHigh-value items replace normal items; junk is not affected.\nThis setting activates at 80 reputation (Connoisseur):\nbefore 80 it counts as 0 (your value is kept); from 80 on the slider applies as-is.");
+                    },
+                    false);
+
+                stashCapEntry = config.Define(StashCapKey, DefaultStashCap, SectionName,
+                    delegate { return Copy.Text("爆大奖概率上限（%，0.1–5.0）", "Jackpot chance cap (%, 0.1-5.0)"); },
+                    StashCapMin, StashCapMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "60 档「眼力毒辣」的爆大奖概率上限。\n每次拾荒未中：没到上限一半就翻倍，过半后每次 +0.05%。\n中奖后窗口砍半，再线性往上爬。\n声望不到 60 时，上限固定压到 0.1%（不是完全不中）。\n只影响已配置储藏样板的区域（目前是生活废料带）。",
+                            "Cap for the 60-point Keen Eye jackpot.\nEach miss doubles the chance until half the cap, then adds 0.05% per miss.\nA win halves the window; it then climbs linearly again.\nBelow 60 reputation the cap is hard-limited to 0.1% (not excluded).\nOnly applies to regions with a stash template (currently Refuse Lane).");
                     },
                     false);
 
@@ -308,6 +343,11 @@ namespace DumpingGroundMap
                     float snapped = Mathf.Round(ClampHigh(value) * 2f) / 2f;
                     if (snapped != value) highEntry.Set(snapped);
                     Invalidated();
+                };
+                stashCapEntry.OnChanged += delegate(float value)
+                {
+                    float snapped = ClampStashCap(value);
+                    if (snapped != value) stashCapEntry.Set(snapped);
                 };
                 specialtyEntry.OnChanged += delegate(string value)
                 {

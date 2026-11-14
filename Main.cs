@@ -935,6 +935,7 @@ namespace DumpingGroundMap
                 Close();
                 ChosenRegion = choice;
                 chosenAt = destination;
+                StashFind.ResetTrip();
                 resume();
                 return;
             }
@@ -950,6 +951,7 @@ namespace DumpingGroundMap
             // 记住这次选择，本次停留里后续拾荒直接沿用（Intercept 不会再弹地图）。
             ChosenRegion = choice;
             chosenAt = location;
+            StashFind.ResetTrip();
             resume();
         }
     }

@@ -100,6 +100,7 @@ namespace DumpingGroundMap
                 ModHook.OnGameLoadedLate += Reload;
                 ModHook.OnNewGameStarted += NewGame;
                 ModHook.OnShutterOpenedLate += ScavMedal.OnShutterOpenedLate;
+                StashFind.Hook();
                 hooked = true;
             }
             catch (Exception ex)
@@ -114,6 +115,7 @@ namespace DumpingGroundMap
             ModHook.OnGameLoadedLate -= Reload;
             ModHook.OnNewGameStarted -= NewGame;
             ModHook.OnShutterOpenedLate -= ScavMedal.OnShutterOpenedLate;
+            StashFind.Unhook();
             hooked = false;
         }
 
@@ -462,6 +464,8 @@ namespace DumpingGroundMap
         private static void Postfix(List<GameItem> __result)
         {
             if (!Core.Enabled) return;
+            // 60 档爆大奖先追加物品，再统一结算价值，确保那几件也计入声望。
+            StashFind.OnScavenge(__result);
             int count = __result == null ? 0 : __result.Count;
             long sum = 0L;
             for (int i = 0; i < count; ++i)
