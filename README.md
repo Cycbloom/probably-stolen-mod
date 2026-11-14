@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.30
+# 垃圾场拾荒地图 · 0.3.31
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -74,6 +74,29 @@
 - 日志：`reputation pop: resolved ReputationPop.Pop:Record`（成功）/ `NOT FOUND` 或 `resolve failed: …`（失败）、`reputation pop: name prefix patched`，以及每次弹出一条 `reputation pop: delta=<本次增量> faction=DGM_SCAVENGER`。
 
 扫描器复核（`ModScanner.Scan`）：字面量写法不含 `reflection-external`，`<Capabilities />` 仍为空。
+
+### 20 点纪念：第二天开张多一枚拾荒者信物（0.3.31）
+
+照搬「神秘仰慕者 / Secret Admirer」的做法：它是在 `StoreShutterButton.OnShutterDoorOpenMorning()` 的 Postfix 里用 `PlayerStore.AddDirectSellingItemToTable(...)` 把礼物放到前台。我们不用 Harmony，因为同一方法最后一行就是原生 `ModHook.FireOnShutterOpenedLate()`，订阅它位置等价。
+
+时序（`StoreShutterButton.OpenShutter()`）：
+
+```
+PlayerStore.OnShutterOpened()   → GenerateClient()（20 点客人奖励在这里）
+OpenShutter() / ToggleShutterDoor()
+StoreShutterButton.OnShutterDoorOpenMorning()
+  … 原生报纸 / 导师纸条 / 仰慕者礼物
+  ModHook.FireOnShutterOpenedLate()   ← 我们放信物
+EmporiumEntry.ShowFrontArea()   → 前台这时才显示，所以信物“开业时就在”
+PlayerStore.OnLateShutterOpen()
+```
+
+- 条件：`Reputation.Points >= 20` 且 `!ModHelper.GetModDataBool(Core.Id, "scav_medal_given", false)`。
+- 放置：`PlayerStore.Instance.TryAddDirectSellingItemToTable("scav_token", true, false, true, 0)`（owned、非赃物、跳过派系拦截、热量 0）。成功才写标记；前台满时不写，次日开张重试。
+- 物品：`scav_token`「拾荒者信物 / Scavenger's Token」，图集精灵名就是 `scav_medal`，价值 100。它的原生效果只数**展示柜**里的数量（每枚 +20% 拾荒客到访），放前台不触发，所以不会和 20 点客人奖励叠加；玩家以后自己把它摆进展示柜才拿到原版加成。
+- 一次性：标记写在 `PlayerStore.modData`（`scav_medal_given`），随存档保存，即“每个存档时间线一次”。读回发过之后的存档不再发；回档到发之前的存档会再发一次，因为那条时间线从未收到过。
+- 日志：`scav medal: +1 scav_token on front counter day=<天数> points=<点数>` / `scav medal: skip (already given) points=<点数>` / `scav medal: front counter full, retry next opening day=<天数>`。
+- **风险点**：事件发生在 `ShowFrontArea()` 之前，理论上此时前台容器已可用（同一方法里前面的原生纸条就是这么放的）。如果实测信物没出现，先看 `TryAddDirectSellingItemToTable` 是否返回 false；若不是，说明容器尚未就绪，需改用 `PlayerStore.OnLateShutterOpen()` 的 Postfix。`ScavMedal.cs` 的文件头注释已标出这一点。
 
 
 ## 掉落设置

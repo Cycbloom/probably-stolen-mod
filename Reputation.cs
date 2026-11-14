@@ -55,6 +55,7 @@ namespace DumpingGroundMap
             {
                 ModHook.OnGameLoadedLate += Reload;
                 ModHook.OnNewGameStarted += NewGame;
+                ModHook.OnShutterOpenedLate += ScavMedal.OnShutterOpenedLate;
                 hooked = true;
             }
             catch (Exception ex)
@@ -68,6 +69,7 @@ namespace DumpingGroundMap
             if (!hooked) return;
             ModHook.OnGameLoadedLate -= Reload;
             ModHook.OnNewGameStarted -= NewGame;
+            ModHook.OnShutterOpenedLate -= ScavMedal.OnShutterOpenedLate;
             hooked = false;
         }
 
