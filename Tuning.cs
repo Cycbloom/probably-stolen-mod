@@ -256,6 +256,7 @@ namespace DumpingGroundMap
 
                 debugEnabledEntry.OnChanged += delegate(bool value)
                 {
+                    if (!value) Reputation.ClearPendingDebugPoints();
                     Debug.Log("[DumpingGroundMap] debug: options " + (value ? "on" : "off"));
                 };
 
@@ -265,8 +266,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "仅供测试，会直接改写当前存档的声望（写同一个键 rep_total_value）。\n数值按 0.5 点取整，例如 19.5。\n需先打开上面的「启用调试项」才会生效。",
-                            "Testing only - overwrites the reputation stored in the current save (same rep_total_value key).\nValues snap to 0.5 points, for example 19.5.\nRequires \"Enable debug options\" above to be on.");
+                            "仅供测试，会直接改写当前存档的声望（写同一个键 rep_total_value）。\n数值按 0.5 点取整，例如 19.5。\n需先打开上面的「启用调试项」才会生效。\n已有存档时改完立即存档；在主菜单改则排到下次读档时生效。",
+                            "Testing only - overwrites the reputation stored in the current save (same rep_total_value key).\nValues snap to 0.5 points, for example 19.5.\nRequires \"Enable debug options\" above to be on.\nWith a save loaded the change is saved immediately; from the main menu it applies on the next load.");
                     },
                     false);
 
@@ -286,10 +287,19 @@ namespace DumpingGroundMap
                         return;
                     }
                     debugIgnoredLogged = false;
+                    if (!Reputation.HasStore)
+                    {
+                        // 主菜单没有 PlayerStore：排队，等读档/新档时再应用。
+                        // 绝不能走到 SetPoints —— PlayerStore.Instance 会新建对象并抛异常。
+                        Reputation.QueueDebugPoints(snapped);
+                        return;
+                    }
                     long stored = Reputation.SetPoints(snapped);
                     Debug.Log("[DumpingGroundMap] debug: reputation set to "
                         + snapped.ToString("0.##", CultureInfo.InvariantCulture)
                         + " points (value=" + stored + ")");
+                    // 不等日终：用原生保存入口落盘（延后一帧，避开场景初始化），否则强退就丢。
+                    DeferredSave.Run("debug");
                 };
 
                 junkEntry.OnChanged += delegate(float value)

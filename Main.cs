@@ -1294,7 +1294,9 @@ namespace DumpingGroundMap
                 debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
             Debug.Log(LogTag + "debug slider release raw="
                 + value.ToString("0.###", CultureInfo.InvariantCulture)
-                + " applied=" + Tuning.DebugPoints.ToString("0.##", CultureInfo.InvariantCulture));
+                + " entry=" + Tuning.DebugPoints.ToString("0.##", CultureInfo.InvariantCulture)
+                + " stored=" + Reputation.ExactPoints.ToString("0.##", CultureInfo.InvariantCulture)
+                + " hasStore=" + Reputation.HasStore);
         }
 
         /// <summary>

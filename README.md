@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.34
+# 垃圾场拾荒地图 · 0.3.35
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -176,6 +176,40 @@ w(f) = (1 − f) × 原版权重 + f × 主题权重
 - 控件仍是原生 float 滑条：`AddSlider(min, max, value, null, wholeNumbers=false, key)` + `SetFixedWidth(224)`，范围 0–200 由 `Define` 传入；绑定时会打一行 `[DGM-SLIDER] debug_points: slider bound (min=0 max=200 whole=False)`。
 - 数值显示（0.3.33）：调试行右侧单独一条 `debugValue` 标签（宽 56px，左对齐），一位小数（`19.5` / `200.0`）。拖动时按 0.5 吸附实时刷新，松手后回读 `Tuning.DebugPoints`（开关关闭时会被忽略，标签因此退回真实值）。不复用 `highValue`，所以垃圾/高档两行的标签互不影响。
 - 空间：原生滑条固定 224px，调试值最多 5 个字符，56px 足够；垃圾/高档仍是 72px（带 `%`）。若窗口再窄，优先缩到 48px 或改右对齐，不影响其它行。
+
+### 调试点数为什么没保住（0.3.35）
+
+Player.log 证据（2026-11-14 21:18–21:19）：
+
+```
+[DGM-SLIDER] debug slider release raw=19 entry=19 ...
+NullReferenceException
+  at UnityEngine.Object.Instantiate ...
+  at TreeNodeRender..ctor / GameGridInventory ...
+  at PlayerStore..ctor
+  at PlayerStore.get_Instance
+  at DumpingGroundMap.Reputation.StoreKey
+  at DumpingGroundMap.Reputation.SetPoints
+  at DumpingGroundMap.Tuning...<OnChanged>b__...
+[ModConfig] OnChanged of config entry "debug_points" threw ...
+```
+
+- 模组设置窗口只有主菜单的「模组」入口能打开（`MainMenuUIController.OpenModPanel` → `ModUIManager.OpenPanel`），改 19 时还没有 `PlayerStore`。
+- `PlayerStore.Instance` 的 getter 在没有存档时会**新建** PlayerStore；构造函数要 `GameGridInventory` / `TreeNodeRender`，主菜单场景没有这些对象，必抛 `NullReferenceException`。
+- 异常被 `ModConfig` 的 `OnChanged` 调用处吞掉，只打一行日志；滑条释放日志读的是配置项值，所以仍显示 `applied=19`，看起来像写成功了。
+- 随后无论读档还是新档，存档里都是 0（新档还有一条 `reputation reset for new game`）。
+- 第二个隐患：即使有存档，`modData` 也只在日终 `SaveGame` 时落盘，改完立刻强退同样会丢。
+
+0.3.35 的改法：
+
+- `Reputation.StoreKey` / `SetPoints` 先查 `PlayerStore.HasInstance`，没有存档绝不触碰 `Instance`。
+- 主菜单改点数 → `SaveFiles.IndexSave<bool>("dgm_debug_pending", true)` + `SaveFiles.IndexSave<float>("dgm_debug_pending_points", points)`，存在游戏自己的 `saves_index.es3` 里；读档（`OnGameLoadedLate` → `Reload`）或新档（`OnNewGameStarted` → `NewGame`）时应用一次，然后 `IndexDeleteKey` 清掉，不会每次读档都覆盖。
+- 有存档时改点数 → `Reputation.SetPoints` 写 `rep_total_value`，再用原生入口 `public void PlayerStore.SaveGame()` 落盘。调用排在下一帧的 `LateUpdate`（`DeferredSave`），避开读档时 `EmporiumEntry.Start` 尚未跑完的初始化窗口；`SaveGame` 内部本来就会处理槽文件被占用 / 损坏，和日终存档是同一条写盘路径。
+- 关掉「启用调试项」会清掉排队值。
+- 日志：`debug: no save loaded, queued 19 points for next load`、`debug: applied queued 19 points (value=1900 saveNow=yes)`、`save now (debug): slot=… day=… value=1900 points=19`、`save now (queued): …`。
+
+正常存档时机不受影响：日终的 `SaveGame` 仍然照常执行，调试保存只是多写一次同一槽位、同一份数据；不改写存档结构、不新增键（只有全局索引里两个 `dgm_debug_pending*` 临时键）。
+
 
 高档物资池（价值 250–400，按 `unitValue`）：蓝血、高级滤芯、便携净水器、高端瓶装水、黑色注射器、稀有电子件、高级模组提取器；各区的具体分布不同。高档物资不受区域专精度影响，它本身就是稀有掉落。
 

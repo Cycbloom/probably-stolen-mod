@@ -33,14 +33,24 @@ namespace DumpingGroundMap
     /// <summary>
     /// 声望。每趟拾荒捡到的东西按当前金币价值累计，每 100 点价值记 1 点声望。
     /// 按存档隔离：只写 PlayerStore.modData（ModHelper.Get/SetModDataInt），
-    /// 随存档本体保存，一天结束时落盘。key 是 rep_total_value，存累计价值，
+    /// 随存档本体保存。key 是 rep_total_value，存累计价值，
     /// 不足 100 的余数不会丢。中途强退时当晚声望会丢，与当晚其它收益一致。
-    /// 不读写任何磁盘文件。
+    ///
+    /// 调试项的特殊路径（0.3.35）：
+    /// - 改设置时没有存档（主菜单只有这里能打开模组设置）：不能碰
+    ///   PlayerStore.Instance——getter 会新建 PlayerStore，构造函数里的
+    ///   GameGridInventory/TreeNodeRender 需要 Emporium 场景，在主菜单必抛
+    ///   NullReferenceException。改为把点数存进游戏自己的 SaveFiles 索引，
+    ///   等下一次读档/新档应用一次。
+    /// - 有存档时立即调用原生 PlayerStore.SaveGame() 落盘，不等日终。
+    /// 两条路径都只用游戏自己的接口，不自己写文件。
     /// </summary>
     internal static class Reputation
     {
         internal const long ValuePerPoint = 100L;
         internal const string DataKey = "rep_total_value";
+        private const string PendingFlagKey = "dgm_debug_pending";
+        private const string PendingPointsKey = "dgm_debug_pending_points";
 
         private static long totalValue;
         private static string loadedStore;
@@ -79,6 +89,7 @@ namespace DumpingGroundMap
             loadedStore = StoreKey();
             totalValue = 0L;
             ScavengerPerkPatch.ResetCache();
+            ApplyPendingDebugPoints(false);
             Debug.Log("[DumpingGroundMap] reputation reset for new game");
         }
 
@@ -104,6 +115,8 @@ namespace DumpingGroundMap
             Debug.Log("[DumpingGroundMap] reputation load: id=" + Core.Id + " key=" + DataKey
                 + " store=" + store + " value=" + totalValue + " points=" + Points
                 + " previous=" + previous);
+            // 主菜单改的调试值在这里补上，并立即存档，避免下次重启又丢。
+            ApplyPendingDebugPoints(true);
         }
 
         /// <summary>累计价值，供日志核对。</summary>
@@ -134,20 +147,142 @@ namespace DumpingGroundMap
         /// <summary>
         /// 调试用：把声望直接设成给定点数。只写同一个 rep_total_value 键，
         /// 内存态立即同步，返回实际写入的累计价值。
+        /// 没有存档时什么都不做（绝不碰 PlayerStore.Instance），由调用方排队。
         /// </summary>
         internal static long SetPoints(float points)
         {
             if (points < 0f) points = 0f;
-            double raw = points * (double)ValuePerPoint;
-            long value = raw >= (double)int.MaxValue ? (long)int.MaxValue : (long)Math.Round(raw);
-            if (value < 0L) value = 0L;
+            long value = ToStored(points);
+            if (!HasStore)
+            {
+                Debug.LogWarning("[DumpingGroundMap] debug: set points skipped, no save loaded");
+                return 0L;
+            }
             loadedStore = StoreKey();
             totalValue = WriteStored(value);
             return totalValue;
         }
 
+        /// <summary>是否有已加载的存档。PlayerStore.Instance 在无存档时会新建并抛异常。</summary>
+        internal static bool HasStore { get { return PlayerStore.HasInstance; } }
+
+        /// <summary>
+        /// 主菜单改调试点数：没有 PlayerStore 可写，先存进游戏自己的 SaveFiles 索引，
+        /// 下次读档/新档时应用一次。
+        /// </summary>
+        internal static bool QueueDebugPoints(float points)
+        {
+            try
+            {
+                SaveFiles.IndexSave<bool>(PendingFlagKey, true);
+                SaveFiles.IndexSave<float>(PendingPointsKey, points);
+                Debug.Log("[DumpingGroundMap] debug: no save loaded, queued "
+                    + points.ToString("0.##", CultureInfo.InvariantCulture)
+                    + " points for next load");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] debug: could not queue points: " + ex.Message);
+                return false;
+            }
+        }
+
+        internal static void ClearPendingDebugPoints()
+        {
+            try
+            {
+                SaveFiles.IndexDeleteKey(PendingFlagKey);
+                SaveFiles.IndexDeleteKey(PendingPointsKey);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] debug: could not clear pending points: "
+                    + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 把排队的调试点数应用一次。读档时 saveNow=true（立刻落盘），
+        /// 新档时 false——新档的 InitialSave 由原生 EmporiumEntry.Start 负责，
+        /// 那里 PlayerStore 还没初始化完，我们自己调 SaveGame 不安全。
+        /// </summary>
+        private static void ApplyPendingDebugPoints(bool saveNow)
+        {
+            bool pending;
+            try
+            {
+                pending = SaveFiles.IndexLoad<bool>(PendingFlagKey, false);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] debug: could not read pending flag: " + ex.Message);
+                return;
+            }
+            if (!pending) return;
+            if (!HasStore)
+            {
+                Debug.LogWarning("[DumpingGroundMap] debug: pending points kept, no PlayerStore yet");
+                return;
+            }
+            float points;
+            try
+            {
+                points = SaveFiles.IndexLoad<float>(PendingPointsKey, 0f);
+            }
+            catch (Exception)
+            {
+                points = 0f;
+            }
+            ClearPendingDebugPoints();
+            loadedStore = StoreKey();
+            totalValue = WriteStored(ToStored(points));
+            Debug.Log("[DumpingGroundMap] debug: applied queued "
+                + points.ToString("0.##", CultureInfo.InvariantCulture)
+                + " points (value=" + totalValue + " saveNow=" + (saveNow ? "yes" : "no") + ")");
+            if (saveNow) DeferredSave.Run("queued");
+        }
+
+        /// <summary>
+        /// 用游戏自己的保存入口立即落盘，不等日终。PlayerStore.SaveGame() 内部
+        /// 会处理槽文件被占用/损坏的情况，与日终存档走同一条写盘路径。
+        /// </summary>
+        internal static bool SaveNow(string reason)
+        {
+            try
+            {
+                PlayerStore store = PlayerStore.Instance;
+                if (store == null)
+                {
+                    Debug.LogWarning("[DumpingGroundMap] save now (" + reason + "): no PlayerStore");
+                    return false;
+                }
+                store.SaveGame();
+                Debug.Log("[DumpingGroundMap] save now (" + reason + "): slot="
+                    + store.saveSlotId + " day=" + StoreStation.GetDayCounter()
+                    + " value=" + totalValue + " points=" + Points);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] save now (" + reason + ") failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        private static long ToStored(float points)
+        {
+            if (points < 0f) points = 0f;
+            double raw = points * (double)ValuePerPoint;
+            long value = raw >= (double)int.MaxValue ? (long)int.MaxValue : (long)Math.Round(raw);
+            return value < 0L ? 0L : value;
+        }
+
         private static string StoreKey()
         {
+            // 必须先看 HasInstance：get_Instance 在无存档时会新建 PlayerStore，
+            // 构造函数依赖 Emporium 场景，在主菜单调用会抛 NullReferenceException。
+            if (!PlayerStore.HasInstance) return null;
             PlayerStore store = PlayerStore.Instance;
             if (store == null) return null;
             if (!string.IsNullOrEmpty(store.runID)) return store.runID;
@@ -183,6 +318,47 @@ namespace DumpingGroundMap
                 Debug.LogWarning("[DumpingGroundMap] could not write reputation mod data: " + ex.Message);
             }
             return value;
+        }
+    }
+
+    /// <summary>
+    /// 延后一帧再存档。读档时 FireOnGameLoadedLate 位于 PlayerStore.LoadGame
+    /// 末尾、EmporiumEntry.Start 还没跑完，当场 SaveGame 会快照到未完成的界面
+    /// 状态；等到 LateUpdate 时场景初始化已完成，与日终存档看到的状态一致。
+    /// MonoBehaviour 必须是顶层类，Unity 才能 AddComponent。
+    /// </summary>
+    internal sealed class DeferredSave : MonoBehaviour
+    {
+        private static DeferredSave pending;
+        private string reason;
+
+        internal static void Run(string why)
+        {
+            if (pending != null)
+            {
+                if (string.IsNullOrEmpty(pending.reason)) pending.reason = why;
+                return;
+            }
+            GameObject go = new GameObject("DGM_DeferredSave");
+            UnityEngine.Object.DontDestroyOnLoad(go);
+            pending = go.AddComponent<DeferredSave>();
+            pending.reason = why;
+        }
+
+        private void LateUpdate()
+        {
+            if (string.IsNullOrEmpty(reason)) return;
+            string why = reason;
+            reason = null;
+            pending = null;
+            try
+            {
+                Reputation.SaveNow(why);
+            }
+            finally
+            {
+                UnityEngine.Object.Destroy(gameObject);
+            }
         }
     }
 
