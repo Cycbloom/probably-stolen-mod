@@ -963,7 +963,7 @@ namespace DumpingGroundMap
             // 贵重刀具 / 近战
             "combat_machete", "stun_baton",
             // 枪匠需要的高价材料与工具
-            "advanced_flux_agent", "xray_scanner", "hypertech_electronic"
+            "advanced_flux_agent", "xray_scanner"
         };
 
         /// <summary>贵重品池（按展示顺序）；告示牌用它拼「贵重品」分组。</summary>
@@ -980,11 +980,11 @@ namespace DumpingGroundMap
         /// </summary>
         private static readonly int[][] HighWeights =
         {
-            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1 }, // Main Gate
-            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 2, 1 }, // Scrap Pile
-            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1 }, // Refuse Lane
-            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 1, 1 }, // Medical Waste
-            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1, 1 }  // Weapon Dump
+            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1 }, // Main Gate
+            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 2 }, // Scrap Pile
+            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1 }, // Refuse Lane
+            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 1 }, // Medical Waste
+            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1 }  // Weapon Dump
         };
 
         /// <summary>
@@ -1129,7 +1129,6 @@ namespace DumpingGroundMap
                 { "printer_chip_10_mag_ext", 400f },
                 { "advanced_flux_agent", 300f },
                 { "xray_scanner", 400f },
-                { "hypertech_electronic", 2500f },
                 // 80 档补给箱按满箱内容估的均价，只用于界面的期望价值。
                 { "loot_crate_engineering", 450f },
                 { "loot_crate_service", 350f },

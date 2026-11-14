@@ -561,7 +561,7 @@ namespace DumpingGroundMap
             AddAll(result, "householdTable",
                 "water_filter_adv", "portable_water_purifier", "bottled_water_premium");
             AddAll(result, "dumpingGroundMedical", "blue_blood_bag", "black_injector");
-            AddAll(result, "materialTable", "rare_electronic", "advanced_flux_agent", "hypertech_electronic");
+            AddAll(result, "materialTable", "rare_electronic", "advanced_flux_agent");
             AddAll(result, "toolTable", "module_extractor_advanced", "xray_scanner");
             AddAll(result, "t2moduleTable",
                 "printer_chip_pistol_double", "printer_chip_heavy_handmade_pistol_frame",
