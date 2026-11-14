@@ -361,8 +361,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "每次拾荒独立掷一次小奖，两档门槛：\n声望达到 60（眼力毒辣）时按本设置值生效；不到 60 时按本值的 1/10 生效（默认 3% 即 0.3%）。\n默认 3%，范围 0–10%，按 0.1 吸附；0% 两档都不出。\n小奖按区翻出一整箱同一种物品（每区 2–3 种），\n整箱值多少钱看下一项「小奖整箱价值」。\n不发新闻、不改价格、没有额外 25% 收获，也不影响爆大奖的累积窗口。\n同一次搜索里大奖、小奖都命中时只算大奖。\n小奖物品与正常拾荒一样计入声望。",
-                            "Every search rolls once for a minor prize, in two tiers:\nfrom 60 reputation (Keen Eye) it uses this value; below 60 it uses one tenth (3% becomes 0.3%).\nDefault 3%, range 0-10%, 0.1 steps; 0% disables both tiers.\nA minor prize is a whole crate of one item type (2-3 crates per area);\nits value is the \"Minor prize crate value\" setting below.\nNo news, no price change, no extra 25% bonus, and no effect on the jackpot window.\nIf both jackpot and minor prize hit in the same search, only the jackpot counts.\nMinor prize items count toward reputation like any other find.");
+                            "每次拾荒独立掷一次小奖，两档门槛：\n声望达到 60（眼力毒辣）时按本设置值生效；不到 60 时按本值的 1/10 生效（默认 3% 即 0.3%）。\n默认 3%，范围 0–10%，按 0.1 吸附；0% 两档都不出。\n小奖按区翻出一整箱同一种物品（每区 2–3 种），\n整箱值多少钱看下一项「小奖整箱价值」。\n不发新闻、不改价格、不触发大奖的当日额外收获，也不影响爆大奖的累积窗口。\n同一次搜索里大奖、小奖都命中时只算大奖。\n小奖物品与正常拾荒一样计入声望。",
+                            "Every search rolls once for a minor prize, in two tiers:\nfrom 60 reputation (Keen Eye) it uses this value; below 60 it uses one tenth (3% becomes 0.3%).\nDefault 3%, range 0-10%, 0.1 steps; 0% disables both tiers.\nA minor prize is a whole crate of one item type (2-3 crates per area);\nits value is the \"Minor prize crate value\" setting below.\nNo news, no price change, no jackpot bonus item, and no effect on the jackpot window.\nIf both jackpot and minor prize hit in the same search, only the jackpot counts.\nMinor prize items count toward reputation like any other find.");
                     },
                     false);
 

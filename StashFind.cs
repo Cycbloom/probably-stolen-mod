@@ -16,11 +16,11 @@ namespace DumpingGroundMap
     ///
     /// 小奖是独立设置项 minor_percent（0–10%，默认 3%），平常概率单独掷：
     /// 声望 &lt; 60 时按设置值的 1/10 生效，≥ 60 时全值生效，0 时两档都不出；
-    /// 不写 AIMD 状态、不登新闻、不改价格、不触发 25% 加成。
+    /// 不写 AIMD 状态、不登新闻、不改价格、不触发大奖的当日额外收获。
     /// 同一次搜索里大奖命中时完全跳过小奖。
     ///
     /// 一趟（进入某处垃圾场后）最多中一次大奖，标记只在内存里，换区时清空。
-    /// 中奖后当天、同一区域，每次搜索另有 25% 概率再给 1 件该区样板物品。
+    /// 中奖后当天、同一区域，后续每次搜索固定再给 1 件该区样板物品。
     ///
     /// 中奖当晚把「第二天出新闻」写进存档（同声望的 modData 机制），
     /// 第二天开日时由 StoreEventManager.OnDayStart 的 Prefix 调原生
@@ -42,7 +42,6 @@ namespace DumpingGroundMap
         /// <summary>声望不到 60 时的硬上限，单位是百分数。</summary>
         internal const float HardCapLowRep = 0.1f;
 
-        internal const float BonusChance = 25f;
         internal const int JackpotMinItems = 7;
         internal const int JackpotMaxItems = 8;
         internal const int BonusItems = 1;
@@ -124,7 +123,7 @@ namespace DumpingGroundMap
         ///
         /// 顺序：先掷大奖（AIMD）；大奖命中就完全跳过小奖；
         /// 大奖没中才独立掷小奖（不改 AIMD 状态）。
-        /// 当天同区 25% 额外收获最后判定，与两者互不干扰。
+        /// 当天同区额外收获最后判定（每次搜索固定 1 件），与两者互不干扰。
         /// </summary>
         internal static void OnScavenge(List<GameItem> items)
         {
@@ -194,8 +193,7 @@ namespace DumpingGroundMap
 
             if (!jackpotHit) TryMinor(items, region, today);
 
-            if (bonusActive && template != null
-                && UnityEngine.Random.value * 100f < BonusChance)
+            if (bonusActive && template != null)
             {
                 AddReward(items, template, BonusItems);
                 Debug.Log("[DumpingGroundMap] stash: bonus region=" + region.Id
@@ -254,7 +252,7 @@ namespace DumpingGroundMap
         /// 小奖：按设置项 minor_percent 独立掷一次。声望 &lt; 60 时按设置值的 1/10 生效，
         /// 声望 ≥ 60 时按设置值全值生效；设置值为 0 时两档都是 0。
         /// 命中后从该区的整箱表里随机抽一种，整箱只放同一样东西。
-        /// 不写 AIMD 状态、不登新闻、不改价格、不触发 25% 加成。
+        /// 不写 AIMD 状态、不登新闻、不改价格、不触发大奖的当日额外收获。
         /// </summary>
         private static void TryMinor(List<GameItem> items, Region region, int today)
         {
