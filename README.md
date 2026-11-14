@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.26
+# 垃圾场拾荒地图 · 0.3.27
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -18,7 +18,7 @@
 
 声望必须按存档隔离，所以不写进 `ModConfig`，而是用游戏自带的 mod 数据接口写进存档本体的 `PlayerStore.modData`（`ModHelper.GetModDataInt / SetModDataInt(Core.Id, "rep_total_value", 0)`），随存档一起保存。`OnGameLoadedLate` 读取、`OnNewGameStarted` 归零；`ModConfig` 只存三条掉落设置。
 
-**落盘时机是结束一天时的存档**：中途强退或崩溃，当晚声望会丢，与当晚捡到的其它收益一致。声望只存 `PlayerStore.modData`，模组不读写任何文件。门槛数字集中在一张表里：`UnlockCost.table`（三个高级区统一 40，0.3.24 起），改门槛只改这一处。柱子上另有三个奖励点 20 / 40 / 60：40 就是高级区门槛，20（每天多一名拾荒者客人）与 60（待定）目前只有图标占位，没有实际效果。
+**落盘时机是结束一天时的存档**：中途强退或崩溃，当晚声望会丢，与当晚捡到的其它收益一致。声望只存 `PlayerStore.modData`，模组不读写任何文件。门槛数字集中在一张表里：`UnlockCost.table`（三个高级区统一 40，0.3.24 起），改门槛只改这一处。柱子上另有三个奖励点 20 / 40 / 60：40 就是高级区门槛；20 自 0.3.27 起生效（每天开张时多一名拾荒客客人，阈值常量 `ScavengerPerkPatch.Threshold = 20`）；60 仍是图标占位。
 
 未解锁的地标在图上压暗、编号后直接标出所需声望；点它会提示「需要声望 40 才能进入「拆解堆」；当前声望 12」。地图下方常驻一行当前声望与三个门槛。
 
@@ -32,7 +32,7 @@
 | 状态 | 等级名：生手 / 熟脸 / 老手 / 活地图（Rookie / Regular / Old Hand / Living Map） |
 | 数字 | 0–200 刻度上的两位小数：`x.xx/200`（显示值 = 累计价值 / 100，`F2`） |
 | 绿条 | 不自己算比例，直接用原生 `Init → UpdateBar → GetBarHeight(v) = 65.5 × v / 100` |
-| 图标 | 柱上 20 / 40 / 60 三个奖励点，依次用 `spriteSmile` / `spriteHappy` / `spriteStar`；未解锁 alpha 0.35。只有 40 有实际效果；三个图标（含未解锁的）都能悬停，显示自带的中英双语说明 |
+| 图标 | 柱上 20 / 40 / 60 三个奖励点，依次用 `spriteSmile` / `spriteHappy` / `spriteStar`；未解锁 alpha 0.35。20 与 40 已生效，60 仍是占位；三个图标（含未解锁的）都能悬停，显示自带的中英双语说明 |
 
 四个等级的分界：0–40 生手、40–50 熟脸、50–60 老手、60+ 活地图。
 
@@ -48,6 +48,29 @@
 - **0.3.25 累加日志**：每趟拾荒输出一条 `[DumpingGroundMap] scavenge: items=<件数> value=<本次价值> total=<累计价值> points=<当前点数>`；补丁绑定失败会打 `scavenge: patch target NOT FOUND`，找不到 `PlayerStore` 会打 `reputation add skipped`，物品价值全为 0 会打 `items found but total value is 0`。
 - **0.3.24 容器高度检查**：诊断日志会打出 `bar=<当前柱高>px barParent=<父容器高>px expectedAt200=131.0px`；父容器不足 131px 时会额外打 `bar container is only …px, 0–200 scale needs 131.0px` 的警告，此时 200 点会画出可视区，需要回报日志再定方案。
 - **0.3.21 诊断日志**：补丁关键节点各打一条 `Debug.Log`，前缀 `[DumpingGroundMap] reputation row`，包括：目标方法是否取到、Postfix 首次进入（附带 `disaster_day` / `cirno9.reputation_interface_remake` 的运行状态）、`layout` / `prefab` 是否为空、是否因重复行跳过、文本覆盖结果（状态/数字/条比例/标题）、布局组的类型与子物体数、最终 `anchoredPosition` 与 `sizeDelta`。异常走 `Debug.LogError` 打完整堆栈。只写游戏日志，不写文件。
+
+### 20 点奖励：每天多一名拾荒客客人（0.3.27）
+
+客人的生成链路是 `PlayerStore.OnShutterOpened()`（每天开张调用一次）→ `StoreClientManager.GenerateClient()`，后者依次跑 `HandleNormalClient`（数量来自 `GetNormalCustomerCount`）、`HandlePerkClient`、`HandleServiceClient` 等。注入点选在 `GenerateClient()` 的 Postfix（全程序集只有 `OnShutterOpened` 一处调用它，一天恰好一次）：
+
+- `Reputation.Points >= ScavengerPerkPatch.Threshold`（常量 20）时，`StoreClientList.CreateScavGeneral()` 造一名原生拾荒客客人，再 `AddClient(client)` 加进去。
+- 用 `AddClient` 而非 `TryAddClient`：后者会先过 `IsClientOnCooldown`，`scavGeneral` 出现过一次后 `clientTracker` 就长期非 0，会把每日奖励永久拦掉；`AddClient` 与原生 `HandlePerkClient` 的做法一致。
+- 同日防重：记下 `runID + StoreStation.GetDayCounter()`，同一天再来一次（理论上不会）会打 `skip, already added` 并跳过。
+- **完全不碰 `GetNormalCustomerCount`**，所以与拾荒人开局、囤积癖短眠者之类改客人数量/睡眠的 mod 各改各的，不会重复加。只读 `Reputation.Points`，不写存档结构。
+
+日志：补丁绑定时一条 `scavenger perk: patch target StoreClientManager.GenerateClient`；生效时一条 `scavenger perk: +1 scavenger client day=<天数> points=<点数> identifier=scavGeneral`；失败分别打 `CreateScavGeneral returned null` / `add failed: …`。
+
+### Reputation Pop 联动（0.3.27）
+
+装了「声望增加显示 / Reputation Pop」（`reputation_pop`）时，每次拾荒结算（仍是 `ScavengeReputationPatch` 的 `GetRandomScavengedItem` Postfix，不合并成整趟一次）额外调用它的公开入口：
+
+- 目标用字面量 `AccessTools.Method("ReputationPop.Pop:Record", new[] { typeof(string), typeof(double) })` + `Delegate.CreateDelegate` 缓存成 `Action<string, double>`，参数 `("DGM_SCAVENGER", 本次价值 / 100.0)`。
+- `ModHelper.IsModRunning("reputation_pop")` 为假时直接短路：不解析、不装补丁、不报错。类型不存在时 `AccessTools.Method` 返回 `null`，只打一条 `NOT FOUND`。
+- 派系名：首次解析成功后手动 `new Harmony(Core.Id + ".reputation_pop").Patch(...)` 给 `StoreReputation.GetFactionNameByID` 挂 Prefix，仅 `id == "DGM_SCAVENGER"` 时返回「拾荒客 / Scavenger」，其它 id 原样放行。补丁只在对方 mod 运行时才装，不常驻。
+- 颜色用对方默认值（红色），不自己绘制。
+- 日志：`reputation pop: resolved ReputationPop.Pop:Record`（成功）/ `NOT FOUND` 或 `resolve failed: …`（失败）、`reputation pop: name prefix patched`，以及每次弹出一条 `reputation pop: delta=<本次增量> faction=DGM_SCAVENGER`。
+
+扫描器复核（`ModScanner.Scan`）：字面量写法不含 `reflection-external`，`<Capabilities />` 仍为空。
 
 
 ## 掉落设置
