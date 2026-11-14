@@ -17,6 +17,11 @@ namespace DumpingGroundMap
         internal const float DefaultHighPercent = 0f;
         internal const int DefaultSpecialtyTier = 2;
 
+        /// <summary>80 档：高档物资出现率保底 3%（玩家设置更高时尊重玩家）。</summary>
+        internal const float Perk80HighFloor = 3f;
+        /// <summary>80 档：每个有箱子的区，补给箱与对应钥匙卡各 0.5% 绝对概率。</summary>
+        internal const float Perk80SpecialChance = 0.005f;
+
         internal const float JunkMin = 0f;
         internal const float JunkMax = 100f;
         internal const float HighMin = 0f;
@@ -55,6 +60,7 @@ namespace DumpingGroundMap
         private static bool debugIgnoredLogged;
         private static readonly Dictionary<string, EffectiveTable> cache =
             new Dictionary<string, EffectiveTable>();
+        private static bool cachePerk80;
         private static readonly Dictionary<string, float> baseEvCache =
             new Dictionary<string, float>();
         private static bool hasLive;
@@ -172,7 +178,7 @@ namespace DumpingGroundMap
         {
             float ev;
             if (baseEvCache.TryGetValue(region.Id, out ev)) return ev;
-            ev = Build(region, 100f, 0f, 0f).Ev;
+            ev = Build(region, 100f, 0f, 0f, false).Ev;
             baseEvCache[region.Id] = ev;
             return ev;
         }
@@ -202,8 +208,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "每次拾荒单独判断：这一趟会不会出高档物资。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n高档物资换自普通物品，垃圾不受影响。",
-                            "Rolled once per search:\nit decides only whether this haul includes a high-value item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nHigh-value items replace normal items; junk is not affected.");
+                            "每次拾荒单独判断：这一趟会不会出高档物资。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n高档物资换自普通物品，垃圾不受影响。\n声望达到 80（识货行家）后，本项最低按 3% 生效；\n设得更高时按你的设置。",
+                            "Rolled once per search:\nit decides only whether this haul includes a high-value item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nHigh-value items replace normal items; junk is not affected.\nAt 80 reputation (Connoisseur) this never goes below 3%;\nhigher settings are kept.");
                     },
                     false);
 
@@ -473,9 +479,17 @@ namespace DumpingGroundMap
         internal static EffectiveTable TableFor(Region region)
         {
             Init();
+            bool perk80 = Reputation.Points >= Reputation.Perk80Threshold;
+            if (perk80 != cachePerk80)
+            {
+                cachePerk80 = perk80;
+                cache.Clear();
+            }
             EffectiveTable table;
             if (cache.TryGetValue(region.Id, out table)) return table;
-            table = Build(region, JunkPercent, HighPercent, SpecialtyPercent);
+            float highPercent = HighPercent;
+            if (perk80 && highPercent < Perk80HighFloor) highPercent = Perk80HighFloor;
+            table = Build(region, JunkPercent, highPercent, SpecialtyPercent, perk80);
             cache[region.Id] = table;
             return table;
         }
@@ -492,7 +506,7 @@ namespace DumpingGroundMap
         }
 
         private static EffectiveTable Build(Region region, float junkPercent,
-            float highPercent, float specialtyPercent)
+            float highPercent, float specialtyPercent, bool perk80)
         {
             RegionLootTable theme = region.Loot;
             RegionLootTable vanilla = ScavLoot.Vanilla;
@@ -540,19 +554,33 @@ namespace DumpingGroundMap
             float junkBase = junkPerNonJunk / (junkPerNonJunk + 1f);
             float junkProb = Mathf.Clamp(junkBase * junkPercent / 100f, 0f, 0.995f);
 
-            // 3) The high-value share is carved out of the non-junk items only.
+            // 3) The high-value share and the 80-tier crate/keycard shares are
+            //    carved out of the non-junk items only.
             float highChance = Mathf.Clamp(highPercent, 0f, 30f) / 100f;
-            if (highChance > 0.995f - junkProb) highChance = Mathf.Max(0f, 0.995f - junkProb);
-            if (otherTotal <= 0f) junkProb = 1f - highChance;
-            float normalProb = Mathf.Max(0f, 1f - junkProb - highChance);
+            string crateId = perk80 ? CrateFor(region.Id) : null;
+            string cardId = perk80 ? CardFor(region.Id) : null;
+            float crateChance = crateId != null ? Perk80SpecialChance : 0f;
+            float cardChance = cardId != null ? Perk80SpecialChance : 0f;
+            float reserved = highChance + crateChance + cardChance;
+            if (reserved > 0.995f - junkProb)
+            {
+                float scale = reserved > 0f ? Mathf.Max(0f, 0.995f - junkProb) / reserved : 0f;
+                highChance *= scale;
+                crateChance *= scale;
+                cardChance *= scale;
+                reserved = highChance + crateChance + cardChance;
+            }
+            if (otherTotal <= 0f) junkProb = 1f - reserved;
+            float normalProb = Mathf.Max(0f, 1f - junkProb - reserved);
 
             bool withHigh = highChance > 0f;
             int highCount = withHigh ? HighValue.Length : 0;
+            int specialCount = (crateId != null ? 1 : 0) + (cardId != null ? 1 : 0);
 
-            string[] items = new string[count + highCount];
-            float[] probs = new float[count + highCount];
-            bool[] isHigh = new bool[count + highCount];
-            bool[] isJunk = new bool[count + highCount];
+            string[] items = new string[count + highCount + specialCount];
+            float[] probs = new float[count + highCount + specialCount];
+            bool[] isHigh = new bool[count + highCount + specialCount];
+            bool[] isJunk = new bool[count + highCount + specialCount];
 
             for (int i = 0; i < count; ++i)
             {
@@ -577,6 +605,19 @@ namespace DumpingGroundMap
                 }
             }
 
+            int slotNext = count + highCount;
+            if (crateId != null)
+            {
+                items[slotNext] = crateId;
+                probs[slotNext] = crateChance;
+                ++slotNext;
+            }
+            if (cardId != null)
+            {
+                items[slotNext] = cardId;
+                probs[slotNext] = cardChance;
+            }
+
             // 4) Expected value of one roll.
             float expected = 0f;
             for (int i = 0; i < items.Length; ++i)
@@ -591,6 +632,35 @@ namespace DumpingGroundMap
             for (int i = 0; i < Region.All.Length; ++i)
                 if (Region.All[i].Id == region.Id) return i;
             return 0;
+        }
+
+        /// <summary>
+        /// 80 档：该区对应的满箱上锁补给箱。入口空地不给箱子。
+        /// 用 PreBuiltItemHelper 的 loot_crate_* id，ItemSpawner 会自动走预构建满箱。
+        /// </summary>
+        private static string CrateFor(string regionId)
+        {
+            switch (regionId)
+            {
+                case "scrap": return "loot_crate_engineering";
+                case "refuse": return "loot_crate_service";
+                case "medical": return "loot_crate_medical";
+                case "weapons": return "loot_crate_security";
+                default: return null;
+            }
+        }
+
+        /// <summary>80 档：与箱子同区出现的对应钥匙卡。</summary>
+        private static string CardFor(string regionId)
+        {
+            switch (regionId)
+            {
+                case "scrap": return "eng_keycard";
+                case "refuse": return "ser_keycard";
+                case "medical": return "med_keycard";
+                case "weapons": return "sec_keycard";
+                default: return null;
+            }
         }
 
         internal static float ValueOf(string itemId)
@@ -752,7 +822,16 @@ namespace DumpingGroundMap
                 { "bottled_water_premium", 325f },
                 { "black_injector", 350f },
                 { "rare_electronic", 350f },
-                { "module_extractor_advanced", 350f }
+                { "module_extractor_advanced", 350f },
+                // 80 档补给箱按满箱内容估的均价，只用于界面的期望价值。
+                { "loot_crate_engineering", 450f },
+                { "loot_crate_service", 350f },
+                { "loot_crate_medical", 500f },
+                { "loot_crate_security", 600f },
+                { "eng_keycard", 60f },
+                { "ser_keycard", 60f },
+                { "med_keycard", 60f },
+                { "sec_keycard", 60f }
             };
 
     }

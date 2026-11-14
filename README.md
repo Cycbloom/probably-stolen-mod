@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.45
+# 垃圾场拾荒地图 · 0.3.46
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -18,7 +18,7 @@
 
 声望必须按存档隔离，所以不写进 `ModConfig`，而是用游戏自带的 mod 数据接口写进存档本体的 `PlayerStore.modData`（`ModHelper.GetModDataInt / SetModDataInt(Core.Id, "rep_total_value", 0)`），随存档一起保存。`OnGameLoadedLate` 读取、`OnNewGameStarted` 归零；`ModConfig` 只存三条掉落设置。
 
-**落盘时机是结束一天时的存档**：中途强退或崩溃，当晚声望会丢，与当晚捡到的其它收益一致。声望只存 `PlayerStore.modData`，模组不读写任何文件。门槛数字集中在一张表里：`UnlockCost.table`（三个高级区统一 40，0.3.24 起），改门槛只改这一处。柱子上另有三个奖励点 20 / 40 / 60：40 就是高级区门槛；20 自 0.3.27 起生效（每天开张时多一名拾荒客客人，阈值常量 `ScavengerPerkPatch.Threshold = 20`）；60 仍是图标占位。
+**落盘时机是结束一天时的存档**：中途强退或崩溃，当晚声望会丢，与当晚捡到的其它收益一致。声望只存 `PlayerStore.modData`，模组不读写任何文件。门槛数字集中在一张表里：`UnlockCost.table`（三个高级区统一 40，0.3.24 起），改门槛只改这一处。柱子上另有五个奖励点 20 / 40 / 60 / 80 / 100（0.3.46 起）：20 自 0.3.27 起生效（每天开张时多一名拾荒客客人）；40 就是高级区门槛；80 已生效（高档保底 3% + 补给箱 / 钥匙卡）；60 与 100 只落了门槛与档名，功能待定。
 
 未解锁的地标在图上压暗、编号后直接标出所需声望；点它会提示「需要声望 40 才能进入「拆解堆」；当前声望 12」。地图下方常驻一行当前声望与三个门槛。
 
@@ -29,20 +29,20 @@
 | 位置 | 内容 |
 |---|---|
 | 标题 | 拾荒客（英文环境 Scavenger），沿用原生标题的配色与字号 |
-| 状态 | 等级名：生手 / 熟脸 / 熟门熟路 / 活地图（Rookie / Regular / Knows the Back Ways / Living Map） |
+| 状态 | 等级名：生手 / 拾荒老手 / 熟门熟路 / 眼力毒辣 / 识货行家 / 自己人（Rookie / Scavenger Veteran / Knows the Back Ways / Keen Eye / Connoisseur / One of Us） |
 | 数字 | 0–200 刻度上的两位小数：`x.xx/200`（显示值 = 累计价值 / 100，`F2`） |
 | 绿条 | 不自己算比例，直接用原生 `Init → UpdateBar → GetBarHeight(v) = 65.5 × v / 100` |
-| 图标 | 柱上 20 / 40 / 60 三个奖励点，依次用 `spriteSmile` / `spriteHappy` / `spriteStar`；未解锁 alpha 0.35。20 与 40 已生效，60 仍是占位；三个图标（含未解锁的）都能悬停，显示自带的中英双语说明 |
+| 图标 | 柱上 20 / 40 / 60 / 80 / 100 五个奖励点，依次用 `spriteSmile` / `spriteHappy` / `spriteStar` / `spriteStar` / `spriteStar`；未解锁 alpha 0.35。20、40、80 已生效，60 与 100 仍是档名占位；五个图标（含未解锁的）都能悬停，显示自带的中英双语说明 |
 
-四个等级的分界：0–40 生手、40–50 熟脸、50–60 熟门熟路、60+ 活地图。
+等级分界：0–20 生手、20–40 拾荒老手、40–60 熟门熟路、60–80 眼力毒辣、80–100 识货行家、100+ 自己人。
 
-实现上是在 `ReputationUIManager.OpenUI` 的 Postfix 里 `Instantiate(reputationPrefab, layout.transform, false)`，再合成一个只存在于内存里的 `StoreReputation`（`perks` 填 20 / 40 / 60 三个奖励点）交给原生 `ReputationElement.Init` 排版，随后覆盖状态文本与数字文本、按档位覆盖图标 sprite 与透明度，并给每个图标挂上本 mod 的悬停说明。**不往 `PlayerStore.storeReputations` 里塞条目，不写存档，不进 ES3**，面板关闭后这一行随原生清空一起销毁。
+实现上是在 `ReputationUIManager.OpenUI` 的 Postfix 里 `Instantiate(reputationPrefab, layout.transform, false)`，再合成一个只存在于内存里的 `StoreReputation`（`perks` 填 20 / 40 / 60 / 80 / 100 五个奖励点）交给原生 `ReputationElement.Init` 排版，随后覆盖状态文本与数字文本、按档位覆盖图标 sprite 与透明度，并给每个图标挂上本 mod 的悬停说明。**不往 `PlayerStore.storeReputations` 里塞条目，不写存档，不进 ES3**，面板关闭后这一行随原生清空一起销毁。
 
 - 原生 `layout` 若有布局组（`LayoutGroup`），追加后调用 `LayoutRebuilder.ForceRebuildLayoutImmediate`；没有布局组时按上一行的高度和位置手动往下排。这一条需要在游戏里目视确认，代码里两条路径都保留了。
 - 类型全部编译期绑定：`[HarmonyPatch]` + `AccessTools.Method(typeof(ReputationUIManager), "OpenUI")`，其余字段直接访问公开成员；不使用 `Type.GetType`、`TypeByName`、`Activator` 或程序集扫描，清单能力保持为空。游戏更新改动这些成员时会在编译期暴露，而不是运行期静默失败。
 - **不做跨 mod 兼容判断**：唯一的短路是「本次打开已建过行」（0.3.26 起按 `openCount` 序号判断，不查找子物体；0.3.25 及以前用 `layout` 下的 `DGM_ReputationRow`，会因原生 `Destroy` 延迟而误跳过第二次打开）。不检查災變日 / ReputationInterfaceRemake 是否在运行，也不判断面板是否被别的 mod 改过；其它 mod 的运行状态只写进诊断日志，不参与任何分支。0.3.22 起删除了此前的 `LighthouseSheet` / `ForeignRunning` 判断。
-- **0.3.25 悬停说明**：原生 tooltip 的取文链路是 `PerkElement.OnPointerEnter → ReputationUIManager.UpdateToolTipContent(perk)`，而 `UpdateToolTipContent` 只会用 `StoreReputationPerk` 的本地化键（`GetLocalizedPerkName/Description/FlavorText`）去 `SetText`，并且**不负责显示 tooltip**（原生 `OnPointerExit` 是空实现，tooltip 的显隐只看 GameObject 是否 active，位置由原生 `UpdateTooltipPosition` 每帧跟随鼠标）。我们没有 `rep_perk_<perkId>_*` 词条，所以把三个图标的 `PerkElement` 关掉（`perk.enabled = false`，Unity 不再向它派发指针事件），在同一个 GameObject 上挂本 mod 的 `DgmPerkTooltip`（`IPointerEnterHandler` / `IPointerExitHandler`）：进入时填 `perkTitle`（名称 + `[已激活/未激活]` + `20/200`）、清空 `perkStatus` / `perkProgress`、填 `perkdescription` 与 `perkFlavorText`，再 `reputationTooltip.SetActive(true)`；离开或组件禁用时 `SetActive(false)`。全部是公开字段访问，不新增资源文件、不反射、不读写文件。
-- **0.3.25 图标归属**：柱上图标不再按子物体索引硬映射（0.3.24 日志出现过 `perks total=4`，第四个来自行预制体自带、会让 20/40/60 错位）。现在在 `Init` 之前记下已有的 `PerkElement`，`Init` 之后把它们移除，剩下的按 `anchoredPosition.y`（= `GetBarHeight(阈值)`）排序，依次对应 20 / 40 / 60。
+- **0.3.25 悬停说明**：原生 tooltip 的取文链路是 `PerkElement.OnPointerEnter → ReputationUIManager.UpdateToolTipContent(perk)`，而 `UpdateToolTipContent` 只会用 `StoreReputationPerk` 的本地化键（`GetLocalizedPerkName/Description/FlavorText`）去 `SetText`，并且**不负责显示 tooltip**（原生 `OnPointerExit` 是空实现，tooltip 的显隐只看 GameObject 是否 active，位置由原生 `UpdateTooltipPosition` 每帧跟随鼠标）。我们没有 `rep_perk_<perkId>_*` 词条，所以把五个图标的 `PerkElement` 关掉（`perk.enabled = false`，Unity 不再向它派发指针事件），在同一个 GameObject 上挂本 mod 的 `DgmPerkTooltip`（`IPointerEnterHandler` / `IPointerExitHandler`）：进入时填 `perkTitle`（名称 + `[已激活/未激活]` + `20/200`）、清空 `perkStatus` / `perkProgress`、填 `perkdescription` 与 `perkFlavorText`，再 `reputationTooltip.SetActive(true)`；离开或组件禁用时 `SetActive(false)`。全部是公开字段访问，不新增资源文件、不反射、不读写文件。
+- **0.3.25 图标归属**：柱上图标不再按子物体索引硬映射（0.3.24 日志出现过 `perks total=4`，第四个来自行预制体自带、会让 20/40/60 错位）。现在在 `Init` 之前记下已有的 `PerkElement`，`Init` 之后把它们移除，剩下的按 `anchoredPosition.y`（= `GetBarHeight(阈值)`）排序，依次对应 20 / 40 / 60 / 80 / 100。
 - **0.3.26 每次打开都重建**：0.3.25 用 `layout.transform.Find(RowName)` 防重复，原生 `OpenUI` 却是用 `Destroy` 清空 layout（延迟到帧末才真正移除），第二次打开时旧行还挂在父子树里、查找必定命中，于是整行被跳过。现在改为「打开序号」判重：`OpenUI` 的 Prefix 把 `openCount` 加一，Postfix 只在 `builtAtOpen != openCount`（或跨帧）时建行，建完记录序号与帧号；不再查找子物体。日志会打 `open=#N frame=F children=…`，连续开关两次会看到 `open=#1` / `open=#2` 各一条 `added`。
 - **0.3.26 两位小数**：数字改为 `Reputation.ExactPoints`（累计价值 / 100f）的 `F2` 输出，如 `12.34/200`；柱高与图标解锁仍用整数点数（`totalValue / 100` 向下取整），逻辑不变。
 - **0.3.29 声望飘字开关**：`ModConfig` 新增布尔项 `reputation_pop`（分组「声望飘字 / Reputation Pop」，默认开）。标题在对方 mod 未运行时自动变成「声望飘字（需安装 Reputation Pop，当前未安装）」，说明文字写明依赖与关闭后的行为。`ReputationPopBridge.Show()` 先看开关：关 → 直接返回并只记一条 `reputation pop: disabled by setting`；开但对方不在 → 只记一条 `reputation pop: unavailable (mod not running)`；开且对方在运行 → 照常记录 delta。分支只看 `Tuning.ReputationPopEnabled` 与 `IsModRunning`，不改存档。
@@ -67,7 +67,7 @@
 
 **20 档定名与附赠便条（0.3.37 / 0.3.39 / 0.3.40 / 0.3.42 / 0.3.43）**：
 
-- 名称改成「拾荒老手 / Scavenger Veteran」，抽成 `Reputation.Perk20NameZh` / `Perk20NameEn` 两个常量；40（老手）、60（活地图）两档和状态栏的四档等级名都没动。
+- 名称改成「拾荒老手 / Scavenger Veteran」，抽成 `Reputation.Perk20NameZh` / `Perk20NameEn` 两个常量；40（老手）、60（活地图）两档和状态栏的四档等级名都没动（这里的「老手 / 活地图」是 0.3.37 时的旧名，0.3.46 已改成五档新名）。
 - 首次达到 20 点，开张时在前台放**两件**：`scav_token` 信物 + 一张原生 `handnote` 便签。便签用 `PreBuiltItemHelper.CreateHandnote(正文, 标题, 落款, 1)` 生成，标题同时是物品名；点开走 `HandnoteUIManager` 的小纸条面板（标题 / 正文 / 落款），不是 `slip` 那种整页文档。全天可用于同一用途的候选只有 `slip`（整页文档）、`postit`（机器上留的 Note，没有阅读 UI）与 `handnote`（原版感谢条 / 欠条用的便签），选 `handnote`。
 - 文案是拾荒者的第一人称复数口吻：标题「写给店主 / To the shopkeeper」（**标题同时是物品名**，改标题就等于改前台那件物品显示的名字），正文「这枚信物，只留给有本事的人。你的拾荒本领，我们服气。往后的日子里，我们会常来你店里照应。」/ "This only goes to people who've earned it. We've seen you work the dump. We'll be by your shop from now on."，落款「拾荒者们 / — the scavengers」。
 - 两件原子发放：先放信物再放便条；便条放不下就 `RemoveItemFromStoreInventory` 把信物收回来、**不写** `scav_medal_given`，次日重来。前台满时连物品都不创建，避免泄漏。
@@ -117,6 +117,27 @@ PlayerStore.OnLateShutterOpen()
 - **风险点**：事件发生在 `ShowFrontArea()` 之前，理论上此时前台容器已可用（同一方法里前面的原生纸条就是这么放的）。如果实测信物没出现，先看 `TryAddDirectSellingItemToTable` 是否返回 false；若不是，说明容器尚未就绪，需改用 `PlayerStore.OnLateShutterOpen()` 的 Postfix。`ScavMedal.cs` 的文件头注释已标出这一点。
 
 
+### 五档骨架与 80 点奖励（0.3.46）
+
+声望奖励改为五档：**20 拾荒老手 / 40 熟门熟路 / 60 眼力毒辣 / 80 识货行家 / 100 自己人**（英文 Scavenger Veteran / Knows the Back Ways / Keen Eye / Connoisseur / One of Us）。20 与 40 的行为不变；60 与 100 目前只落了门槛与档名，工具提示写「待定奖励（占位）」，不做半成品功能；80 本次落地。
+
+80 点（识货行家）生效两件事：
+
+- **高档保底 3%**：最终高档概率 = `max(玩家设置, 3%)`，上限仍是 30%。玩家设得比 3% 高就按玩家的来；设 0% 也会按 3% 生效。沿用现有高档机制：从普通物品份额里扣，垃圾概率不变。
+- **补给箱与钥匙卡**：四个区各有 **0.5% 绝对概率**出一只满箱上锁的补给箱，另有 **0.5% 绝对概率**出对应的钥匙卡。两条都从普通物品份额里扣，垃圾概率不变，同一区只会出自己的配对：
+
+| 区域 | 补给箱 | 钥匙卡 |
+|---|---|---|
+| 拆解堆 | `loot_crate_engineering`（工程箱） | `eng_keycard` |
+| 生活废料带 | `loot_crate_service`（服务箱） | `ser_keycard` |
+| 医疗废弃点 | `loot_crate_medical`（医疗箱） | `med_keycard` |
+| 废武器堆 | `loot_crate_security`（安保箱） | `sec_keycard` |
+| 入口空地 | 不放箱子 | 不放卡 |
+
+箱子走 `ItemSpawner.Spawn("loot_crate_*")`：游戏自己的 `PreBuiltItemHelper` 会把 `loot_crate_*` 建成满箱上锁状态，不需要也不使用 `med_box` / `eng_box` 这类会给空盒的容器 id。钥匙卡压在同一个最终权重表里，因此拾荒时也可能先翻到卡、后翻到箱；面板上 80 档的悬停说明已写明「偶尔能翻到高档货、翻到箱子就是大奖」。
+
+面板实现：`Reputation.Thresholds` / `PerkThresholds` 统一为 20 / 40 / 60 / 80 / 100，柱上五个图标；状态名取当前达到的最高档，低于 20 仍显示「生手」。60 / 80 / 100 的图标暂用星星，只影响外观。
+
 ## 掉落设置
 
 地图窗口底部不再有设置按钮，全部调节都在游戏的**模组设置窗口**（模组列表里本 mod 的「设置」）里，形态与原生条目一致：两条滑条加一条下拉。滑条的数值直接显示在滑条右侧的同一行，不再另起一行。
@@ -124,7 +145,7 @@ PlayerStore.OnLateShutterOpen()
 | 设置 | 形态 | 范围 | 默认 | 说明 |
 |---|---|---|---|---|
 | 垃圾出现率倍率 | 滑条 | 0–100% | 50% | 每次拾荒垃圾出现的多少：50% 把原本的垃圾量减半（入口空地约 49% → 24%），100% 是原版水平，0% 不再出垃圾；不是「垃圾占全部掉落的一半」 |
-| 高档物资出现率 | 滑条 | 0–30%（步长 0.5） | 0% | 每次拾荒单独判断这一趟是否出高档物资，没出不会累积、没有保底；8% 约每 12 次出 1 次。高档物资从普通物品里换出来，垃圾不受影响 |
+| 高档物资出现率 | 滑条 | 0–30%（步长 0.5） | 0% | 每次拾荒单独判断这一趟是否出高档物资，没出不会累积、没有保底；8% 约每 12 次出 1 次。高档物资从普通物品里换出来，垃圾不受影响。声望达到 80（识货行家）后本项最低按 3% 生效，设得更高时尊重玩家设置 |
 | 区域专精度 | 下拉（四档） | 较少 / 中等 / 较多 / 全部 | 较多 | 决定除垃圾外，捡到的东西有多偏向本区特产：档位越高，本区特产越常见、别处的通用物品越少；「全部」时除垃圾外只出本区特产。每个区各有自己的特产清单，垃圾不受影响 |
 
 原来的「偏好类别」跨区下拉已删除：地点本身就是主题，再叠一个全区通用的类别只会让两个区域变成同一种出产。0.3.7 起，原先四个区各一条的区域专精度滑条也合并成上面这一条——既然不分区域，就不再逐区设置。0.3.10 删除了「高档保底」：高档物资本身价值高，再加保底会明显影响平衡，现在只由出现率一条概率控制。0.3.12 起，区域专精度不再向玩家暴露 0–100 的数字，改为四档下拉；默认改为「较多」，垃圾倍率默认改为 50%、范围收紧到 0–100%。0.3.14 把三条设置的 (i) 提示改写成短句加例子：垃圾那条说明 50% 不是垃圾占比，高档那条说明每次拾荒独立判断、没有保底，专精那条说明每个区各有特产、垃圾不受影响。0.3.15 把区域从 4 个扩到 7 个，七张基础表都按「垃圾 100% 时单次价值 12.26」重解垃圾权重，并把终端区原先 26.62 的默认收益压平。0.3.16 把 7 个区域合并回 5 个（报废终端区并入拆解堆、配件箱并入废武器堆），改成「低级两区 / 高级三区」的声望梯度，专精改为「原版表 → 本区主题表」的线性插值。0.3.17 把声望从侧车文件搬进存档内的 `PlayerStore.modData`。0.3.18 删除了旧的侧车迁移与全部磁盘读写，避免触发模组扫描器的文件权限判定。0.3.19 让声望以一行「垃圾场」出现在评价箱的原生声望面板里，纯内存合成、不写存档。0.3.20 把该功能改成编译期类型绑定（无字符串反射、无程序集扫描），冲突检测改用 `ModHelper.IsModRunning`，清单能力仍为空。
@@ -251,7 +272,7 @@ NullReferenceException
 正确操作：主菜单 → 模组 → 本模组设置 → 拖点数（松手即生效）→ 关窗口 → **读档**（或开新档）。值在读档完成时写入，并立刻补存一次；不需要再点一次应用。
 
 
-高档物资池（价值 250–400，按 `unitValue`）：蓝血、高级滤芯、便携净水器、高端瓶装水、黑色注射器、稀有电子件、高级模组提取器；各区的具体分布不同。高档物资不受区域专精度影响，它本身就是稀有掉落。
+高档物资池（价值 250–400，按 `unitValue`）：一袋“蓝血”、高级滤水器、海德拉科技微型净水器、瓶装泉水、赛纳普斯注射器、电子元件（稀有）、模组提取器（高级）；各区的具体分布不同。高档物资不受区域专精度影响，它本身就是稀有掉落。
 
 ### 掉落表审查（0.3.9 / 0.3.15）
 

@@ -52,14 +52,29 @@ namespace DumpingGroundMap
         private const string PendingFlagKey = "dgm_debug_pending";
         private const string PendingPointsKey = "dgm_debug_pending_points";
 
-        /// <summary>20 点档的门槛与名称。改档名只改这两行，其它地方不要再写死。</summary>
+        /// <summary>五档门槛与名称。改档名只改这几行，其它地方不要再写死。</summary>
         internal const int Perk20Threshold = 20;
         internal const string Perk20NameZh = "拾荒老手";
         internal const string Perk20NameEn = "Scavenger Veteran";
 
-        /// <summary>40 点档的名称（门路：高级拾荒场的准入）。门槛数字仍在 UnlockCost.table。</summary>
+        internal const int Perk40Threshold = 40;
         internal const string Perk40NameZh = "熟门熟路";
         internal const string Perk40NameEn = "Knows the Back Ways";
+
+        /// <summary>60 档：只落门槛与档名，功能待定。</summary>
+        internal const int Perk60Threshold = 60;
+        internal const string Perk60NameZh = "眼力毒辣";
+        internal const string Perk60NameEn = "Keen Eye";
+
+        /// <summary>80 档：高档保底 3%，高级区可翻到补给箱与对应钥匙卡。</summary>
+        internal const int Perk80Threshold = 80;
+        internal const string Perk80NameZh = "识货行家";
+        internal const string Perk80NameEn = "Connoisseur";
+
+        /// <summary>100 档：只落门槛与档名，功能待定。</summary>
+        internal const int Perk100Threshold = 100;
+        internal const string Perk100NameZh = "自己人";
+        internal const string Perk100NameEn = "One of Us";
 
         /// <summary>客人卡上的来访原因（原生字段只能填类型/物品名，这里在 UI 侧改写）。</summary>
         internal static string Perk20Reason
@@ -492,19 +507,37 @@ namespace DumpingGroundMap
         private const string DisasterDayId = "disaster_day";
         private const string ReputationRemakeId = "cirno9.reputation_interface_remake";
 
-        private static readonly int[] Thresholds = { 40, 50, 60 };
+        /// <summary>0–200 刻度上的档位分界：20 / 40 / 60 / 80 / 100。</summary>
+        private static readonly int[] Thresholds =
+        {
+            Reputation.Perk20Threshold, Reputation.Perk40Threshold,
+            Reputation.Perk60Threshold, Reputation.Perk80Threshold,
+            Reputation.Perk100Threshold
+        };
         /// <summary>
-        /// 柱子上的三个奖励点，与原生 perk 同一套刻度（0–200）。
-        /// 20：每天多一名拾荒客客人 + 首次达到 20 点的一枚「拾荒者信物」和一张便条
-        ///     （ScavMedal，两件一起发，仅一次，已生效）。
-        /// 40：三个高级区（拆解堆 / 医疗废弃点 / 废武器堆）的统一解锁门槛，已生效。
-        /// TODO 60：待定（未实现，仅图标占位）。
+        /// 柱子上的五个奖励点，与原生 perk 同一套刻度（0–200）。
+        /// 20：每天多一名拾荒客客人 + 首次达到 20 点的一枚「拾荒者信物」和一张便条（已生效）。
+        /// 40：三个高级区（拆解堆 / 医疗废弃点 / 废武器堆）的统一解锁门槛（已生效）。
+        /// 60：只落门槛与档名，功能待定。
+        /// 80：高档物资出现率保底 3%；四个区可翻到补给箱与对应钥匙卡（已生效）。
+        /// 100：只落门槛与档名，功能待定。
         /// </summary>
-        private static readonly int[] PerkThresholds = { 20, 40, 60 };
+        private static readonly int[] PerkThresholds =
+        {
+            Reputation.Perk20Threshold, Reputation.Perk40Threshold,
+            Reputation.Perk60Threshold, Reputation.Perk80Threshold,
+            Reputation.Perk100Threshold
+        };
         private static readonly string[] TierZh =
-            { "生手", "熟脸", Reputation.Perk40NameZh, "活地图" };
+        {
+            "生手", Reputation.Perk20NameZh, Reputation.Perk40NameZh,
+            Reputation.Perk60NameZh, Reputation.Perk80NameZh, Reputation.Perk100NameZh
+        };
         private static readonly string[] TierEn =
-            { "Rookie", "Regular", Reputation.Perk40NameEn, "Living Map" };
+        {
+            "Rookie", Reputation.Perk20NameEn, Reputation.Perk40NameEn,
+            Reputation.Perk60NameEn, Reputation.Perk80NameEn, Reputation.Perk100NameEn
+        };
 
         private static bool patchLogged;
         private static int openCount;
@@ -608,8 +641,8 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 三个奖励图标，阈值就是 20 / 40 / 60。只有 40 目前有实际效果
-        /// （三个高级区的解锁门槛），20 与 60 仅占位，见 PerkThresholds 的 TODO。
+        /// 五个奖励图标，阈值就是 20 / 40 / 60 / 80 / 100。20、40、80 已生效，
+        /// 60 与 100 目前只有档名与占位说明，见 PerkThresholds 的注释。
         /// </summary>
         private static List<StoreReputationPerk> BuildPerks(int points)
         {
@@ -659,10 +692,10 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 图标：按 y 坐标（= GetBarHeight(阈值)）排序后依次对应 20 / 40 / 60，
-        /// 依次用微笑 / 笑脸 / 星星；未解锁 alpha 0.35。
+        /// 图标：按 y 坐标（= GetBarHeight(阈值)）排序后依次对应 20 / 40 / 60 / 80 / 100，
+        /// 依次用微笑 / 笑脸 / 星星 / 星星 / 星星；未解锁 alpha 0.35。
         /// 预制体自带的 PerkElement 在 Init 前记进 before，Init 后移除，
-        /// 这样 20/40/60 三个图标的归属不依赖子物体索引（0.3.24 曾因此错位）。
+        /// 这样五个图标的归属不依赖子物体索引（0.3.24 曾因此错位）。
         /// 每个图标挂上自己的 tooltip 组件，未解锁也能悬停预览。
         /// </summary>
         private static void StylePerks(GameObject row, int points,
@@ -846,19 +879,56 @@ namespace DumpingGroundMap
 
         private string Title()
         {
-            if (threshold >= 60) return Copy.Text("拾荒客·活地图", "Scavenger · Living Map");
-            if (threshold >= 40) return Copy.Text("拾荒客·" + Reputation.Perk40NameZh,
-                "Scavenger · " + Reputation.Perk40NameEn);
-            return Copy.Text(Reputation.Perk20NameZh, Reputation.Perk20NameEn);
+            string zh;
+            string en;
+            if (threshold >= Reputation.Perk100Threshold)
+            {
+                zh = Reputation.Perk100NameZh;
+                en = Reputation.Perk100NameEn;
+            }
+            else if (threshold >= Reputation.Perk80Threshold)
+            {
+                zh = Reputation.Perk80NameZh;
+                en = Reputation.Perk80NameEn;
+            }
+            else if (threshold >= Reputation.Perk60Threshold)
+            {
+                zh = Reputation.Perk60NameZh;
+                en = Reputation.Perk60NameEn;
+            }
+            else if (threshold >= Reputation.Perk40Threshold)
+            {
+                zh = Reputation.Perk40NameZh;
+                en = Reputation.Perk40NameEn;
+            }
+            else
+            {
+                zh = Reputation.Perk20NameZh;
+                en = Reputation.Perk20NameEn;
+            }
+            return Copy.Text("拾荒客·" + zh, "Scavenger · " + en);
         }
 
         private string Description()
         {
-            if (threshold >= 60)
+            if (threshold >= Reputation.Perk100Threshold)
             {
                 return Copy.Text("待定奖励（占位）", "Reward TBD (placeholder)");
             }
-            if (threshold >= 40)
+            if (threshold >= Reputation.Perk80Threshold)
+            {
+                return Copy.Text(
+                    "高档物资出现率最低按 3% 生效；高级区偶尔能翻到上锁的补给箱和对应的钥匙卡。"
+                    + "翻到箱子就是大奖，钥匙卡能把它打开。",
+                    "Your high-value find chance never drops below 3%; high-tier grounds can "
+                    + "occasionally turn up a locked supply crate and the matching keycard. "
+                    + "A crate is the jackpot; the keycard opens it.");
+            }
+            if (threshold >= Reputation.Perk60Threshold)
+            {
+                return Copy.Text("待定奖励（占位）", "Reward TBD (placeholder)");
+            }
+            if (threshold >= Reputation.Perk40Threshold)
             {
                 return Copy.Text("凭这门路，三个高级拾荒场对你开放：拆解堆、医疗废弃点、废武器堆",
                     "With the back ways known, three high-tier scavenging grounds open up to you: "
@@ -871,17 +941,27 @@ namespace DumpingGroundMap
 
         private string Flavor()
         {
-            if (threshold >= 60)
+            if (threshold >= Reputation.Perk100Threshold)
             {
-                return Copy.Text("整座垃圾场，他闭着眼都能走一遍。",
-                    "He could walk the whole dump with his eyes shut.");
+                return Copy.Text("在这片废土上，你已经是他们自己人了。",
+                    "Out here, you're one of them now.");
             }
-            if (threshold >= 40)
+            if (threshold >= Reputation.Perk80Threshold)
+            {
+                return Copy.Text("他看一眼就知道，这箱子里有没有真货。",
+                    "One look tells him whether the crate holds the real thing.");
+            }
+            if (threshold >= Reputation.Perk60Threshold)
+            {
+                return Copy.Text("假货、次品、翻新货，他一眼就能挑出来。",
+                    "Knock-offs, seconds and refurbs - he spots them at a glance.");
+            }
+            if (threshold >= Reputation.Perk40Threshold)
             {
                 return Copy.Text("他知道哪堆废铁底下还压着好东西。",
                     "He knows which pile of scrap still hides the good stuff.");
             }
-            return Copy.Text("废土上的熟脸，价钱好商量。",
+            return Copy.Text("废土上的老面孔，价钱好商量。",
                 "A familiar face in the wastes; easier to haggle with.");
         }
     }
