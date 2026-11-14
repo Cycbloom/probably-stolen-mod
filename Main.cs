@@ -972,6 +972,7 @@ namespace DumpingGroundMap
         private const string KeyCrate = "crate_percent";
         private const string KeyCard = "keycard_percent";
         private const string KeyMinor = "minor_percent";
+        private const string KeyMinorValue = "minor_value";
         private const string LogTag = "[DGM-SLIDER] ";
 
         private static CustomUIWindow window;
@@ -979,12 +980,14 @@ namespace DumpingGroundMap
         private static CustomUIElement junkValue, highValue;
         private static CustomUIElement crateValue, cardValue;
         private static CustomUIElement minorValue;
+        private static CustomUIElement minorCrateValue;
         private static CustomUIElement debugValue;
         private static CustomUIElement specialtyDropdown;
         private static CustomUIElement[] evLabels;
         private static CustomUIElement junkSlider, highSlider;
         private static CustomUIElement crateSlider, cardSlider;
         private static CustomUIElement minorSlider;
+        private static CustomUIElement minorCrateSlider;
         private static CustomUIElement debugSlider;
         private static bool dragging;
         private static int dragKind;
@@ -1028,6 +1031,7 @@ namespace DumpingGroundMap
         {
             return key == KeyJunk || key == KeyHigh
                 || key == KeyCrate || key == KeyCard || key == KeyMinor
+                || key == KeyMinorValue
                 || key == Tuning.SpecialtyKey
                 || key == Tuning.DebugEnabledKey || key == Tuning.DebugPointsKey;
         }
@@ -1044,7 +1048,7 @@ namespace DumpingGroundMap
                 if (element == null || building == null || buildingKey == null) return;
                 if (buildingKey != KeyJunk && buildingKey != KeyHigh
                     && buildingKey != KeyCrate && buildingKey != KeyCard
-                    && buildingKey != KeyMinor
+                    && buildingKey != KeyMinor && buildingKey != KeyMinorValue
                     && buildingKey != Tuning.DebugPointsKey) return;
                 if (!ReferenceEquals(element, building.Last)) return;
                 if (element.slider == null) return;
@@ -1070,6 +1074,7 @@ namespace DumpingGroundMap
                 else if (key == KeyCrate) crateValue = label;
                 else if (key == KeyCard) cardValue = label;
                 else if (key == KeyMinor) minorValue = label;
+                else if (key == KeyMinorValue) minorCrateValue = label;
                 else debugValue = label;
             }
             catch (Exception ex)
@@ -1114,6 +1119,11 @@ namespace DumpingGroundMap
                 {
                     minorSlider = HookSlider(window, key, 5);
                     minorValue = EnsureValueLine(b, key, minorValue);
+                }
+                else if (key == KeyMinorValue)
+                {
+                    minorCrateSlider = HookSlider(window, key, 6);
+                    minorCrateValue = EnsureValueLine(b, key, minorCrateValue);
                 }
                 else if (key == Tuning.SpecialtyKey)
                 {
@@ -1225,6 +1235,11 @@ namespace DumpingGroundMap
             PresetButton(b, 0, Copy.Text("默认", "Default"));
             PresetButton(b, 1, Copy.Text("专精拉满", "Specialty max"));
             PresetButton(b, 2, Copy.Text("赌高档", "Gamble"));
+            b.End();
+            b.AddSpace(2);
+            b.BeginRow(8f, TextAnchor.MiddleLeft);
+            PresetButton(b, 3, Copy.Text("默认 200", "Default 200"));
+            PresetButton(b, 4, Copy.Text("贴近原版 100", "Vanilla-ish 100"));
             b.End();
             b.AddSpace(4);
         }
@@ -1363,6 +1378,8 @@ namespace DumpingGroundMap
                 cardValue.SetText(Tuning.KeycardPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
             if (minorValue != null)
                 minorValue.SetText(Tuning.MinorPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+            if (minorCrateValue != null)
+                minorCrateValue.SetText(Tuning.MinorValue.ToString("0", CultureInfo.InvariantCulture));
             if (debugValue != null)
                 debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
             if (evLabels == null) return;
@@ -1457,6 +1474,14 @@ namespace DumpingGroundMap
                 Tuning.SetMinorPercentLive(snapped);
                 LogSlide(5, value, Tuning.MinorPercent);
             }
+            else if (kind == 6)
+            {
+                BeginDrag(6, Tuning.MinorValue);
+                float snapped = Mathf.Round(value / 10f) * 10f;
+                SyncSlider(minorCrateSlider, snapped);
+                Tuning.SetMinorValueLive(snapped);
+                LogSlide(6, value, Tuning.MinorValue);
+            }
         }
 
         private static void ApplyPreset(int preset)
@@ -1484,6 +1509,7 @@ namespace DumpingGroundMap
             SyncSlider(crateSlider, Tuning.CratePercent);
             SyncSlider(cardSlider, Tuning.KeycardPercent);
             SyncSlider(minorSlider, Tuning.MinorPercent);
+            SyncSlider(minorCrateSlider, Tuning.MinorValue);
         }
 
         private static void BeginDrag(int kind, float from)
@@ -1548,6 +1574,7 @@ namespace DumpingGroundMap
             crateValue = null;
             cardValue = null;
             minorValue = null;
+            minorCrateValue = null;
             debugValue = null;
             specialtyDropdown = null;
             evLabels = null;
@@ -1556,6 +1583,7 @@ namespace DumpingGroundMap
             crateSlider = null;
             cardSlider = null;
             minorSlider = null;
+            minorCrateSlider = null;
             debugSlider = null;
             building = null;
             buildingKey = null;

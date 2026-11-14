@@ -46,6 +46,12 @@ namespace DumpingGroundMap
         internal const int JackpotMaxItems = 8;
         internal const int BonusItems = 1;
 
+        /// <summary>小奖件数区间与目标价值浮动范围。</summary>
+        internal const int MinorMinItems = 1;
+        internal const int MinorMaxItems = 12;
+        internal const float MinorValueFloor = 0.75f;
+        internal const float MinorValueCeil = 1.25f;
+
         private static float chance = StartChance;
         private static int phase;
         private static int hitDay = -1;
@@ -260,7 +266,8 @@ namespace DumpingGroundMap
             float roll = UnityEngine.Random.value * 100f;
             if (roll >= percent) return;
 
-            int count = UnityEngine.Random.Range(box.MinCount, box.MaxCount + 1);
+            int crateValue;
+            int count = MinorCount(box, out crateValue);
             int spawned = 0;
             for (int i = 0; i < count; ++i)
             {
@@ -287,7 +294,24 @@ namespace DumpingGroundMap
             NotifyMinor(box);
             Debug.Log("[DumpingGroundMap] stash: minor region=" + region.Id
                 + " day=" + today + " box=" + box.ItemId + " items=" + spawned + "/" + count
+                + " value=" + crateValue + " target=" + Tuning.MinorValue.ToString("F0")
                 + " roll=" + roll.ToString("F3") + " chance=" + percent.ToString("F1"));
+        }
+
+        /// <summary>
+        /// 件数由目标价值反推：在 目标值 × [0.75, 1.25] 里取一个金额，
+        /// 除以该箱单价后四舍五入，夹在 1–12 件。crateValue 回传实际金额。
+        /// </summary>
+        private static int MinorCount(MinorBox box, out int crateValue)
+        {
+            float target = Tuning.MinorValue;
+            float amount = target * UnityEngine.Random.Range(MinorValueFloor, MinorValueCeil);
+            crateValue = Mathf.RoundToInt(amount);
+            float raw = box.UnitPrice > 0f ? amount / box.UnitPrice : 1f;
+            int count = Mathf.FloorToInt(raw + 0.5f);
+            if (count < MinorMinItems) count = MinorMinItems;
+            if (count > MinorMaxItems) count = MinorMaxItems;
+            return count;
         }
 
         /// <summary>小奖提示，复用同一条通知条，一句到底、不挡面板。</summary>
@@ -313,60 +337,58 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 每区 2–3 种「整箱」。整箱只放同一样东西，件数按单价反向配，
-        /// 让单次小奖总价值大致落在 150–250：便宜的 8–10 件，贵的 4–5 件。
+        /// 每区 2–3 种「整箱」。整箱只放同一样东西，件数不再写死，
+        /// 由设置项 minor_value（目标价值）除以单价反推。
         /// </summary>
         internal sealed class MinorBox
         {
             internal readonly string RegionId;
             internal readonly string ItemId;
-            internal readonly int MinCount;
-            internal readonly int MaxCount;
+            internal readonly float UnitPrice;
             private readonly string siteZh;
             private readonly string siteEn;
 
             internal string SiteZh { get { return siteZh; } }
             internal string SiteEn { get { return siteEn; } }
 
-            private MinorBox(string regionId, string itemId, int minCount, int maxCount,
+            private MinorBox(string regionId, string itemId, float unitPrice,
                 string siteZh, string siteEn)
             {
                 RegionId = regionId;
                 ItemId = itemId;
-                MinCount = minCount;
-                MaxCount = maxCount;
+                UnitPrice = unitPrice;
                 this.siteZh = siteZh;
                 this.siteEn = siteEn;
             }
 
             private static readonly MinorBox[] All =
             {
-                new MinorBox("refuse", "processed_meat", 8, 10,
+                new MinorBox("refuse", "processed_meat", 25f,
                     "废料堆底下", "under the refuse heap"),
-                new MinorBox("refuse", "toilet_paper", 8, 10,
+                new MinorBox("refuse", "toilet_paper", 25f,
                     "塌了一半的车厢里", "in a half-collapsed carriage"),
-                new MinorBox("refuse", "paper_towel", 5, 5,
+                new MinorBox("refuse", "paper_towel", 35f,
                     "废料堆底下", "under the refuse heap"),
 
-                new MinorBox("scrap", "common_electronic", 5, 5,
+                new MinorBox("scrap", "common_electronic", 33f,
                     "掀开的铁皮板下", "under a peeled-back sheet of metal"),
-                new MinorBox("scrap", "gun_part", 8, 10,
+                new MinorBox("scrap", "gun_part", 25f,
                     "工作台底下", "under a broken workbench"),
-                new MinorBox("scrap", "screwdriver", 8, 10,
+                new MinorBox("scrap", "screwdriver", 25f,
                     "塌了一半的车厢里", "in a half-collapsed carriage"),
 
-                new MinorBox("med", "hemostatic_bandage_item", 10, 10,
+                new MinorBox("med", "hemostatic_bandage_item", 16f,
                     "废墟下", "under the rubble"),
-                new MinorBox("med", "phagimycin_pill", 8, 10,
+                new MinorBox("med", "phagimycin_pill", 25f,
                     "倒塌的隔墙后", "behind a collapsed partition"),
-                new MinorBox("med", "rubbing_alcohol", 5, 5,
+                new MinorBox("med", "rubbing_alcohol", 35f,
                     "废墟下", "under the rubble"),
 
-                new MinorBox("weapons", "small_pistol_ammo", 8, 10,
+                new MinorBox("weapons", "small_pistol_ammo", 20f,
                     "掀开的铁皮板下", "under a peeled-back sheet of metal"),
-                new MinorBox("weapons", "small_pistol_ammo_p", 8, 9,
+                new MinorBox("weapons", "small_pistol_ammo_p", 26f,
                     "塌了一半的车厢里", "in a half-collapsed carriage"),
-                new MinorBox("weapons", "heavy_pistol_ammo", 5, 5,
+                new MinorBox("weapons", "heavy_pistol_ammo", 30f,
                     "锈蚀的军械箱旁", "beside a rusted arms crate")
             };
 

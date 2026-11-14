@@ -30,6 +30,13 @@ namespace DumpingGroundMap
         internal const float MinorPercentMin = 0f;
         internal const float MinorPercentMax = 10f;
 
+        /// <summary>小奖整箱的目标价值：件数按「目标值 ×[0.75,1.25] ÷ 单价」反推。</summary>
+        internal const string MinorValueKey = "minor_value";
+        internal const float DefaultMinorValue = 200f;
+        internal const float MinorValueMin = 50f;
+        internal const float MinorValueMax = 400f;
+        internal const float MinorValueStep = 10f;
+
         internal const float JunkMin = 0f;
         internal const float JunkMax = 100f;
         internal const float HighMin = 0f;
@@ -70,6 +77,7 @@ namespace DumpingGroundMap
         private static ConfigEntry<float> crateEntry;
         private static ConfigEntry<float> cardEntry;
         private static ConfigEntry<float> minorEntry;
+        private static ConfigEntry<float> minorValueEntry;
         private static ConfigEntry<float> stashCapEntry;
         private static ConfigEntry<string> specialtyEntry;
         private static ConfigEntry<bool> reputationPopEntry;
@@ -87,6 +95,7 @@ namespace DumpingGroundMap
         private static float liveCrate;
         private static float liveCard;
         private static float liveMinor;
+        private static float liveMinorValue;
         private static bool initialized;
 
         private static float EntryJunk()
@@ -121,6 +130,12 @@ namespace DumpingGroundMap
         {
             if (minorEntry == null) return DefaultMinorPercent;
             return ClampMinorPercent(minorEntry.Value);
+        }
+
+        private static float EntryMinorValue()
+        {
+            if (minorValueEntry == null) return DefaultMinorValue;
+            return ClampMinorValue(minorValueEntry.Value);
         }
 
         private static int EntrySpecialtyTier()
@@ -213,6 +228,12 @@ namespace DumpingGroundMap
             get { return hasLive ? liveMinor : EntryMinorPercent(); }
         }
 
+        /// <summary>小奖整箱目标价值（50–400，按 10 吸附）。</summary>
+        internal static float MinorValue
+        {
+            get { return hasLive ? liveMinorValue : EntryMinorValue(); }
+        }
+
         /// <summary>True while a slider drag is holding unsaved values in memory.</summary>
         internal static bool HasLive { get { return hasLive; } }
 
@@ -240,6 +261,15 @@ namespace DumpingGroundMap
             if (float.IsNaN(value)) return DefaultMinorPercent;
             value = Mathf.Round(Mathf.Clamp(value, MinorPercentMin, MinorPercentMax) * 10f) / 10f;
             return Mathf.Clamp(value, MinorPercentMin, MinorPercentMax);
+        }
+
+        /// <summary>按 10 吸附并夹在 50–400。</summary>
+        internal static float ClampMinorValue(float value)
+        {
+            if (float.IsNaN(value)) return DefaultMinorValue;
+            value = Mathf.Round(Mathf.Clamp(value, MinorValueMin, MinorValueMax) / MinorValueStep)
+                * MinorValueStep;
+            return Mathf.Clamp(value, MinorValueMin, MinorValueMax);
         }
 
         /// <summary>按 0.1 步进吸附并夹在 0.1–5.0。</summary>
@@ -331,8 +361,19 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "声望达到 60（眼力毒辣）后，每次拾荒独立掷一次小奖。\n默认 3%，范围 0–10%，按 0.1 吸附；0% 不出。\n小奖按区翻出一整箱同一种物品（每区 2–3 种，总价约 150–250），\n不发新闻、不改价格、没有额外 25% 收获，也不影响爆大奖的累积窗口。\n同一次搜索里大奖、小奖都命中时只算大奖。\n小奖物品与正常拾荒一样计入声望。",
-                            "At 60 reputation (Keen Eye), every search rolls once for a minor prize.\nDefault 3%, range 0-10%, 0.1 steps; 0% disables it.\nA minor prize is a whole crate of one item type (2-3 crates per area, 150-250 total):\nno news, no price change, no extra 25% bonus, and no effect on the jackpot window.\nIf both jackpot and minor prize hit in the same search, only the jackpot counts.\nMinor prize items count toward reputation like any other find.");
+                            "声望达到 60（眼力毒辣）后，每次拾荒独立掷一次小奖。\n默认 3%，范围 0–10%，按 0.1 吸附；0% 不出。\n小奖按区翻出一整箱同一种物品（每区 2–3 种），\n整箱值多少钱看下一项「小奖整箱价值」。\n不发新闻、不改价格、没有额外 25% 收获，也不影响爆大奖的累积窗口。\n同一次搜索里大奖、小奖都命中时只算大奖。\n小奖物品与正常拾荒一样计入声望。",
+                            "At 60 reputation (Keen Eye), every search rolls once for a minor prize.\nDefault 3%, range 0-10%, 0.1 steps; 0% disables it.\nA minor prize is a whole crate of one item type (2-3 crates per area);\nits value is the \"Minor prize crate value\" setting below.\nNo news, no price change, no extra 25% bonus, and no effect on the jackpot window.\nIf both jackpot and minor prize hit in the same search, only the jackpot counts.\nMinor prize items count toward reputation like any other find.");
+                    },
+                    false);
+
+                minorValueEntry = config.Define(MinorValueKey, DefaultMinorValue, SectionName,
+                    delegate { return Copy.Text("小奖整箱价值", "Minor prize crate value"); },
+                    MinorValueMin, MinorValueMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "只决定小奖那一整箱值多少钱，不影响爆大奖，也不影响上面的基础 EV。\n每次小奖在 目标值 × 0.75–1.25 之间随机取一个金额，\n除以该箱物品单价后四舍五入得到件数（最少 1 件、最多 12 件）。\n默认 200，范围 50–400，按 10 吸附。\n例：目标 200、单价 25 的物品约 6–10 件；目标 100 约 3–5 件。",
+                            "Sets how much a minor-prize crate is worth; it does not touch the jackpot or the base EV above.\nEach minor prize picks a random amount in target x 0.75-1.25,\ndivides it by the item's unit price and rounds to get the count (1 to 12 items).\nDefault 200, range 50-400, 10 steps.\nExample: target 200 with a 25-value item is about 6-10 items; target 100 is about 3-5.");
                     },
                     false);
 
@@ -466,6 +507,12 @@ namespace DumpingGroundMap
                 {
                     float snapped = ClampMinorPercent(value);
                     if (snapped != value) minorEntry.Set(snapped);
+                    Invalidated();
+                };
+                minorValueEntry.OnChanged += delegate(float value)
+                {
+                    float snapped = ClampMinorValue(value);
+                    if (snapped != value) minorValueEntry.Set(snapped);
                     Invalidated();
                 };
                 specialtyEntry.OnChanged += delegate(string value)
@@ -606,6 +653,14 @@ namespace DumpingGroundMap
             Invalidated();
         }
 
+        /// <summary>小奖整箱价值滑条预览（50–400，内存态）。</summary>
+        internal static void SetMinorValueLive(float value)
+        {
+            EnsureLive();
+            liveMinorValue = ClampMinorValue(value);
+            Invalidated();
+        }
+
         private static void EnsureLive()
         {
             if (hasLive) return;
@@ -615,6 +670,7 @@ namespace DumpingGroundMap
             liveCrate = EntryCratePercent();
             liveCard = EntryKeycardPercent();
             liveMinor = EntryMinorPercent();
+            liveMinorValue = EntryMinorValue();
         }
 
         /// <summary>
@@ -629,12 +685,15 @@ namespace DumpingGroundMap
             float crate = liveCrate;
             float card = liveCard;
             float minor = liveMinor;
+            float minorValue = liveMinorValue;
             hasLive = false;
             if (junkEntry != null && junkEntry.Value != junk) junkEntry.Set(junk);
             if (highEntry != null && highEntry.Value != high) highEntry.Set(high);
             if (crateEntry != null && crateEntry.Value != crate) crateEntry.Set(crate);
             if (cardEntry != null && cardEntry.Value != card) cardEntry.Set(card);
             if (minorEntry != null && minorEntry.Value != minor) minorEntry.Set(minor);
+            if (minorValueEntry != null && minorValueEntry.Value != minorValue)
+                minorValueEntry.Set(minorValue);
             Invalidated();
         }
 
@@ -648,6 +707,14 @@ namespace DumpingGroundMap
 
         internal static void ApplyPreset(int preset)
         {
+            // 3 / 4 只改「小奖整箱价值」，不动垃圾、高档与专精。
+            if (preset == 3 || preset == 4)
+            {
+                hasLive = false;
+                if (minorValueEntry != null)
+                    minorValueEntry.Set(preset == 3 ? DefaultMinorValue : 100f);
+                return;
+            }
             float junk = DefaultJunkPercent;
             float high = DefaultHighPercent;
             int tier = DefaultSpecialtyTier;
