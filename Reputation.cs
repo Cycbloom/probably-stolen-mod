@@ -176,7 +176,8 @@ namespace DumpingGroundMap
     /// 在原生面板打开后追加一行「垃圾场」：复用原生行预制体与排版，
     /// 只在内存里合成一个 StoreReputation，不写 PlayerStore.storeReputations，
     /// 不落盘、不进 ES3。类型全部编译期绑定（typeof / 直接访问公开字段），
-    /// 不使用字符串式反射或程序集扫描；装了 災變日 / ReputationInterfaceRemake 时让路。
+    /// 不使用字符串式反射或程序集扫描。
+    /// 只在災變日把面板切成“灯塔独占单”时让路，不再按“装了某 mod”直接跳过。
     /// </summary>
     [HarmonyPatch]
     internal static class ReputationBoardPatch
@@ -193,12 +194,14 @@ namespace DumpingGroundMap
         private static readonly string[] TierZh = { "拾荒客", "熟脸", "老手", "活地图" };
         private static readonly string[] TierEn = { "Scavenger", "Regular", "Old Hand", "Living Map" };
 
-        private static bool foreignChecked;
-        private static bool foreign;
+        private static bool patchLogged;
 
         private static MethodBase TargetMethod()
         {
-            return AccessTools.Method(typeof(ReputationUIManager), "OpenUI", new Type[0]);
+            MethodBase method = AccessTools.Method(typeof(ReputationUIManager), "OpenUI", new Type[0]);
+            Debug.Log("[DumpingGroundMap] reputation row: patch target "
+                + (method == null ? "NOT FOUND" : method.DeclaringType.Name + "." + method.Name));
+            return method;
         }
 
         private static void Postfix(ReputationUIManager __instance)
@@ -206,11 +209,32 @@ namespace DumpingGroundMap
             if (!Core.Enabled || __instance == null) return;
             try
             {
-                if (ForeignRunning()) return;
+                if (!patchLogged)
+                {
+                    patchLogged = true;
+                    Debug.Log("[DumpingGroundMap] reputation row: postfix entered (disaster_day="
+                        + ModHelper.IsModRunning(DisasterDayId) + ", rir="
+                        + ModHelper.IsModRunning(ReputationRemakeId) + ")");
+                }
+
                 GameObject layout = __instance.layout;
                 GameObject prefab = __instance.reputationPrefab;
-                if (layout == null || prefab == null) return;
-                if (layout.transform.Find(RowName) != null) return;
+                if (layout == null || prefab == null)
+                {
+                    Debug.LogWarning("[DumpingGroundMap] reputation row: layout=" + (layout == null ? "null" : layout.name)
+                        + " prefab=" + (prefab == null ? "null" : prefab.name));
+                    return;
+                }
+                if (LighthouseSheet(layout))
+                {
+                    Debug.Log("[DumpingGroundMap] reputation row: skip, lighthouse sheet");
+                    return;
+                }
+                if (layout.transform.Find(RowName) != null)
+                {
+                    Debug.Log("[DumpingGroundMap] reputation row: skip, already present");
+                    return;
+                }
 
                 int points = Reputation.Points;
                 StoreReputation entry = BuildEntry(points);
@@ -223,18 +247,37 @@ namespace DumpingGroundMap
                 if (element == null)
                 {
                     UnityEngine.Object.Destroy(row);
+                    Debug.LogWarning("[DumpingGroundMap] reputation row: prefab has no ReputationElement");
                     return;
                 }
 
                 element.Init(entry);
                 ApplyRow(element, points);
                 PlaceRow(row, layout);
-                Debug.Log("[DumpingGroundMap] reputation row shown: " + points);
+                Debug.Log("[DumpingGroundMap] reputation row: added " + points
+                    + " active=" + row.activeSelf
+                    + " parent=" + (row.transform.parent == null ? "null" : row.transform.parent.name)
+                    + " children=" + layout.transform.childCount
+                    + " local=" + row.transform.localPosition
+                    + " size=" + (row.transform as RectTransform).sizeDelta);
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] reputation row skipped: " + ex.Message);
+                Debug.LogError("[DumpingGroundMap] reputation row failed: " + ex);
             }
+        }
+
+        /// <summary>災變日把面板切成灯塔独占单时会把原生行全部隐藏，这时不要插进去。</summary>
+        private static bool LighthouseSheet(GameObject layout)
+        {
+            if (layout.transform.Find("Reputation_Lighthouse") != null) return true;
+            int count = layout.transform.childCount;
+            if (count == 0) return false;
+            for (int i = 0; i < count; ++i)
+            {
+                if (layout.transform.GetChild(i).gameObject.activeSelf) return false;
+            }
+            return true;
         }
 
         /// <summary>合成一个只存在于内存里的派系声望，供原生 Init 读取。</summary>
@@ -263,6 +306,12 @@ namespace DumpingGroundMap
                 rect.sizeDelta = size;
             }
             if (element.redImage != null) element.redImage.gameObject.SetActive(false);
+
+            Debug.Log("[DumpingGroundMap] reputation row: text status="
+                + (element.reputationStatus == null ? "missing" : StatusName(points))
+                + " number=" + (element.reputationNumber == null ? "missing" : NumberText(points))
+                + " bar=" + (element.greenImage == null ? "missing" : BarRatio(points).ToString("F2"))
+                + " title=" + (element.reputationTitle == null ? "missing" : element.reputationTitle.text));
         }
 
         private static string StatusName(int points)
@@ -303,42 +352,42 @@ namespace DumpingGroundMap
         {
             RectTransform rect = row.GetComponent<RectTransform>();
             RectTransform root = layout.GetComponent<RectTransform>();
+            LayoutGroup group = layout.GetComponent<LayoutGroup>();
+            Debug.Log("[DumpingGroundMap] reputation row: layout group="
+                + (group == null ? "none" : group.GetType().Name)
+                + " children=" + layout.transform.childCount
+                + " root=" + (root == null ? "no RectTransform" : root.rect.ToString()));
             if (rect == null || root == null) return;
 
-            if (layout.GetComponent<LayoutGroup>() != null)
+            if (group != null)
             {
                 LayoutRebuilder.ForceRebuildLayoutImmediate(root);
+                Debug.Log("[DumpingGroundMap] reputation row: placed by layout group, anchored="
+                    + rect.anchoredPosition + " size=" + rect.sizeDelta);
                 return;
             }
 
             int count = layout.transform.childCount;
-            if (count < 2) return;
+            if (count < 2)
+            {
+                Debug.LogWarning("[DumpingGroundMap] reputation row: no sibling to align to");
+                return;
+            }
             RectTransform previous = layout.transform.GetChild(count - 2) as RectTransform;
-            if (previous == null) return;
+            if (previous == null)
+            {
+                Debug.LogWarning("[DumpingGroundMap] reputation row: previous row has no RectTransform");
+                return;
+            }
             float step = previous.rect.height > 0f ? previous.rect.height : rect.rect.height;
             rect.anchorMin = previous.anchorMin;
             rect.anchorMax = previous.anchorMax;
             rect.pivot = previous.pivot;
             rect.sizeDelta = previous.sizeDelta;
             rect.anchoredPosition = previous.anchoredPosition - new Vector2(0f, step);
-        }
-
-        /// <summary>災變日 与 ReputationInterfaceRemake 都会重写这块面板，存在时让路。</summary>
-        private static bool ForeignRunning()
-        {
-            if (foreignChecked) return foreign;
-            foreignChecked = true;
-            if (ModHelper.IsModRunning(DisasterDayId))
-            {
-                foreign = true;
-                Debug.Log("[DumpingGroundMap] reputation row skipped: " + DisasterDayId);
-            }
-            else if (ModHelper.IsModRunning(ReputationRemakeId))
-            {
-                foreign = true;
-                Debug.Log("[DumpingGroundMap] reputation row skipped: " + ReputationRemakeId);
-            }
-            return foreign;
+            Debug.Log("[DumpingGroundMap] reputation row: placed by sibling, previous="
+                + previous.anchoredPosition + " step=" + step
+                + " anchored=" + rect.anchoredPosition + " size=" + rect.sizeDelta);
         }
     }
 }

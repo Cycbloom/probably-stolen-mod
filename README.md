@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.20
+# 垃圾场拾荒地图 · 0.3.21
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -39,7 +39,8 @@
 
 - 原生 `layout` 若有布局组（`LayoutGroup`），追加后调用 `LayoutRebuilder.ForceRebuildLayoutImmediate`；没有布局组时按上一行的高度和位置手动往下排。这一条需要在游戏里目视确认，代码里两条路径都保留了。
 - 类型全部编译期绑定：`[HarmonyPatch]` + `AccessTools.Method(typeof(ReputationUIManager), "OpenUI")`，其余字段直接访问公开成员；不使用 `Type.GetType`、`TypeByName`、`Activator` 或程序集扫描，清单能力保持为空。游戏更新改动这些成员时会在编译期暴露，而不是运行期静默失败。
-- 检测到 **災變日（`disaster_day`）** 或 **ReputationInterfaceRemake（`cirno9.reputation_interface_remake`）** 正在运行时（`ModHelper.IsModRunning`），直接跳过追加：前者会把原生行整体隐藏、后者会重画整块列表，同时存在会出现双行或空行。
+- 冲突让路改成了**行为判断**而不是「装了某 mod 就跳过」：只有当 `layout` 里已经存在 `Reputation_Lighthouse`，或原生行**全部**被隐藏（災變日把面板切成灯塔独占单）时才跳过。災變日平时只在自己那张单里隐藏原生行，因此同时装着它时这一行照常追加；ReputationInterfaceRemake 默认用横向 board 盖住原生 layout，我们的行仍挂在原生 layout 下，切回原版面板即可见。`ModHelper.IsModRunning` 的结果只写进诊断日志，不再参与跳过判断。
+- **0.3.21 诊断日志**：补丁关键节点各打一条 `Debug.Log`，前缀 `[DumpingGroundMap] reputation row`，包括：目标方法是否取到、Postfix 首次进入（附带 `disaster_day` / `cirno9.reputation_interface_remake` 的运行状态）、`layout` / `prefab` 是否为空、是否因灯塔单/重复行跳过、文本覆盖结果（状态/数字/条比例/标题）、布局组的类型与子物体数、最终 `anchoredPosition` 与 `sizeDelta`。异常走 `Debug.LogError` 打完整堆栈。只写游戏日志，不写文件。
 
 
 ## 掉落设置
