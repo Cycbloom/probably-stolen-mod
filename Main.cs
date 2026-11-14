@@ -970,6 +970,7 @@ namespace DumpingGroundMap
         private static CustomUIElement specialtyDropdown;
         private static CustomUIElement[] evLabels;
         private static CustomUIElement junkSlider, highSlider;
+        private static CustomUIElement debugSlider;
         private static bool dragging;
         private static int dragKind;
         private static float lastSlideAt;
@@ -1025,6 +1026,7 @@ namespace DumpingGroundMap
             try
             {
                 if (element == null || building == null || buildingKey == null) return;
+                if (buildingKey != KeyJunk && buildingKey != KeyHigh) return;
                 if (!ReferenceEquals(element, building.Last)) return;
                 if (element.slider == null) return;
 
@@ -1043,7 +1045,7 @@ namespace DumpingGroundMap
                     label.text.color = Picker.Ink;
                 }
                 if (key == KeyJunk) junkValue = label;
-                else highValue = label;
+                else if (key == KeyHigh) highValue = label;
             }
             catch (Exception ex)
             {
@@ -1078,9 +1080,13 @@ namespace DumpingGroundMap
                     specialtyDropdown = b.Last;
                     AddEvBlock(b);
                 }
+                else if (key == Tuning.DebugEnabledKey)
+                {
+                    HookDebugToggle(window, key);
+                }
                 else if (key == Tuning.DebugPointsKey)
                 {
-                    ApplyDebugVisibility(Tuning.DebugEnabled);
+                    debugSlider = HookDebugSlider(window, key);
                 }
                 Refresh();
             }
@@ -1192,29 +1198,65 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// Debug rows: the native builder has no conditional visibility, so the
-        /// "set reputation points" label and slider are simply hidden while the
-        /// debug toggle is off (the row keeps its slot, which is fine for a test
-        /// option). Called when the row is built and when the toggle changes.
+        /// 调试开关与滑条都常显，不按条件隐藏。原生 BuildEntry 给开关/滑条传的
+        /// onChanged 是 null，勾选只改控件、要按「应用」才写回配置；这里自己绑
+        /// 事件，让开关即时生效、滑条松手即写入。
         /// </summary>
-        internal static void ApplyDebugVisibility(bool visible)
+        private static void HookDebugToggle(CustomUIWindow target, string key)
         {
-            try
+            CustomUIElement element = target.Get(key);
+            if (element == null || element.toggle == null)
             {
-                if (window == null || !window.IsAlive) return;
-                SetVisible(window.Get(Tuning.DebugPointsKey), visible);
-                SetVisible(window.Get("label_" + Tuning.DebugPointsKey), visible);
+                Debug.LogWarning(LogTag + key + ": toggle widget missing");
+                return;
             }
-            catch (Exception ex)
-            {
-                Debug.LogWarning(LogTag + "debug visibility failed: " + ex.Message);
-            }
+            element.OnToggle(delegate(bool value) { Tuning.SetDebugEnabledLive(value); });
+            Debug.Log(LogTag + key + ": live listener bound");
         }
 
-        private static void SetVisible(CustomUIElement element, bool visible)
+        private static CustomUIElement HookDebugSlider(CustomUIWindow target, string key)
         {
-            if (element == null || !element.IsAlive) return;
-            element.SetVisible(visible);
+            CustomUIElement element = target.Get(key);
+            if (element == null || element.slider == null)
+            {
+                Debug.LogWarning(LogTag + key + ": slider widget missing");
+                return null;
+            }
+            element.OnSlider(delegate(float value)
+            {
+                float snapped = Mathf.Round(value * 2f) * 0.5f;
+                if (Mathf.Abs(snapped - value) > 0.001f) element.SetFloat(snapped, false);
+            });
+            GameObject go = element.slider.gameObject;
+            UnityEngine.EventSystems.EventTrigger trigger =
+                go.GetComponent<UnityEngine.EventSystems.EventTrigger>();
+            if (trigger == null) trigger = go.AddComponent<UnityEngine.EventSystems.EventTrigger>();
+            if (trigger.triggers == null)
+                trigger.triggers = new List<UnityEngine.EventSystems.EventTrigger.Entry>();
+            UnityEngine.EventSystems.EventTrigger.Entry entry =
+                new UnityEngine.EventSystems.EventTrigger.Entry();
+            entry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerUp;
+            entry.callback.AddListener(delegate(UnityEngine.EventSystems.BaseEventData data)
+            {
+                CommitDebugSlider();
+            });
+            trigger.triggers.Add(entry);
+            Debug.Log(LogTag + key + ": slider bound (min="
+                + element.slider.minValue.ToString("0.###", CultureInfo.InvariantCulture)
+                + " max=" + element.slider.maxValue.ToString("0.###", CultureInfo.InvariantCulture)
+                + " whole=" + element.slider.wholeNumbers + ")");
+            return element;
+        }
+
+        /// <summary>松手写入：按 0.5 点吸附，由 Tuning 决定是否因开关关闭而忽略。</summary>
+        private static void CommitDebugSlider()
+        {
+            if (debugSlider == null || debugSlider.slider == null) return;
+            float value = debugSlider.slider.value;
+            Tuning.SetDebugPointsFromSlider(value);
+            Debug.Log(LogTag + "debug slider release raw="
+                + value.ToString("0.###", CultureInfo.InvariantCulture)
+                + " applied=" + Tuning.DebugPoints.ToString("0.##", CultureInfo.InvariantCulture));
         }
 
         /// <summary>
@@ -1397,6 +1439,7 @@ namespace DumpingGroundMap
             evLabels = null;
             junkSlider = null;
             highSlider = null;
+            debugSlider = null;
             building = null;
             buildingKey = null;
             dragging = false;

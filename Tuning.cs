@@ -119,6 +119,30 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
+        /// 界面上的开关是即时生效的：原生配置窗口不会把勾选变化实时写回配置，
+        /// 只有按下「应用」才写。这里由我们的滑条/开关事件直接写入同一个配置项。
+        /// </summary>
+        internal static void SetDebugEnabledLive(bool value)
+        {
+            if (debugEnabledEntry == null || debugEnabledEntry.Value == value) return;
+            debugEnabledEntry.Set(value);
+        }
+
+        /// <summary>
+        /// 滑条松手时调用：按 0.5 点吸附后写回配置项，由 OnChanged 统一负责
+        /// 「开关是否打开」的判断与坐实写入。数值没变则不重复触发。
+        /// </summary>
+        internal static void SetDebugPointsFromSlider(float value)
+        {
+            if (debugPointsEntry == null) return;
+            float snapped = Mathf.Round(value * 2f) * 0.5f;
+            if (snapped < DebugPointsMin) snapped = DebugPointsMin;
+            if (snapped > DebugPointsMax) snapped = DebugPointsMax;
+            if (Mathf.Abs(debugPointsEntry.Value - snapped) < 0.001f) return;
+            debugPointsEntry.Set(snapped);
+        }
+
+        /// <summary>
         /// While a slider is being dragged the values live here instead of in the
         /// config entries, so the file is written once when the drag ends.
         /// </summary>
@@ -225,24 +249,18 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "打开后下面的「设置声望点数」才会生效，并显示出来。\n仅供测试，默认关闭。",
-                            "Turns on (and reveals) the reputation setter below.\nTesting only; off by default.");
+                            "打开后下面的「设置声望点数」才会生效。\n仅供测试，默认关闭。",
+                            "Turns on the reputation setter below.\nTesting only; off by default.");
                     },
                     false);
 
                 debugEnabledEntry.OnChanged += delegate(bool value)
                 {
                     Debug.Log("[DumpingGroundMap] debug: options " + (value ? "on" : "off"));
-                    NativeSettings.ApplyDebugVisibility(value);
                 };
 
                 debugPointsEntry = config.Define(DebugPointsKey, 0f, DebugSection,
-                    delegate
-                    {
-                        return DebugEnabled
-                            ? Copy.Text("设置声望点数（直接改写）", "Set reputation points (overwrites)")
-                            : Copy.Text("设置声望点数（需先启用调试项）", "Set reputation points (enable debug first)");
-                    },
+                    delegate { return Copy.Text("设置声望点数", "Set reputation points"); },
                     DebugPointsMin, DebugPointsMax,
                     delegate
                     {
