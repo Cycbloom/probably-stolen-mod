@@ -51,9 +51,8 @@ namespace DumpingGroundMap
             + "往后的日子里，我们会常来你店里照应。";
 
         private const string NoteBodyEn =
-            "This token is only left for people with skill. Your scavenging skill — "
-            + "we're convinced. In the days to come, we'll often come by your shop "
-            + "to look after you.";
+            "This only goes to people who've earned it. We've seen you work the dump. "
+            + "We'll be by your shop from now on.";
 
         private const string NoteSignZh = "拾荒者们";
         private const string NoteSignEn = "— the scavengers";

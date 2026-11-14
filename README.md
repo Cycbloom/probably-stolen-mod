@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.42
+# 垃圾场拾荒地图 · 0.3.43
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -65,11 +65,11 @@
 
 **悬停说明（0.3.36）**：20 点这一档实际是两件事——每天多一名拾荒客客人，以及首次达到 20 点时一次性获得一枚「拾荒者信物」放在前台。图标悬停文案已补成两件并标明信物只给一次，中英文同步。
 
-**20 档定名与附赠便条（0.3.37 / 0.3.39 / 0.3.40 / 0.3.42）**：
+**20 档定名与附赠便条（0.3.37 / 0.3.39 / 0.3.40 / 0.3.42 / 0.3.43）**：
 
 - 名称改成「拾荒老手 / Scavenger Veteran」，抽成 `Reputation.Perk20NameZh` / `Perk20NameEn` 两个常量；40（老手）、60（活地图）两档和状态栏的四档等级名都没动。
 - 首次达到 20 点，开张时在前台放**两件**：`scav_token` 信物 + 一张原生 `handnote` 便签。便签用 `PreBuiltItemHelper.CreateHandnote(正文, 标题, 落款, 1)` 生成，标题同时是物品名；点开走 `HandnoteUIManager` 的小纸条面板（标题 / 正文 / 落款），不是 `slip` 那种整页文档。全天可用于同一用途的候选只有 `slip`（整页文档）、`postit`（机器上留的 Note，没有阅读 UI）与 `handnote`（原版感谢条 / 欠条用的便签），选 `handnote`。
-- 文案是拾荒者的第一人称复数口吻：标题「写给店主 / To the shopkeeper」（**标题同时是物品名**，改标题就等于改前台那件物品显示的名字），正文「这枚信物，只留给有本事的人。你的拾荒本领，我们服气。往后的日子里，我们会常来你店里照应。」/ "This token is only left for people with skill. Your scavenging skill — we're convinced. In the days to come, we'll often come by your shop to look after you."，落款「拾荒者们 / — the scavengers」。
+- 文案是拾荒者的第一人称复数口吻：标题「写给店主 / To the shopkeeper」（**标题同时是物品名**，改标题就等于改前台那件物品显示的名字），正文「这枚信物，只留给有本事的人。你的拾荒本领，我们服气。往后的日子里，我们会常来你店里照应。」/ "This only goes to people who've earned it. We've seen you work the dump. We'll be by your shop from now on."，落款「拾荒者们 / — the scavengers」。
 - 两件原子发放：先放信物再放便条；便条放不下就 `RemoveItemFromStoreInventory` 把信物收回来、**不写** `scav_medal_given`，次日重来。前台满时连物品都不创建，避免泄漏。
 - 悬停说明改成三件并述（每天一位客人 + 一枚信物 + 一张便条，仅一次）。
 
