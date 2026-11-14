@@ -234,6 +234,17 @@ namespace DumpingGroundMap
             get { return hasLive ? liveMinorValue : EntryMinorValue(); }
         }
 
+        /// <summary>小奖的实际生效概率（%）：声望不到 60 时按 1/10 计，告示板与实际掷骰共用。</summary>
+        internal static float EffectiveMinorPercent
+        {
+            get
+            {
+                float percent = MinorPercent;
+                if (Reputation.Points < Reputation.Perk60Threshold) percent *= 0.1f;
+                return percent;
+            }
+        }
+
         /// <summary>True while a slider drag is holding unsaved values in memory.</summary>
         internal static bool HasLive { get { return hasLive; } }
 
@@ -490,6 +501,7 @@ namespace DumpingGroundMap
                 {
                     float snapped = ClampStashCap(value);
                     if (snapped != value) stashCapEntry.Set(snapped);
+                    Invalidated();
                 };
                 crateEntry.OnChanged += delegate(float value)
                 {
@@ -530,6 +542,7 @@ namespace DumpingGroundMap
         {
             cache.Clear();
             NativeSettings.RefreshIfOpen();
+            Picker.RefreshBoardIfOpen();
         }
 
         /// <summary>
@@ -897,7 +910,7 @@ namespace DumpingGroundMap
         /// 80 档：该区对应的满箱上锁补给箱。入口空地不给箱子。
         /// 用 PreBuiltItemHelper 的 loot_crate_* id，ItemSpawner 会自动走预构建满箱。
         /// </summary>
-        private static string CrateFor(string regionId)
+        internal static string CrateFor(string regionId)
         {
             switch (regionId)
             {
@@ -910,7 +923,7 @@ namespace DumpingGroundMap
         }
 
         /// <summary>80 档：与箱子同区出现的对应钥匙卡。</summary>
-        private static string CardFor(string regionId)
+        internal static string CardFor(string regionId)
         {
             switch (regionId)
             {
@@ -952,6 +965,14 @@ namespace DumpingGroundMap
             // 枪匠需要的高价材料与工具
             "advanced_flux_agent", "xray_scanner", "hypertech_electronic"
         };
+
+        /// <summary>贵重品池（按展示顺序）；告示牌用它拼「贵重品」分组。</summary>
+        internal static string[] HighValueIds { get { return HighValue; } }
+
+        internal static bool IsHighValue(string itemId)
+        {
+            return Array.IndexOf(HighValue, itemId) >= 0;
+        }
 
         /// <summary>
         /// Per-area valuable mix, in Region.All order (gate, scrap, refuse,

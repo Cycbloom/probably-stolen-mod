@@ -111,6 +111,28 @@ namespace DumpingGroundMap
             return cap;
         }
 
+        /// <summary>当前 AIMD 窗口的爆大奖概率（%），告示板用；与实际掷骰取同一个值。</summary>
+        internal static float CurrentChancePercent
+        {
+            get
+            {
+                EnsureLoaded();
+                return ClampChance(chance, EffectiveCap());
+            }
+        }
+
+        /// <summary>该区有没有大奖样板；没有就根本不会掷大奖，告示板据此隐藏这一行。</summary>
+        internal static bool HasJackpot(string regionId)
+        {
+            return StashTemplate.For(regionId) != null;
+        }
+
+        /// <summary>该区有没有小奖整箱；没有就根本不会掷小奖，告示板据此隐藏这一行。</summary>
+        internal static bool HasMinor(string regionId)
+        {
+            return MinorBox.Has(regionId);
+        }
+
         private static float ClampChance(float value, float cap)
         {
             if (float.IsNaN(value)) return StartChance;
@@ -299,9 +321,8 @@ namespace DumpingGroundMap
         /// </summary>
         private static void TryMinor(List<GameItem> items, Region region, int today)
         {
-            float percent = Tuning.MinorPercent;
+            float percent = Tuning.EffectiveMinorPercent;
             if (percent <= 0f) return;
-            if (Reputation.Points < Reputation.Perk60Threshold) percent *= 0.1f;
 
             MinorBox box = MinorBox.Roll(region.Id);
             if (box == null) return;
@@ -418,6 +439,14 @@ namespace DumpingGroundMap
                 new MinorBox("weapons", "kitchen_knife", 45f),
                 new MinorBox("weapons", "printed_gun", 40f)
             };
+
+            /// <summary>该区有没有小奖整箱。</summary>
+            internal static bool Has(string regionId)
+            {
+                for (int i = 0; i < All.Length; ++i)
+                    if (All[i].RegionId == regionId) return true;
+                return false;
+            }
 
             internal static MinorBox Roll(string regionId)
             {

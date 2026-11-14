@@ -115,10 +115,24 @@ namespace DumpingGroundMap
         private readonly int[] displayOrder;
         private readonly Dictionary<string, int> indexOf = new Dictionary<string, int>();
 
+        /// <summary>大类名（中 / 英）与每件物品所属的大类下标；原版表没有大类，两者为 null。</summary>
+        private readonly string[] categoryZh;
+        private readonly string[] categoryEn;
+        private readonly int[] itemCategory;
+
         internal RegionLootTable(string[] items, int[] weights)
+            : this(items, weights, null, null, null)
+        {
+        }
+
+        internal RegionLootTable(string[] items, int[] weights,
+            string[] categoryZh, string[] categoryEn, int[] itemCategory)
         {
             Items = items;
             Weights = weights;
+            this.categoryZh = categoryZh;
+            this.categoryEn = categoryEn;
+            this.itemCategory = itemCategory;
             int sum = 0;
             for (int i = 0; i < weights.Length; ++i) sum += weights[i];
             Total = sum;
@@ -133,6 +147,24 @@ namespace DumpingGroundMap
         internal int Count { get { return Items.Length; } }
         internal int IndexAt(int i) { return displayOrder[i]; }
         internal float ProbabilityAt(int i) { return Weights[displayOrder[i]] / (float)Total; }
+
+        /// <summary>大类数量；原版表为 0。</summary>
+        internal int CategoryCount { get { return categoryZh == null ? 0 : categoryZh.Length; } }
+
+        /// <summary>物品所属大类下标；不在主题表里时返回 -1。</summary>
+        internal int CategoryOf(string itemId)
+        {
+            if (itemCategory == null) return -1;
+            int index = IndexOf(itemId);
+            return index >= 0 ? itemCategory[index] : -1;
+        }
+
+        /// <summary>按当前语言取大类名。</summary>
+        internal string CategoryName(int index)
+        {
+            if (categoryZh == null || index < 0 || index >= categoryZh.Length) return null;
+            return Copy.Text(categoryZh[index], categoryEn[index]);
+        }
 
         /// <summary>垃圾自己的权重；表里没有垃圾时为 0。</summary>
         internal int JunkWeight { get { return junkIndex >= 0 ? Weights[junkIndex] : 0; } }
@@ -232,11 +264,14 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// 把若干大类摊平成一张表：每类先按 Share 定总量，再按类内权重分给子项，
-        /// 取整误差补给类内权重最大的一项。
+        /// 取整误差补给类内权重最大的一项。namesZh / namesEn 按大类顺序给出显示名，
+        /// 告示牌用它们分组。
         /// </summary>
-        private static RegionLootTable BuildCategories(params Category[] categories)
+        private static RegionLootTable BuildCategories(string[] namesZh, string[] namesEn,
+            params Category[] categories)
         {
             Builder b = new Builder();
+            List<int> itemCategory = new List<int>();
             for (int c = 0; c < categories.Length; ++c)
             {
                 Category cat = categories[c];
@@ -259,9 +294,15 @@ namespace DumpingGroundMap
                 }
                 weights[largest] += cat.Share - assigned;
 
-                for (int i = 0; i < cat.Items.Length; ++i) b.Add(cat.Items[i], weights[i]);
+                for (int i = 0; i < cat.Items.Length; ++i)
+                {
+                    b.Add(cat.Items[i], weights[i]);
+                    itemCategory.Add(c);
+                }
             }
-            return b.Build();
+            RegionLootTable table = b.Build();
+            return new RegionLootTable(table.Items, table.Weights, namesZh, namesEn,
+                itemCategory.ToArray());
         }
 
         private static RegionLootTable BuildVanilla()
@@ -343,6 +384,8 @@ namespace DumpingGroundMap
 
             // 入口空地：通用杂项，保持原版的构成比例（垃圾 48.75%）。
             result["gate"] = BuildCategories(
+                new[] { "垃圾", "材料", "食品", "日用", "医疗", "近战", "工具", "杂项" },
+                new[] { "Junk", "Materials", "Food", "Household", "Medical", "Melee", "Tools", "Misc" },
                 Cat(4875, new[] { "junk" }, new[] { 1 }),
                 Cat(1750,
                     new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire", "gun_part",
@@ -372,6 +415,8 @@ namespace DumpingGroundMap
 
             // 拆解堆：材料 / 工具 / 模组，垃圾比例最高（59.89%）。
             result["scrap"] = BuildCategories(
+                new[] { "垃圾", "材料", "工具", "模组", "杂项" },
+                new[] { "Junk", "Materials", "Tools", "Modules", "Misc" },
                 Cat(5989, new[] { "junk" }, new[] { 1 }),
                 Cat(2900,
                     new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire", "gun_part",
@@ -391,6 +436,8 @@ namespace DumpingGroundMap
 
             // 生活废料带：食品 / 日用品 / 便宜药品，垃圾 47.67%。
             result["refuse"] = BuildCategories(
+                new[] { "垃圾", "食品", "日用", "医疗", "空瓶" },
+                new[] { "Junk", "Food", "Household", "Medical", "Bottles" },
                 Cat(4767, new[] { "junk" }, new[] { 1 }),
                 Cat(2600,
                     new[] { "zerochew", "processed_juice", "soda_red", "cat_bar", "processed_milk",
@@ -409,6 +456,8 @@ namespace DumpingGroundMap
 
             // 医疗废弃点：医疗耗材 / 药品 / 器械，垃圾 46.47%。
             result["med"] = BuildCategories(
+                new[] { "垃圾", "医疗耗材", "药品", "器械" },
+                new[] { "Junk", "Medical supplies", "Medicine", "Instruments" },
                 Cat(4647, new[] { "junk" }, new[] { 1 }),
                 Cat(3200,
                     new[] { "bandage_item", "hemostatic_bandage_item", "topical_bandage_item",
@@ -425,6 +474,8 @@ namespace DumpingGroundMap
             // 废武器堆：垃圾 5000、材料 2000、近战 1500、子弹 480、配件 520、枪支 500。
             // 子弹与配件名义上各 5%，把 20 份从子弹挪给配件，让配件总量略高于子弹。
             result["weapons"] = BuildCategories(
+                new[] { "垃圾", "材料", "近战", "子弹", "配件", "枪支" },
+                new[] { "Junk", "Materials", "Melee", "Ammo", "Gun mods", "Guns" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 // 材料：按枪匠配方，废金属与 3D 打印耗材最高，线缆、金属螺丝压低。
                 Cat(2000,
@@ -578,6 +629,28 @@ namespace DumpingGroundMap
         private static readonly Color RingInk = new Color32(95, 131, 117, 255);
         private static Picker current;
         private static CustomUIWindow boardWindow;
+
+        /// <summary>告示板上的一块大类：标题标签 + 组内条目。</summary>
+        private sealed class BoardGroup
+        {
+            internal string Name;
+            internal CustomUIElement Label;
+            internal readonly List<BoardItem> Items = new List<BoardItem>();
+            internal bool High;
+        }
+
+        /// <summary>告示板上的一件物品：只存 id 和标签，概率每次刷新时重算。</summary>
+        private sealed class BoardItem
+        {
+            internal string Id;
+            internal CustomUIElement Label;
+        }
+
+        private static Region boardRegion;
+        private static readonly List<BoardGroup> boardGroups = new List<BoardGroup>();
+        private static CustomUIElement boardBonusHeader;
+        private static readonly CustomUIElement[] boardSpecial = new CustomUIElement[4];
+        private static CustomUIElement boardEv;
 
         /// <summary>
         /// 本次进入垃圾场时选定的区域。选定后一直沿用，直到离开该地点，
@@ -848,48 +921,250 @@ namespace DumpingGroundMap
             boardWindow = b.Handle;
             b.SetSize(620, 552).Center().SetDraggable(false).SetCloseOnEscape(true).OnClose(BoardClosed);
 
+            boardRegion = region;
+            boardGroups.Clear();
+
             b.AddLabel(Copy.Text("—— 本区掉落公示 ——", "— Area Loot Notice —"), "board_header");
             b.Last.SetTextColor(Accent);
             Size(b.Last, -1, 28);
             b.AddLabel(region.Detail, "board_detail");
             Size(b.Last, -1, 42);
-            b.AddLabel(Copy.Text("当前概率（四舍五入，包含设置里的调节；夜间事件会临时改变比例）：",
-                "Current chances (rounded, settings included; night events can still shift them):"), "board_caption");
+            b.AddLabel(Copy.Text("按大类分组，概率是当前生效值，跟着设置实时变化：",
+                "Grouped by category; chances are live and follow the settings:"), "board_caption");
             Size(b.Last, -1, 26);
             b.AddSpace(4);
 
-            EffectiveTable table = Tuning.TableFor(region);
             b.BeginScroll(300);
-            b.BeginGrid(2, 286, 22, 4);
-            for (int i = 0; i < table.Count; ++i)
+
+            // 主题表的大类顺序就是显示顺序。
+            RegionLootTable theme = region.Loot;
+            BoardGroup[] byCategory = new BoardGroup[theme.CategoryCount];
+            for (int i = 0; i < theme.Count; ++i)
             {
-                int index = table.IndexAt(i);
-                b.AddLabel(ItemName(table.Items[index]) + "  ·  " + Percent(table.ProbabilityAt(i)), "board_item_" + i);
+                string id = theme.Items[i];
+                int category = theme.CategoryOf(id);
+                if (category < 0) continue;
+                BoardGroup group = byCategory[category];
+                if (group == null)
+                {
+                    group = new BoardGroup();
+                    group.Name = theme.CategoryName(category);
+                    byCategory[category] = group;
+                    boardGroups.Add(group);
+                }
+                AddBoardItem(group, id);
+            }
+
+            // 原版表里有、主题表里没有的物品：只在专精没拉满时按比例混进来。
+            BoardGroup other = null;
+            for (int i = 0; i < ScavLoot.Vanilla.Count; ++i)
+            {
+                string id = ScavLoot.Vanilla.Items[i];
+                if (id == "junk" || theme.IndexOf(id) >= 0) continue;
+                if (Tuning.IsHighValue(id)) continue;
+                if (id == Tuning.CrateFor(region.Id) || id == Tuning.CardFor(region.Id)) continue;
+                if (other == null)
+                {
+                    other = new BoardGroup();
+                    other.Name = Copy.Text("其他（低专精混入的原版物品）", "Other (vanilla items at lower specialty)");
+                    boardGroups.Add(other);
+                }
+                AddBoardItem(other, id);
+            }
+
+            // 贵重品单独成组；未生效时整组隐藏。
+            BoardGroup high = new BoardGroup();
+            high.Name = Copy.Text("贵重品（80 档 + 贵重品出现率）", "Valuables (tier 80 + valuable chance)");
+            high.High = true;
+            string[] highIds = Tuning.HighValueIds;
+            for (int i = 0; i < highIds.Length; ++i) AddBoardItem(high, highIds[i]);
+            boardGroups.Add(high);
+
+            for (int g = 0; g < boardGroups.Count; ++g)
+            {
+                BoardGroup group = boardGroups[g];
+                b.AddLabel(group.Name, "board_group_" + g);
+                group.Label = b.Last;
+                group.Label.SetTextColor(Accent);
+                Size(b.Last, -1, 22);
+                b.BeginGrid(2, 286, 22, 4);
+                for (int i = 0; i < group.Items.Count; ++i)
+                {
+                    b.AddLabel(" ", "board_gi_" + g + "_" + i);
+                    group.Items[i].Label = b.Last;
+                }
+                b.End();
+                b.AddSpace(2);
+            }
+
+            b.AddSpace(4);
+            b.AddLabel(Copy.Text("档位加成", "Tier bonuses"), "board_bonus_header");
+            boardBonusHeader = b.Last;
+            boardBonusHeader.SetTextColor(Accent);
+            Size(b.Last, -1, 22);
+            b.BeginGrid(2, 286, 22, 4);
+            for (int i = 0; i < boardSpecial.Length; ++i)
+            {
+                b.AddLabel(" ", "board_special_" + i);
+                boardSpecial[i] = b.Last;
             }
             b.End();
             b.End();
 
             b.AddSpace(6);
-            b.AddLabel(Copy.Text("本区期望价值：", "Expected value: ") + table.Ev.ToString("0.00", CultureInfo.InvariantCulture),
-                "board_ev");
+            b.AddLabel(" ", "board_ev");
+            boardEv = b.Last;
             Size(b.Last, -1, 24);
-            b.AddLabel(Copy.Text("垃圾事件只抬高“垃圾”，其余物品按比例让位；带声望门槛的区域整体更值钱。",
-                "Junk events only raise \"junk\"; other items yield proportionally. Areas behind a reputation gate are worth more overall."),
+            b.AddLabel(Copy.Text("垃圾事件只抬高“垃圾”，其余物品按比例让位；显示 0.0% 表示当前档位下这件物品不出现。",
+                "Junk events only raise \"junk\"; other items yield proportionally. 0.0% means the item cannot appear at the current tier."),
                 "board_footer");
             Size(b.Last, -1, 42);
             b.Show();
+
+            RefreshBoard();
+        }
+
+        private static void AddBoardItem(BoardGroup group, string id)
+        {
+            BoardItem item = new BoardItem();
+            item.Id = id;
+            group.Items.Add(item);
+        }
+
+        /// <summary>
+        /// 就地刷新告示板：概率、每组小计、期望价值，以及 60 / 80 档才出现的四行。
+        /// 标签只建一次，所以拉滑条时不会整块重建。
+        /// </summary>
+        internal static void RefreshBoardIfOpen()
+        {
+            if (boardWindow == null || !boardWindow.IsAlive) return;
+            RefreshBoard();
+        }
+
+        private static void RefreshBoard()
+        {
+            Region region = boardRegion;
+            if (region == null) return;
+
+            EffectiveTable table = Tuning.TableFor(region);
+            Dictionary<string, float> probabilities = new Dictionary<string, float>(table.Count);
+            for (int i = 0; i < table.Count; ++i)
+                probabilities[table.Items[table.IndexAt(i)]] = table.ProbabilityAt(i);
+
+            for (int g = 0; g < boardGroups.Count; ++g)
+            {
+                BoardGroup group = boardGroups[g];
+                float sum = 0f;
+                for (int i = 0; i < group.Items.Count; ++i)
+                {
+                    BoardItem item = group.Items[i];
+                    float probability;
+                    if (!probabilities.TryGetValue(item.Id, out probability)) probability = 0f;
+                    sum += probability;
+                    if (item.Label != null)
+                        item.Label.SetText(BoardItemName(item.Id) + "  ·  " + BoardPercent(probability));
+                }
+                if (group.Label != null)
+                {
+                    group.Label.SetText(group.Name + "  ·  " + BoardPercent(sum));
+                    if (group.High) SetBoardGroupVisible(group, sum > 0f);
+                }
+            }
+
+            int points = Reputation.Points;
+            bool tier60 = points >= Reputation.Perk60Threshold;
+            bool tier80 = points >= Reputation.Perk80Threshold;
+
+            string crateId = Tuning.CrateFor(region.Id);
+            string cardId = Tuning.CardFor(region.Id);
+            float crate = 0f;
+            float card = 0f;
+            if (crateId != null) probabilities.TryGetValue(crateId, out crate);
+            if (cardId != null) probabilities.TryGetValue(cardId, out card);
+
+            // 该区没有对应样板时，这几率实际是 0，所以整行隐藏而不是显示 0。
+            bool showJackpot = tier60 && StashFind.HasJackpot(region.Id);
+            bool showMinor = tier60 && StashFind.HasMinor(region.Id);
+            bool showCrate = tier80 && crate > 0f;
+            bool showCard = tier80 && card > 0f;
+            SetBoardSpecial(0, showJackpot, Copy.Text("大奖", "Jackpot"), StashFind.CurrentChancePercent);
+            SetBoardSpecial(1, showMinor, Copy.Text("小奖", "Minor find"), Tuning.EffectiveMinorPercent);
+            SetBoardSpecial(2, showCrate, Copy.Text("物资箱", "Supply crate"), crate * 100f);
+            SetBoardSpecial(3, showCard, Copy.Text("钥匙卡", "Keycard"), card * 100f);
+            if (boardBonusHeader != null)
+                boardBonusHeader.SetVisible(showJackpot || showMinor || showCrate || showCard);
+
+            if (boardEv != null)
+                boardEv.SetText(Copy.Text("本区期望价值：", "Expected value: ")
+                    + table.Ev.ToString("0.00", CultureInfo.InvariantCulture));
+        }
+
+        private static void SetBoardGroupVisible(BoardGroup group, bool visible)
+        {
+            if (group.Label != null) group.Label.SetVisible(visible);
+            for (int i = 0; i < group.Items.Count; ++i)
+                if (group.Items[i].Label != null) group.Items[i].Label.SetVisible(visible);
+        }
+
+        private static void SetBoardSpecial(int index, bool visible, string name, float percent)
+        {
+            CustomUIElement label = boardSpecial[index];
+            if (label == null) return;
+            label.SetVisible(visible);
+            if (visible) label.SetText(name + "  ·  " + BoardPercentValue(percent));
+        }
+
+        /// <summary>告示板上的概率：常规值走 Percent；低于 0.1% 时多给两位，避免整池都显示 &lt;0.1%。</summary>
+        private static string BoardPercent(float probability)
+        {
+            float pct = probability * 100f;
+            if (pct <= 0f) return "0.0%";
+            if (pct < 0.1f) return pct.ToString("0.00", CultureInfo.InvariantCulture) + "%";
+            return Percent(probability);
+        }
+
+        /// <summary>已经换算成百分数的值（大奖 / 小奖 / 箱子 / 钥匙卡）。</summary>
+        private static string BoardPercentValue(float percent)
+        {
+            if (percent < 0.01f) return "<0.01%";
+            return percent.ToString("0.00", CultureInfo.InvariantCulture) + "%";
+        }
+
+        /// <summary>芯片全名太长，截成「打印芯片（…）」以便在 286px 的格子里放下。</summary>
+        private static string BoardItemName(string id)
+        {
+            string name = ItemName(id);
+            if (id.StartsWith("printer_chip_", StringComparison.Ordinal))
+            {
+                int open = name.IndexOf('（');
+                if (open > 0)
+                    return Copy.Text("打印芯片", "Printer chip") + " " + name.Substring(open);
+            }
+            return name;
         }
 
         private static void CloseBoard()
         {
             CustomUIWindow window = boardWindow;
             boardWindow = null;
+            ResetBoardState();
             if (window != null && window.IsAlive) window.Close();
+        }
+
+        /// <summary>清掉告示板的标签引用；窗口自己关闭时也走这里。</summary>
+        private static void ResetBoardState()
+        {
+            boardRegion = null;
+            boardGroups.Clear();
+            boardEv = null;
+            boardBonusHeader = null;
+            for (int i = 0; i < boardSpecial.Length; ++i) boardSpecial[i] = null;
         }
 
         private static void BoardClosed()
         {
             boardWindow = null;
+            ResetBoardState();
         }
 
         /// <summary>
