@@ -156,8 +156,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "决定除垃圾外，捡到的东西多偏向本区特产。\n档位越高，本区特产越多，通用物品越少。\n「全部」：除垃圾外只出本区特产。\n如报废终端区：「较少」仍有材料、食品，\n「全部」只出模组和电子件。\n每个区都有自己的一批特产；垃圾不受影响。",
-                            "Controls how strongly, junk aside, a haul leans toward this region's own goods.\nHigher tiers mean more local goods and fewer generic ones.\nAll: nothing but local goods and junk.\nExample, Dead Terminals: Rare still brings materials and food;\nAll brings only modules and electronics.\nEach region has its own goods; junk is not affected.");
+                            "决定除垃圾外，捡到的东西多偏向本区特产。\n档位越高，本区特产越多，通用物品越少。\n「全部」：除垃圾外只出本区特产。\n如拆解堆：「较少」仍有食品、日用，\n「全部」只出材料、工具与电子件。\n每个区都有自己的一批特产；垃圾不受影响。",
+                            "Controls how strongly, junk aside, a haul leans toward this region's own goods.\nHigher tiers mean more local goods and fewer generic ones.\nAll: nothing but local goods and junk.\nExample, Scrap Pile: Rare still brings food and household goods;\nAll brings only materials, tools, and electronics.\nEach region has its own goods; junk is not affected.");
                     },
                     false);
 
@@ -352,54 +352,50 @@ namespace DumpingGroundMap
         private static EffectiveTable Build(Region region, float junkPercent,
             float highPercent, float specialtyPercent)
         {
-            RegionLootTable baseTable = region.Loot;
-            string[] ids = baseTable.Items;
-            int count = ids.Length;
-            int junkIndex = Array.IndexOf(ids, "junk");
-            int regionIndex = RegionIndex(region);
-            // One shared tier for every area; each area applies it to its own
-            // specialty pool below, so the same value still yields different goods.
+            RegionLootTable theme = region.Loot;
+            RegionLootTable vanilla = ScavLoot.Vanilla;
             float specialty = Mathf.Clamp(specialtyPercent, 0f, 100f) / 100f;
 
-            // 1) The specialty share only reshapes the non-junk part: inside that
-            //    part, everything that is not this area's specialty is scaled by
-            //    (1 - specialty). Junk is its own tier and keeps its weight, so the
-            //    slider never removes junk from the table.
-            float[] weights = new float[count];
-            float signatureTotal = 0f;
-            for (int i = 0; i < count; ++i)
-            {
-                float weight = baseTable.Weights[i];
-                if (i == junkIndex)
-                {
-                    weights[i] = weight;
-                    continue;
-                }
-                if (IsSignature(regionIndex, ids[i])) signatureTotal += weight;
-                else weight *= 1f - specialty;
-                weights[i] = weight;
-            }
-            if (signatureTotal <= 0f)
-            {
-                // Nothing marked as a specialty in this table: ignore the slider.
-                for (int i = 0; i < count; ++i)
-                {
-                    if (i == junkIndex) continue;
-                    weights[i] = baseTable.Weights[i];
-                }
-            }
+            // 1) 两张表各自归一化：非垃圾权重和记成 1，垃圾单独记成
+            //    「每 1 份非垃圾权重对应多少垃圾权重」。专精就是这两张表
+            //    之间的线性插值，垃圾也一起插。
+            float vanillaNonJunk = 0f;
+            for (int i = 0; i < vanilla.Count; ++i)
+                if (vanilla.Items[i] != "junk") vanillaNonJunk += vanilla.Weights[i];
+            float themeNonJunk = 0f;
+            for (int i = 0; i < theme.Count; ++i)
+                if (theme.Items[i] != "junk") themeNonJunk += theme.Weights[i];
+            if (vanillaNonJunk <= 0f) vanillaNonJunk = 1f;
+            if (themeNonJunk <= 0f) themeNonJunk = 1f;
 
+            // 两张表的并集：主题表在前，原版表独有、主题表没有的物品补在后面。
+            List<string> idList = new List<string>(theme.Items);
+            for (int i = 0; i < vanilla.Count; ++i)
+                if (theme.IndexOf(vanilla.Items[i]) < 0) idList.Add(vanilla.Items[i]);
+
+            int count = idList.Count;
+            string[] ids = idList.ToArray();
+            int junkIndex = Array.IndexOf(ids, "junk");
+            float[] weights = new float[count];
             float otherTotal = 0f;
             for (int i = 0; i < count; ++i)
-                if (i != junkIndex) otherTotal += weights[i];
+            {
+                if (i == junkIndex) continue;
+                int themeIndex = theme.IndexOf(ids[i]);
+                int vanillaIndex = vanilla.IndexOf(ids[i]);
+                float themeWeight = themeIndex >= 0 ? theme.Weights[themeIndex] / themeNonJunk : 0f;
+                float vanillaWeight = vanillaIndex >= 0 ? vanilla.Weights[vanillaIndex] / vanillaNonJunk : 0f;
+                float weight = (1f - specialty) * vanillaWeight + specialty * themeWeight;
+                weights[i] = weight;
+                otherTotal += weight;
+            }
 
-            // 2) Junk probability = the base table's junk share times the junk
-            //    multiplier. Neither the specialty slider nor the high-value
-            //    carve-out touches it, so the junk slider is the only control.
-            float baseTotal = baseTable.Total;
-            float junkBase = junkIndex >= 0 && baseTotal > 0f
-                ? baseTable.Weights[junkIndex] / (float)baseTotal
-                : 0f;
+            // 2) 垃圾概率 = 插值后的垃圾占比 × 垃圾倍率。垃圾倍率是唯一能
+            //    单独调垃圾多少的旋钮，专精插值不会把它清零。
+            float vanillaJunkShare = vanilla.JunkWeight / vanillaNonJunk;
+            float themeJunkShare = theme.JunkWeight / themeNonJunk;
+            float junkPerNonJunk = (1f - specialty) * vanillaJunkShare + specialty * themeJunkShare;
+            float junkBase = junkPerNonJunk / (junkPerNonJunk + 1f);
             float junkProb = Mathf.Clamp(junkBase * junkPercent / 100f, 0f, 0.995f);
 
             // 3) The high-value share is carved out of the non-junk items only.
@@ -461,37 +457,6 @@ namespace DumpingGroundMap
             return UnitValues.TryGetValue(itemId, out value) ? value : 0f;
         }
 
-        private static int CategoryOf(string itemId)
-        {
-            int category;
-            return Categories.TryGetValue(itemId, out category) ? category : 0;
-        }
-
-        /// <summary>
-        /// Which categories count as "this area's own goods", in Region.All order.
-        /// Everything else (junk included) is what the specialty slider pushes out.
-        /// </summary>
-        private static readonly int[][] SignatureCategories =
-        {
-            new[] { 1, 4, 6 }, // Main Gate: materials, tools, household goods
-            new[] { 1, 4, 5 }, // Scrap Pile: materials, tools, the odd module
-            new[] { 2, 3, 6 }, // Refuse Lane: food, medical, household goods
-            new[] { 5, 7 },    // Dead Terminals: modules and electronics
-            new[] { 3 },       // Medical Waste: medicine only
-            new[] { 8, 9, 10 },// Weapon Dump: melee, guns, ammunition
-            new[] { 10, 11 }   // Parts Crates: gun mods and ammunition
-        };
-
-        private static bool IsSignature(int regionIndex, string itemId)
-        {
-            int category = CategoryOf(itemId);
-            if (category == 0) return false;
-            int[] set = SignatureCategories[regionIndex];
-            for (int i = 0; i < set.Length; ++i)
-                if (set[i] == category) return true;
-            return false;
-        }
-
         /// <summary>
         /// High-value pool (unitValue 250–400). Not part of the base tables; they
         /// only enter when the high-value chance is raised above zero.
@@ -505,17 +470,15 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// Per-area high-value mix, in Region.All order (gate, scrap, refuse,
-        /// terminal, medical, weapons, parts).
+        /// medical, weapons).
         /// </summary>
         private static readonly int[][] HighWeights =
         {
-            new[] { 2, 2, 1, 2, 1, 1, 1 },
-            new[] { 1, 1, 1, 1, 1, 3, 4 },
-            new[] { 3, 3, 3, 3, 1, 1, 1 },
-            new[] { 1, 1, 1, 1, 3, 3, 2 },
-            new[] { 4, 1, 1, 1, 5, 1, 1 },
-            new[] { 1, 2, 2, 2, 3, 1, 3 },
-            new[] { 1, 2, 2, 2, 2, 2, 3 }
+            new[] { 2, 2, 1, 2, 1, 1, 1 }, // Main Gate
+            new[] { 1, 1, 1, 1, 1, 3, 4 }, // Scrap Pile
+            new[] { 3, 3, 3, 3, 1, 1, 1 }, // Refuse Lane
+            new[] { 4, 1, 1, 1, 5, 1, 1 }, // Medical Waste
+            new[] { 1, 2, 2, 2, 3, 1, 3 }  // Weapon Dump
         };
 
         /// <summary>
@@ -650,63 +613,6 @@ namespace DumpingGroundMap
                 { "module_extractor_advanced", 350f }
             };
 
-        /// <summary>
-        /// Item categories: 1 materials, 2 food, 3 medical, 4 tools, 5 modules,
-        /// 6 household goods, 7 electronics, 8 melee weapons, 9 guns, 10 ammo,
-        /// 11 gun mods. SignatureCategories uses these ids.
-        /// </summary>
-        private static readonly Dictionary<string, int> Categories =
-            new Dictionary<string, int>
-            {
-                { "glass_shard", 1 }, { "scrap_metal", 1 }, { "nuts_metal", 1 },
-                { "flux_agent", 1 },
-                { "gun_part", 1 }, { "kotton_fabric", 1 }, { "metal_ingot", 1 },
-                { "empty_beer_bottle", 2 }, { "galaxy_blend", 2 }, { "energy_drink", 2 },
-                { "soda_red", 2 }, { "cat_bar", 2 }, { "li_eat_snackbar", 2 },
-                { "red_beer", 2 }, { "processed_milk", 2 }, { "processed_juice", 2 },
-                { "processed_meat", 2 }, { "zerochew", 2 }, { "cup_noodle", 2 },
-                { "nudka", 2 }, { "beis_icecream", 2 },
-                { "bandage_item", 3 },
-                { "hemostatic_bandage_item", 3 }, { "topical_bandage_item", 3 },
-                { "blood_bag", 3 }, { "rubbing_alcohol", 3 }, { "salve", 3 },
-                { "surgery_tool", 3 }, { "birth_control_pill", 3 }, { "fanta_pill", 3 },
-                { "phagimycin_pill", 3 }, { "zyanide_pill", 3 }, { "smelling_salt", 3 },
-                { "dream_dust", 3 }, { "nightmare_dust", 3 }, { "common_medical", 3 },
-                { "screwdriver", 4 }, { "wire_cutter", 4 }, { "module_extractor", 4 },
-                { "welder", 4 }, { "turbo_booster", 4 },
-                { "system_module_ruined", 5 }, { "random_performance_module", 5 },
-                { "random_efficiency_module", 5 }, { "random_quality_module", 5 },
-                { "system_module_performance", 5 }, { "system_module_eco", 5 },
-                { "system_module_fineness", 5 }, { "system_module_corrupt", 5 },
-                { "blank_module", 5 },
-                { "caffeine_pill", 6 }, { "toothpaste", 6 }, { "water_filter", 6 },
-                { "shampoo", 6 }, { "paper_towel", 6 }, { "toilet_paper", 6 },
-                { "full_water_test_strip_box", 6 },
-                { "full_water_purification_tablet_box", 6 },
-                { "wire", 7 }, { "printer_plastic", 7 },
-                { "common_electronic", 7 }, { "rare_electronic", 7 },
-                { "pipe_weapon", 8 }, { "glass_shard_shiv", 8 }, { "box_cutter", 8 },
-                { "kitchen_knife", 8 }, { "crowbar", 8 }, { "combat_knife", 8 },
-                { "kitchen_cleaver", 8 }, { "hatchet", 8 }, { "skinning_knife", 8 },
-                { "stun_baton", 8 }, { "combat_machete", 8 },
-                { "printed_gun", 9 }, { "handmade_pistol", 9 },
-                { "heavy_handmade_pistol", 9 }, { "revolver", 9 },
-                { "small_pistol_ammo", 10 }, { "small_pistol_ammo_p", 10 },
-                { "small_pistol_ammo_nl", 10 }, { "heavy_pistol_ammo", 10 },
-                { "heavy_pistol_ammo_p", 10 }, { "heavy_pistol_ammo_nl", 10 },
-                { "lou_etched_round", 10 },
-                { "rds", 11 }, { "rds_makeshift", 11 }, { "silencer", 11 },
-                { "silencer2", 11 }, { "silencer_makeshift", 11 }, { "barrel", 11 },
-                { "compensator", 11 }, { "mag_10mm", 11 }, { "mag_10mm_high", 11 },
-                { "mag_10mm_ext", 11 }, { "mag_22", 11 }, { "mag_22_high", 11 },
-                { "mag_22_ext", 11 }, { "mag_10mm_smg", 11 }, { "mag_10mm_smg_high", 11 },
-                { "mag_10mm_smg_box", 11 }, { "laser", 11 }, { "laser2", 11 },
-                { "laser_toy", 11 }, { "bipod", 11 }, { "gl", 11 }, { "grip", 11 },
-                { "stock", 11 }, { "short_stock", 11 }, { "internal_springs", 11 },
-                { "internal_springs_improved", 11 }, { "trigger_group", 11 },
-                { "match_barrel", 11 }, { "pistol_switch", 11 }, { "ammo_display", 11 },
-                { "grip_gel", 11 }
-            };
     }
 
     /// <summary>

@@ -23,12 +23,14 @@ namespace DumpingGroundMap
         {
             Enabled = true;
             Tuning.Init();
+            Reputation.Hook();
             Debug.Log("[DumpingGroundMap] enabled");
         }
 
         public void OnDisable()
         {
             Enabled = false;
+            Reputation.Unhook();
             NativeSettings.Reset();
             Picker.Close();
             Picker.ResetChoice();
@@ -37,6 +39,10 @@ namespace DumpingGroundMap
 
     internal sealed class Region
     {
+        /// <summary>
+        /// 五块地块：左列入口 / 拆解堆 / 医疗，右列生活废料带 / 废武器堆。
+        /// 解锁点数不写在这里，统一放在 UnlockCost 那张表里。
+        /// </summary>
         internal static readonly Region[] All =
         {
             new Region("gate", "入口空地", "Main Gate",
@@ -44,34 +50,28 @@ namespace DumpingGroundMap
                 "A general mix of materials, tools, and household goods for everyday restocking.",
                 0.20f, 0.22f),
             new Region("scrap", "拆解堆", "Scrap Pile",
-                "材料与工具占大头，偶尔能拆出完整模组。",
-                "Mostly materials and tools, with the occasional intact module.",
+                "材料、工具与电子废料；偶尔能拆出完整模组。",
+                "Materials, tools, and electronic scrap, with the occasional intact module.",
                 0.20f, 0.50f),
             new Region("refuse", "生活废料带", "Refuse Lane",
                 "日用、食品、药品为主；值钱的东西不多，但胜在实用。",
                 "Household goods, food, and medicine. Few valuables, but plenty of practical finds.",
-                0.78f, 0.22f),
-            new Region("terminal", "报废终端区", "Dead Terminals",
-                "电线与电子废料最多，也能翻出模组；垃圾比例全场地最高。",
-                "The most wire and electronic scrap, plus the odd module. Junk share is the highest here.",
-                0.78f, 0.78f),
+                0.78f, 0.23f),
             new Region("med", "医疗废弃点", "Medical Waste",
-                "绷带、药品、酒精、手术用品；能救命，但大多卖不上价。",
-                "Bandages, pills, alcohol, and surgical supplies. Life-saving, but rarely worth much.",
+                "绷带、药品、酒精、手术用品；能救命，也卖得上价。",
+                "Bandages, pills, alcohol, and surgical supplies. Life-saving, and worth more than most.",
                 0.20f, 0.78f),
             new Region("weapons", "废武器堆", "Weapon Dump",
-                "断刀、铁管、土枪和散装弹药；偶尔还能翻出一把能用的枪。",
-                "Broken blades, pipes, makeshift guns, and loose rounds. Now and then a working gun.",
-                0.50f, 0.78f),
-            new Region("parts", "配件箱", "Parts Crates",
-                "成箱的弹匣、消音器、瞄具和改装件，多半是便宜货。",
-                "Crates of magazines, suppressors, sights, and mods, mostly the cheap kind.",
-                0.50f, 0.50f)
+                "断刀、土枪、散装弹药和改装件；偶尔还能翻出一把能用的枪。",
+                "Broken blades, makeshift guns, loose rounds, and gun mods. Now and then a working gun.",
+                0.78f, 0.76f)
         };
 
         internal readonly string Id;
         internal readonly string NameZh, NameEn, DetailZh, DetailEn;
         internal readonly float X, Y;
+        /// <summary>解锁所需声望；0 表示无门槛。</summary>
+        internal readonly int RequiredReputation;
 
         internal Region(string id, string zh, string en, string detailZh, string detailEn,
             float x, float y)
@@ -83,11 +83,14 @@ namespace DumpingGroundMap
             DetailEn = detailEn;
             X = x;
             Y = y;
+            RequiredReputation = UnlockCost.For(id);
         }
 
         internal string Name { get { return Copy.Text(NameZh, NameEn); } }
         internal string Detail { get { return Copy.Text(DetailZh, DetailEn); } }
         internal RegionLootTable Loot { get { return ScavLoot.Get(Id); } }
+
+        internal bool Unlocked { get { return Reputation.Points >= RequiredReputation; } }
     }
 
     internal static class Copy
@@ -110,6 +113,7 @@ namespace DumpingGroundMap
         internal readonly int Total;
         private readonly int junkIndex;
         private readonly int[] displayOrder;
+        private readonly Dictionary<string, int> indexOf = new Dictionary<string, int>();
 
         internal RegionLootTable(string[] items, int[] weights)
         {
@@ -119,6 +123,7 @@ namespace DumpingGroundMap
             for (int i = 0; i < weights.Length; ++i) sum += weights[i];
             Total = sum;
             junkIndex = Array.IndexOf(items, "junk");
+            for (int i = 0; i < items.Length; ++i) indexOf[items[i]] = i;
 
             displayOrder = new int[items.Length];
             for (int i = 0; i < displayOrder.Length; ++i) displayOrder[i] = i;
@@ -128,6 +133,17 @@ namespace DumpingGroundMap
         internal int Count { get { return Items.Length; } }
         internal int IndexAt(int i) { return displayOrder[i]; }
         internal float ProbabilityAt(int i) { return Weights[displayOrder[i]] / (float)Total; }
+
+        /// <summary>垃圾自己的权重；表里没有垃圾时为 0。</summary>
+        internal int JunkWeight { get { return junkIndex >= 0 ? Weights[junkIndex] : 0; } }
+
+        /// <summary>权重下标；表里没这件物品时返回 -1。</summary>
+        internal int IndexOf(string itemId)
+        {
+            int index;
+            return indexOf.TryGetValue(itemId, out index) ? index : -1;
+        }
+
 
         /// <summary>
         /// Rolls one item. junkScale mirrors the vanilla "junk_chance" event, which
@@ -153,13 +169,17 @@ namespace DumpingGroundMap
 
     internal static class ScavLoot
     {
-        private static readonly Dictionary<string, RegionLootTable> tables = BuildTables();
+        /// <summary>原版分布（入口空地那张表），专精插值的起点。</summary>
+        private static readonly RegionLootTable vanilla = BuildVanilla();
+        private static readonly Dictionary<string, RegionLootTable> themes = BuildThemes();
         private static readonly Dictionary<string, string> sourceTables = BuildSourceTables();
+
+        internal static RegionLootTable Vanilla { get { return vanilla; } }
 
         internal static RegionLootTable Get(string regionId)
         {
             RegionLootTable table;
-            return tables.TryGetValue(regionId, out table) ? table : tables["gate"];
+            return themes.TryGetValue(regionId, out table) ? table : vanilla;
         }
 
         internal static string SourceTable(string itemId)
@@ -186,10 +206,8 @@ namespace DumpingGroundMap
             }
         }
 
-        private static Dictionary<string, RegionLootTable> BuildTables()
+        private static RegionLootTable BuildVanilla()
         {
-            Dictionary<string, RegionLootTable> result = new Dictionary<string, RegionLootTable>();
-
             Builder b = new Builder();
             b.Add("junk", 274);
             b.Add("glass_shard", 10);
@@ -244,236 +262,155 @@ namespace DumpingGroundMap
             b.Add("bandage_item", 8);
             b.Add("hemostatic_bandage_item", 6);
             b.Add("topical_bandage_item", 6);
-            result["gate"] = b.Build();
+            return b.Build();
+        }
 
-            b = new Builder();
-            b.Add("junk", 334);
-            b.Add("glass_shard", 38);
-            b.Add("system_module_ruined", 12);
-            b.Add("pipe_weapon", 12);
-            b.Add("empty_beer_bottle", 8);
-            b.Add("scratcher", 8);
-            b.Add("scrap_metal", 45);
-            b.Add("nuts_metal", 35);
-            b.Add("flux_agent", 18);
-            b.Add("printer_plastic", 22);
-            b.Add("wire", 28);
-            b.Add("gun_part", 18);
-            b.Add("common_electronic", 14);
-            b.Add("kotton_fabric", 7);
-            b.Add("random_performance_module", 1);
-            b.Add("random_efficiency_module", 1);
-            b.Add("random_quality_module", 1);
-            b.Add("system_module_performance", 1);
-            b.Add("system_module_eco", 1);
-            b.Add("system_module_fineness", 1);
-            b.Add("screwdriver", 14);
-            b.Add("wire_cutter", 11);
-            b.Add("module_extractor", 3);
-            b.Add("welder", 4);
-            b.Add("turbo_booster", 10);
-            b.Add("crowbar", 7);
-            b.Add("caffeine_pill", 3);
-            b.Add("water_filter", 3);
-            b.Add("toilet_paper", 3);
-            b.Add("glass_shard_shiv", 10);
-            b.Add("box_cutter", 10);
-            b.Add("kitchen_knife", 6);
-            b.Add("zerochew", 3);
-            b.Add("bandage_item", 5);
-            result["scrap"] = b.Build();
+        /// <summary>
+        /// 每区的主题表。非垃圾权重统一归一化到 1000，垃圾权重单独给，
+        /// 这样专精插值可以在两张表之间按比例混合。
+        /// </summary>
+        private static Dictionary<string, RegionLootTable> BuildThemes()
+        {
+            Dictionary<string, RegionLootTable> result = new Dictionary<string, RegionLootTable>();
 
-            b = new Builder();
-            b.Add("junk", 492);
-            b.Add("glass_shard", 6);
-            b.Add("system_module_ruined", 5);
-            b.Add("pipe_weapon", 7);
-            b.Add("empty_beer_bottle", 16);
-            b.Add("scratcher", 10);
-            b.Add("scrap_metal", 10);
-            b.Add("nuts_metal", 6);
-            b.Add("flux_agent", 8);
-            b.Add("printer_plastic", 6);
-            b.Add("wire", 8);
-            b.Add("gun_part", 4);
-            b.Add("common_electronic", 4);
-            b.Add("kotton_fabric", 4);
+            // 拆解堆：材料 / 工具 / 电子废料，垃圾比例最高。
+            Builder b = new Builder();
+            b.Add("junk", 1493);
+            b.Add("flux_agent", 167);
+            b.Add("gun_part", 167);
+            b.Add("kotton_fabric", 167);
+            b.Add("nuts_metal", 167);
+            b.Add("scrap_metal", 167);
+            b.Add("metal_ingot", 47);
+            b.Add("common_electronic", 20);
+            b.Add("printer_plastic", 20);
+            b.Add("wire", 20);
+            b.Add("glass_shard", 18);
+            b.Add("module_extractor", 4);
             b.Add("screwdriver", 4);
             b.Add("turbo_booster", 4);
-            b.Add("crowbar", 2);
-            b.Add("caffeine_pill", 26);
-            b.Add("toothpaste", 26);
-            b.Add("water_filter", 18);
-            b.Add("shampoo", 14);
-            b.Add("paper_towel", 10);
-            b.Add("toilet_paper", 18);
-            b.Add("full_water_test_strip_box", 12);
-            b.Add("full_water_purification_tablet_box", 6);
-            b.Add("glass_shard_shiv", 6);
-            b.Add("box_cutter", 5);
-            b.Add("kitchen_knife", 3);
-            b.Add("galaxy_blend", 18);
-            b.Add("energy_drink", 22);
-            b.Add("soda_red", 24);
-            b.Add("cat_bar", 24);
-            b.Add("li_eat_snackbar", 22);
-            b.Add("red_beer", 22);
-            b.Add("processed_milk", 18);
-            b.Add("processed_juice", 18);
-            b.Add("processed_meat", 12);
-            b.Add("zerochew", 18);
-            b.Add("cup_noodle", 18);
-            b.Add("nudka", 14);
-            b.Add("beis_icecream", 12);
-            b.Add("bandage_item", 30);
-            b.Add("hemostatic_bandage_item", 20);
-            b.Add("topical_bandage_item", 20);
+            b.Add("welder", 4);
+            b.Add("wire_cutter", 4);
+            b.Add("system_module_performance", 3);
+            b.Add("blank_module", 2);
+            b.Add("random_efficiency_module", 2);
+            b.Add("random_performance_module", 2);
+            b.Add("random_quality_module", 2);
+            b.Add("system_module_corrupt", 2);
+            b.Add("system_module_eco", 2);
+            b.Add("system_module_fineness", 2);
+            b.Add("system_module_ruined", 2);
+            b.Add("rare_electronic", 1);
+            result["scrap"] = b.Build();
+
+            // 生活废料带：食品 / 日用为主，掺一点便宜药品。
+            b = new Builder();
+            b.Add("junk", 911);
+            b.Add("empty_beer_bottle", 159);
+            b.Add("cat_bar", 44);
+            b.Add("cup_noodle", 44);
+            b.Add("energy_drink", 44);
+            b.Add("galaxy_blend", 44);
+            b.Add("li_eat_snackbar", 44);
+            b.Add("processed_juice", 44);
+            b.Add("processed_meat", 44);
+            b.Add("processed_milk", 44);
+            b.Add("red_beer", 44);
+            b.Add("soda_red", 44);
+            b.Add("zerochew", 44);
+            b.Add("caffeine_pill", 34);
+            b.Add("full_water_purification_tablet_box", 34);
+            b.Add("full_water_test_strip_box", 34);
+            b.Add("paper_towel", 34);
+            b.Add("shampoo", 34);
+            b.Add("toilet_paper", 34);
+            b.Add("toothpaste", 34);
+            b.Add("water_filter", 34);
+            b.Add("beis_icecream", 27);
+            b.Add("nudka", 27);
+            b.Add("fanta_pill", 6);
+            b.Add("birth_control_pill", 5);
+            b.Add("bandage_item", 4);
+            b.Add("dream_dust", 4);
+            b.Add("hemostatic_bandage_item", 4);
+            b.Add("smelling_salt", 4);
+            b.Add("topical_bandage_item", 4);
             result["refuse"] = b.Build();
 
+            // 医疗废弃点：医疗品为主，垃圾比例低于低级区。
             b = new Builder();
-            b.Add("junk", 1357);
-            b.Add("wire", 420);
-            b.Add("printer_plastic", 500);
-            b.Add("common_electronic", 200);
-            b.Add("system_module_ruined", 60);
-            b.Add("system_module_corrupt", 25);
-            b.Add("blank_module", 20);
-            b.Add("random_performance_module", 6);
-            b.Add("random_efficiency_module", 6);
-            b.Add("random_quality_module", 6);
-            b.Add("system_module_performance", 4);
-            b.Add("system_module_eco", 3);
-            b.Add("system_module_fineness", 3);
-            b.Add("rare_electronic", 1);
-            b.Add("welder", 10);
-            b.Add("wire_cutter", 8);
-            b.Add("kotton_fabric", 10);
-            b.Add("metal_ingot", 10);
-            b.Add("gun_part", 10);
-            b.Add("screwdriver", 6);
-            result["terminal"] = b.Build();
-
-            b = new Builder();
-            b.Add("junk", 275);
-            b.Add("bandage_item", 60);
-            b.Add("hemostatic_bandage_item", 40);
-            b.Add("topical_bandage_item", 40);
-            b.Add("blood_bag", 15);
-            b.Add("rubbing_alcohol", 10);
-            b.Add("salve", 5);
-            b.Add("surgery_tool", 1);
-            b.Add("birth_control_pill", 15);
-            b.Add("fanta_pill", 15);
-            b.Add("phagimycin_pill", 15);
-            b.Add("zyanide_pill", 15);
-            b.Add("smelling_salt", 6);
-            b.Add("caffeine_pill", 12);
-            b.Add("dream_dust", 5);
-            b.Add("nightmare_dust", 5);
-            b.Add("common_medical", 10);
-            b.Add("water_filter", 6);
-            b.Add("toothpaste", 4);
-            b.Add("toilet_paper", 3);
-            b.Add("processed_meat", 4);
-            b.Add("cup_noodle", 4);
-            b.Add("kotton_fabric", 8);
-            b.Add("glass_shard", 10);
-            b.Add("empty_beer_bottle", 6);
+            b.Add("junk", 868);
+            b.Add("fanta_pill", 117);
+            b.Add("birth_control_pill", 93);
+            b.Add("bandage_item", 88);
+            b.Add("hemostatic_bandage_item", 88);
+            b.Add("rubbing_alcohol", 88);
+            b.Add("smelling_salt", 88);
+            b.Add("topical_bandage_item", 88);
+            b.Add("dream_dust", 78);
+            b.Add("salve", 58);
+            b.Add("phagimycin_pill", 56);
+            b.Add("blood_bag", 42);
+            b.Add("zyanide_pill", 42);
+            b.Add("nightmare_dust", 39);
+            b.Add("common_medical", 35);
             result["med"] = b.Build();
 
+            // 废武器堆：弹药与近战杂件为主，掺少量枪械和改装件。
             b = new Builder();
-            b.Add("junk", 859);
-            b.Add("pipe_weapon", 200);
-            b.Add("glass_shard_shiv", 250);
-            b.Add("box_cutter", 40);
-            b.Add("kitchen_knife", 24);
-            b.Add("crowbar", 8);
-            b.Add("combat_knife", 10);
-            b.Add("kitchen_cleaver", 8);
-            b.Add("hatchet", 8);
-            b.Add("skinning_knife", 3);
-            b.Add("stun_baton", 1);
+            b.Add("junk", 1059);
+            b.Add("small_pistol_ammo_nl", 217);
+            b.Add("small_pistol_ammo", 152);
+            b.Add("heavy_pistol_ammo_nl", 127);
+            b.Add("small_pistol_ammo_p", 117);
+            b.Add("heavy_pistol_ammo", 101);
+            b.Add("lou_etched_round", 101);
+            b.Add("heavy_pistol_ammo_p", 84);
+            b.Add("box_cutter", 7);
+            b.Add("crowbar", 7);
+            b.Add("glass_shard_shiv", 7);
+            b.Add("kitchen_knife", 6);
+            b.Add("pipe_weapon", 6);
+            b.Add("mag_22", 4);
+            b.Add("silencer_makeshift", 4);
+            b.Add("hatchet", 3);
+            b.Add("internal_springs_improved", 3);
+            b.Add("kitchen_cleaver", 3);
+            b.Add("laser_toy", 3);
+            b.Add("printed_gun", 3);
+            b.Add("bipod", 2);
+            b.Add("combat_knife", 2);
+            b.Add("grip", 2);
+            b.Add("internal_springs", 2);
+            b.Add("mag_10mm", 2);
+            b.Add("mag_10mm_high", 2);
+            b.Add("mag_22_ext", 2);
+            b.Add("mag_22_high", 2);
+            b.Add("pistol_switch", 2);
+            b.Add("rds_makeshift", 2);
+            b.Add("short_stock", 2);
+            b.Add("skinning_knife", 2);
+            b.Add("stock", 2);
+            b.Add("ammo_display", 1);
+            b.Add("barrel", 1);
             b.Add("combat_machete", 1);
-            b.Add("printed_gun", 30);
-            b.Add("handmade_pistol", 3);
+            b.Add("compensator", 1);
+            b.Add("grip_gel", 1);
+            b.Add("handmade_pistol", 1);
             b.Add("heavy_handmade_pistol", 1);
-            b.Add("revolver", 1);
-            b.Add("small_pistol_ammo_nl", 80);
-            b.Add("small_pistol_ammo", 60);
-            b.Add("small_pistol_ammo_p", 18);
-            b.Add("heavy_pistol_ammo_nl", 24);
-            b.Add("heavy_pistol_ammo", 30);
-            b.Add("heavy_pistol_ammo_p", 10);
-            b.Add("lou_etched_round", 10);
-            b.Add("scrap_metal", 30);
-            b.Add("nuts_metal", 20);
-            b.Add("gun_part", 20);
-            b.Add("glass_shard", 30);
-            b.Add("empty_beer_bottle", 20);
-            b.Add("kotton_fabric", 6);
-            b.Add("welder", 4);
-            b.Add("metal_ingot", 6);
-            b.Add("common_electronic", 8);
-            b.Add("wire_cutter", 4);
-            b.Add("processed_meat", 6);
-            b.Add("cup_noodle", 6);
-            b.Add("bandage_item", 8);
-            b.Add("hemostatic_bandage_item", 4);
-            result["weapons"] = b.Build();
-
-            b = new Builder();
-            b.Add("junk", 1478);
-            b.Add("mag_22", 275);
-            b.Add("mag_22_high", 40);
-            b.Add("mag_22_ext", 14);
-            b.Add("mag_10mm", 40);
-            b.Add("mag_10mm_high", 10);
-            b.Add("mag_10mm_ext", 4);
-            b.Add("mag_10mm_smg", 3);
-            b.Add("mag_10mm_smg_high", 1);
-            b.Add("mag_10mm_smg_box", 1);
-            b.Add("rds_makeshift", 45);
-            b.Add("rds", 3);
-            b.Add("laser_toy", 90);
-            b.Add("laser", 3);
+            b.Add("laser", 1);
             b.Add("laser2", 1);
-            b.Add("silencer_makeshift", 90);
-            b.Add("silencer", 3);
+            b.Add("mag_10mm_ext", 1);
+            b.Add("mag_10mm_smg", 1);
+            b.Add("mag_10mm_smg_box", 1);
+            b.Add("mag_10mm_smg_high", 1);
+            b.Add("match_barrel", 1);
+            b.Add("rds", 1);
+            b.Add("silencer", 1);
             b.Add("silencer2", 1);
-            b.Add("barrel", 3);
-            b.Add("compensator", 3);
-            b.Add("bipod", 5);
-            b.Add("gl", 1);
-            b.Add("grip", 5);
-            b.Add("stock", 5);
-            b.Add("short_stock", 5);
-            b.Add("internal_springs", 5);
-            b.Add("internal_springs_improved", 70);
-            b.Add("trigger_group", 3);
-            b.Add("match_barrel", 2);
-            b.Add("pistol_switch", 3);
-            b.Add("ammo_display", 2);
-            b.Add("grip_gel", 2);
-            b.Add("small_pistol_ammo_nl", 130);
-            b.Add("small_pistol_ammo", 50);
-            b.Add("heavy_pistol_ammo_nl", 40);
-            b.Add("lou_etched_round", 10);
-            b.Add("gun_part", 100);
-            b.Add("common_electronic", 60);
-            b.Add("wire", 50);
-            b.Add("screwdriver", 50);
-            b.Add("scrap_metal", 120);
-            b.Add("nuts_metal", 60);
-            b.Add("welder", 8);
-            b.Add("wire_cutter", 20);
-            b.Add("metal_ingot", 20);
-            b.Add("kotton_fabric", 10);
-            b.Add("empty_beer_bottle", 30);
-            b.Add("bandage_item", 20);
-            b.Add("processed_meat", 6);
-            b.Add("cup_noodle", 6);
-            b.Add("hemostatic_bandage_item", 8);
-            result["parts"] = b.Build();
+            b.Add("stun_baton", 1);
+            b.Add("trigger_group", 1);
+            result["weapons"] = b.Build();
 
             return result;
         }
@@ -541,6 +478,10 @@ namespace DumpingGroundMap
         private const string BoardWindowId = Core.Id + ":board";
         internal static readonly Color Accent = new Color32(242, 201, 115, 255);
         internal static readonly Color Ink = new Color32(225, 235, 227, 255);
+        /// <summary>未解锁地标的字色与边框色，比正常态暗一档。</summary>
+        private static readonly Color LockedInk = new Color32(126, 138, 131, 255);
+        private static readonly Color LockedRing = new Color32(58, 72, 66, 255);
+        private static readonly Color RingInk = new Color32(95, 131, 117, 255);
         private static Picker current;
         private static CustomUIWindow boardWindow;
 
@@ -562,7 +503,7 @@ namespace DumpingGroundMap
         private Region selected;
         private CustomUIWindow window;
         private GameObject shade;
-        private CustomUIElement description, confirm;
+        private CustomUIElement description, confirm, reputationLabel;
 
         private Picker(MapUIManager map, Action resume)
         {
@@ -689,7 +630,7 @@ namespace DumpingGroundMap
             CustomUIBuilder b = ui.CreateWindow(WindowId, Copy.Text("垃圾场 · 拾荒地图", "Dumping Ground · Search Map"),
                 CustomUIManager.LAYER_OVERLAY, null, CustomUIManager.Style.Meta);
             window = b.Handle;
-            b.SetSize(740, 592).Center().SetDraggable(false).SetCloseOnEscape(true).OnClose(Cleanup);
+            b.SetSize(740, 624).Center().SetDraggable(false).SetCloseOnEscape(true).OnClose(Cleanup);
 
             shade = new GameObject("DumpingGroundMapShade", typeof(RectTransform), typeof(Image));
             RectTransform cover = (RectTransform)shade.transform;
@@ -728,7 +669,10 @@ namespace DumpingGroundMap
                 ring.raycastTarget = false;
                 pinRings[i] = ring;
                 CustomUIBuilder pinBuilder = new CustomUIBuilder(ui, window, pinRect);
-                pinBuilder.AddButton((i + 1) + "  " + region.Name, () => Select(region), "area_" + i);
+                // 未解锁的地标在编号后带上门槛，按钮同时压暗，点开仍会解释原因。
+                string pinLabel = (i + 1) + "  " + region.Name;
+                if (region.RequiredReputation > 0) pinLabel += " · " + region.RequiredReputation;
+                pinBuilder.AddButton(pinLabel, () => Select(region), "area_" + i);
                 CustomUIElement pin = pinBuilder.Last;
                 pin.Rect.anchorMin = Vector2.zero;
                 pin.Rect.anchorMax = Vector2.one;
@@ -751,6 +695,12 @@ namespace DumpingGroundMap
                 boardButton.Rect.offsetMin = Vector2.zero;
                 boardButton.Rect.offsetMax = Vector2.zero;
             }
+
+            b.AddSpace(6).AddLabel("", "reputation");
+            reputationLabel = b.Last;
+            Size(reputationLabel, -1, 24);
+            if (reputationLabel.text != null) reputationLabel.text.alignment = TextAlignmentOptions.MidlineLeft;
+            RefreshReputation();
 
             b.AddSpace(8).AddLabel("", "description");
             description = b.Last;
@@ -829,8 +779,8 @@ namespace DumpingGroundMap
             b.AddLabel(Copy.Text("本区期望价值：", "Expected value: ") + table.Ev.ToString("0.00", CultureInfo.InvariantCulture),
                 "board_ev");
             Size(b.Last, -1, 24);
-            b.AddLabel(Copy.Text("垃圾事件只抬高“垃圾”，其余物品按比例让位；各区域期望价值刻意保持接近。",
-                "Junk events only raise \"junk\"; other items yield proportionally. Expected value is kept close across areas."),
+            b.AddLabel(Copy.Text("垃圾事件只抬高“垃圾”，其余物品按比例让位；带声望门槛的区域整体更值钱。",
+                "Junk events only raise \"junk\"; other items yield proportionally. Areas behind a reputation gate are worth more overall."),
                 "board_footer");
             Size(b.Last, -1, 42);
             b.Show();
@@ -895,19 +845,55 @@ namespace DumpingGroundMap
             return Mathf.RoundToInt(pct).ToString(CultureInfo.InvariantCulture) + "%";
         }
 
+        /// <summary>地图下方那行：当前声望 + 各高级区门槛。</summary>
+        private void RefreshReputation()
+        {
+            if (reputationLabel == null) return;
+            string text = Copy.Text("声望 ", "Reputation ") + Reputation.Points;
+            for (int i = 0; i < Region.All.Length; ++i)
+            {
+                Region region = Region.All[i];
+                if (region.RequiredReputation <= 0) continue;
+                text += "  ·  " + region.Name + " " + region.RequiredReputation;
+            }
+            reputationLabel.SetText(text);
+            reputationLabel.SetTextColor(Accent);
+        }
+
+        private void PaintPins()
+        {
+            for (int i = 0; i < pins.Length; ++i)
+            {
+                Region pinRegion = Region.All[i];
+                bool active = pinRegion == selected;
+                bool locked = !pinRegion.Unlocked;
+                pins[i].SetTextColor(active ? Accent : (locked ? LockedInk : Ink));
+                pinRings[i].color = active ? Accent : (locked ? LockedRing : RingInk);
+            }
+        }
+
         private void Select(Region region)
         {
             if (current != this) return;
-            selected = region;
-            for (int i = 0; i < pins.Length; ++i)
+            if (region != null && !region.Unlocked)
             {
-                bool active = Region.All[i] == selected;
-                pins[i].SetTextColor(active ? Accent : Ink);
-                pinRings[i].color = active ? Accent : (Color)new Color32(95, 131, 117, 255);
+                // 锁定区：不选中，只解释门槛，避免“点了没反应”。
+                selected = null;
+                PaintPins();
+                int left = Math.Max(0, ScavHelper.GetScavTimeLeft());
+                string need = Copy.Text("需要声望 ", "Needs ") + region.RequiredReputation
+                    + Copy.Text(" 才能进入「", " reputation to enter ") + region.Name
+                    + Copy.Text("」；当前声望 ", "\"; you have ") + Reputation.Points + "。";
+                description.SetText(need + "\n" + Copy.Text("剩余拾荒次数：", "Searches left: ") + left);
+                confirm.SetInteractable(false);
+                return;
             }
 
-            int left = Math.Max(0, ScavHelper.GetScavTimeLeft());
-            string remaining = Copy.Text("剩余拾荒次数：", "Searches left: ") + left;
+            selected = region;
+            PaintPins();
+
+            int remainingSearches = Math.Max(0, ScavHelper.GetScavTimeLeft());
+            string remaining = Copy.Text("剩余拾荒次数：", "Searches left: ") + remainingSearches;
             if (selected == null)
             {
                 string hint = target != null
@@ -925,6 +911,11 @@ namespace DumpingGroundMap
         private void StartSearch()
         {
             if (current != this || selected == null) return;
+            if (!selected.Unlocked)
+            {
+                Select(selected);
+                return;
+            }
 
             Region choice = selected;
             DumpingGroundLocation destination = target;

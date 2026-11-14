@@ -36,10 +36,8 @@ zones = [
     (plot(204, 384, 268, 112, 7), "#2c4943", "#68867a"),  # gate, bottom left
     (plot(204, 246, 272, 108, 7), "#374941", "#8c9270"),  # scrap, middle left
     (plot(204, 108, 264, 110, 7), "#314b47", "#789379"),  # medical, top left
-    (plot(510, 108, 248, 108, 7), "#3a4740", "#8f8f6d"),  # weapons, top center
-    (plot(510, 246, 244, 104, 7), "#2f4a44", "#7d9080"),  # parts, center
-    (plot(796, 108, 248, 108, 7), "#2b4745", "#6a9590"),  # terminals, top right
-    (plot(796, 384, 268, 112, 7), "#314b42", "#789379"),  # refuse, bottom right
+    (plot(796, 120, 248, 104, 7), "#3a4740", "#8f8f6d"),  # weapons, upper right
+    (plot(796, 380, 268, 108, 7), "#314b42", "#789379"),  # refuse, lower right
 ]
 
 for poly, fill, edge in zones:
@@ -95,33 +93,20 @@ for i, y in enumerate((62, 142)):
 
 # weapons: racks
 for i in range(3):
-    x = 392 + 16 * i
-    d.line((x, 82, x + 10, 138), fill="#7d8a67", width=3)
+    x = 700 + 16 * i
+    d.line((x, 86, x + 10, 158), fill="#7d8a67", width=3)
 for i in range(3):
-    x = 600 + 14 * i
-    d.line((x, 136, x - 6, 84), fill="#7d8a67", width=3)
-
-# parts: stacked crates
-for i in range(6):
-    x = 388 + (i % 3) * 40
-    y = 204 if i < 3 else 284
-    crate(x, y, 30, 18, "#3a5b55", "#779585")
-
-# terminals: dead screens
-for x in (696, 748, 800):
-    for y in (56, 146):
-        d.rounded_rectangle((x, y, x + 34, y + 24), 2, fill="#365855", outline="#69908b")
-        d.rectangle((x + 4, y + 4, x + 25, y + 12), fill="#5f8179")
-        d.line((x + 17, y + 24, x + 17, y + 30), fill="#6d8d81", width=2)
+    x = 872 + 14 * i
+    d.line((x, 156, x - 6, 84), fill="#7d8a67", width=3)
 
 # refuse: dumpsters
 for i in range(3):
-    x = 720 + 64 * i
-    d.rectangle((x, 334, x + 38, 355), fill="#466256", outline="#74917d")
-    d.line((x, 340, x + 38, 340), fill="#74917d")
-    d.line((x + 6, 344, x + 32, 352), fill="#597d6c")
+    x = 716 + 56 * i
+    d.rectangle((x, 396, x + 38, 417), fill="#466256", outline="#74917d")
+    d.line((x, 402, x + 38, 402), fill="#74917d")
+    d.line((x + 6, 406, x + 32, 414), fill="#597d6c")
 for i in range(3):
-    barrel(700 + 78 * i, 402, "#3f5d54", "#78917c")
+    barrel(700 + 70 * i, 338, "#3f5d54", "#78917c")
 
 d.rounded_rectangle((10, 10, W - 11, H - 11), 8, outline="#789184", width=2)
 d.rectangle((37, 36, W - 38, H - 37), outline="#48665e", width=1)
