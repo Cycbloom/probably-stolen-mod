@@ -450,8 +450,9 @@ namespace DumpingGroundMap
                     new[] { 60, 40, 24, 24, 20, 19, 17, 11 }),
                 Cat(500,
                     new[] { "bandage_item", "fanta_pill", "birth_control_pill", "smelling_salt",
-                        "hemostatic_bandage_item", "topical_bandage_item", "dream_dust" },
-                    new[] { 75, 50, 40, 40, 38, 38, 33 }),
+                        "hemostatic_bandage_item", "topical_bandage_item", "dream_dust",
+                        "large_purple_injector_bad" },
+                    new[] { 75, 50, 40, 40, 38, 38, 33, 8 }),
                 Cat(333, new[] { "empty_beer_bottle" }, new[] { 1 }));
 
             // 医疗废弃点：医疗耗材 / 药品 / 器械，垃圾 46.47%。
@@ -465,8 +466,9 @@ namespace DumpingGroundMap
                     new[] { 75, 38, 38, 18, 17, 8 }),
                 Cat(2000,
                     new[] { "fanta_pill", "birth_control_pill", "smelling_salt", "dream_dust",
-                        "phagimycin_pill", "zyanide_pill", "nightmare_dust" },
-                    new[] { 50, 40, 40, 33, 24, 18, 17 }),
+                        "phagimycin_pill", "zyanide_pill", "nightmare_dust",
+                        "large_purple_injector_bad" },
+                    new[] { 50, 40, 40, 33, 24, 18, 17, 6 }),
                 Cat(153,
                     new[] { "common_medical", "surgery_tool" },
                     new[] { 15, 3 }));
@@ -556,7 +558,7 @@ namespace DumpingGroundMap
             AddAll(result, "medicalTable",
                 "blood_bag", "rubbing_alcohol", "salve", "surgery_tool", "birth_control_pill",
                 "fanta_pill", "phagimycin_pill", "zyanide_pill", "smelling_salt", "dream_dust",
-                "nightmare_dust", "common_medical");
+                "nightmare_dust", "common_medical", "large_purple_injector");
             // 贵重品池里的物品在开启前不会出现，这里只是给 ModHook 报一个合理的原版表名。
             AddAll(result, "householdTable",
                 "water_filter_adv", "portable_water_purifier", "bottled_water_premium");
@@ -614,6 +616,65 @@ namespace DumpingGroundMap
                 if (roll < 0) { pick = i; break; }
             }
             GunHelper.SetEquipmentCondition(item, (ItemFeatureList.EquipmentCondition)pick);
+        }
+    }
+
+    /// <summary>
+    /// 免疫宁注射器的状态。游戏里正品 / 仿品 / 过期 / 不能用共用同一个 item id，
+    /// 靠 CATEGORY_GENUINE_INJECTOR 条件区分；状态本身不改价（条件 modValue 全为 0），
+    /// 所以这里在生成后补条件，并把 unitValue 同步成对应档次的价格。
+    /// 正品只作贵重品出现，次品（过期 / 仿品 / 不能用）只走普通表。
+    /// </summary>
+    internal static class InjectorQuality
+    {
+        private const string Category = "CATEGORY_GENUINE_INJECTOR";
+        private const long GenuineValue = 160L;
+
+        /// <summary>普通表的次品：过期 40%（80） / 仿品 35%（40） / 不能用 25%（16）。</summary>
+        internal static void ApplyBad(GameItem item)
+        {
+            if (item == null) return;
+
+            int roll = UnityEngine.Random.Range(0, 100);
+            ItemFeatureList.InjectorConditionType type;
+            long value;
+            if (roll < 40)
+            {
+                type = ItemFeatureList.InjectorConditionType.Expired;
+                value = 80L;
+            }
+            else if (roll < 75)
+            {
+                type = ItemFeatureList.InjectorConditionType.Counterfeit;
+                value = 40L;
+            }
+            else
+            {
+                type = ItemFeatureList.InjectorConditionType.Unusable;
+                value = 16L;
+            }
+
+            item.RemoveFeatureByCategory(Category);
+            item.AddItemFeature(ItemFeatureList.InjectorFeature(type, type));
+            item.unitValue = value;
+
+            if (type == ItemFeatureList.InjectorConditionType.Expired)
+                InsInjectorHelper.SetExpired(item);
+            else if (type == ItemFeatureList.InjectorConditionType.Counterfeit)
+                InsInjectorHelper.SetCounterfeit(item);
+            else
+                InsInjectorHelper.SetUnusable(item);
+        }
+
+        /// <summary>贵重品槽位的正品：清掉可能带的状态并固定 160。</summary>
+        internal static void ApplyGenuine(GameItem item)
+        {
+            if (item == null) return;
+            item.RemoveFeatureByCategory(Category);
+            item.AddItemFeature(ItemFeatureList.InjectorFeature(
+                ItemFeatureList.InjectorConditionType.Genuine,
+                ItemFeatureList.InjectorConditionType.Genuine));
+            item.unitValue = GenuineValue;
         }
     }
 
@@ -1047,9 +1108,11 @@ namespace DumpingGroundMap
             if (region == null) return;
 
             EffectiveTable table = Tuning.TableFor(region);
+            // 只收普通槽位：贵重品槽位可能与普通表重名（100–200 的几件两边都有），
+            // 重名的概率由下面的分组下标单独取。
             Dictionary<string, float> probabilities = new Dictionary<string, float>(table.Count);
-            for (int i = 0; i < table.Count; ++i)
-                probabilities[table.Items[table.IndexAt(i)]] = table.ProbabilityAt(i);
+            for (int i = 0; i < table.HighStart; ++i)
+                probabilities[table.Items[i]] = table.Probs[i];
 
             for (int g = 0; g < boardGroups.Count; ++g)
             {
@@ -1059,7 +1122,10 @@ namespace DumpingGroundMap
                 {
                     BoardItem item = group.Items[i];
                     float probability;
-                    if (!probabilities.TryGetValue(item.Id, out probability)) probability = 0f;
+                    if (group.High)
+                        probability = i < table.HighCount ? table.Probs[table.HighStart + i] : 0f;
+                    else if (!probabilities.TryGetValue(item.Id, out probability))
+                        probability = 0f;
                     sum += probability;
                     if (item.Label != null)
                         item.Label.SetText(BoardItemName(item.Id) + "  ·  " + BoardPercent(probability));
@@ -1133,6 +1199,10 @@ namespace DumpingGroundMap
         /// <summary>芯片全名太长，截成「打印芯片（…）」以便在 286px 的格子里放下。</summary>
         private static string BoardItemName(string id)
         {
+            if (id == Tuning.InjectorBadId)
+                return Copy.Text("免疫宁注射器（过期/仿品/不能用）",
+                    "Immunivax injector (expired/counterfeit/unusable)");
+
             string name = ItemName(id);
             if (id.StartsWith("printer_chip_", StringComparison.Ordinal))
             {
@@ -2091,14 +2161,20 @@ namespace DumpingGroundMap
             string itemId = Tuning.Pick(region, scale);
             if (string.IsNullOrEmpty(itemId)) return true;
 
-            GameItem item = ItemSpawner.Spawn(itemId);
+            // 次品免疫宁是表里的虚拟 id：生成真物品后补状态，其余 id 原样生成。
+            string spawnId = itemId == Tuning.InjectorBadId ? Tuning.InjectorId : itemId;
+            GameItem item = ItemSpawner.Spawn(spawnId);
             if (item == null) return true;
-            WeaponWear.Apply(itemId, item);
+            if (itemId == Tuning.InjectorBadId)
+                InjectorQuality.ApplyBad(item);
+            else if (itemId == Tuning.InjectorId)
+                InjectorQuality.ApplyGenuine(item);
+            WeaponWear.Apply(spawnId, item);
 
             LootRollContext context = new LootRollContext();
             context.groupId = "dumpingGroundTG";
-            context.tableId = ScavLoot.SourceTable(itemId);
-            context.itemId = itemId;
+            context.tableId = ScavLoot.SourceTable(spawnId);
+            context.itemId = spawnId;
             if (fireLootRolled != null)
                 fireLootRolled.Invoke(null, new object[] { context });
 

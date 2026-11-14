@@ -896,7 +896,8 @@ namespace DumpingGroundMap
                 expected += probs[i] * ValueOf(items[i]);
 
             float finalJunk = junkIndex >= 0 ? probs[junkIndex] : 0f;
-            return new EffectiveTable(items, probs, isHigh, isJunk, highChance, finalJunk, expected);
+            return new EffectiveTable(items, probs, isHigh, isJunk, highChance, finalJunk, expected,
+                count, highCount);
         }
 
         private static int RegionIndex(Region region)
@@ -963,8 +964,18 @@ namespace DumpingGroundMap
             // 贵重刀具 / 近战
             "combat_machete", "stun_baton",
             // 枪匠需要的高价材料与工具
-            "advanced_flux_agent", "xray_scanner"
+            "advanced_flux_agent", "xray_scanner",
+            // 0.3.65 起：正品免疫宁（160）与几件 100–200 的「普货」。
+            // 同一 id 仍留在普通表里当「大货」，贵重品这边是另一条独立槽位。
+            "large_purple_injector", "glock_receiver", "heavy_handmade_pistol",
+            "surgery_tool", "module_extractor"
         };
+
+        /// <summary>正品免疫宁：贵重品槽位固定给这一件，次品走 LargeInjectorBadId。</summary>
+        internal const string InjectorId = "large_purple_injector";
+
+        /// <summary>普通表里的免疫宁次品（过期 / 仿品 / 不能用），生成时再掷具体状态。</summary>
+        internal const string InjectorBadId = "large_purple_injector_bad";
 
         /// <summary>贵重品池（按展示顺序）；告示牌用它拼「贵重品」分组。</summary>
         internal static string[] HighValueIds { get { return HighValue; } }
@@ -980,11 +991,11 @@ namespace DumpingGroundMap
         /// </summary>
         private static readonly int[][] HighWeights =
         {
-            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1 }, // Main Gate
-            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 2 }, // Scrap Pile
-            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1 }, // Refuse Lane
-            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 1 }, // Medical Waste
-            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1 }  // Weapon Dump
+            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1 }, // Main Gate
+            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 2, 1, 1, 1, 1, 3 }, // Scrap Pile
+            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1 }, // Refuse Lane
+            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 1, 4, 1, 1, 4, 1 }, // Medical Waste
+            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1, 1, 3, 3, 1, 1 }  // Weapon Dump
         };
 
         /// <summary>
@@ -1129,6 +1140,9 @@ namespace DumpingGroundMap
                 { "printer_chip_10_mag_ext", 400f },
                 { "advanced_flux_agent", 300f },
                 { "xray_scanner", 400f },
+                // 0.3.65：正品免疫宁 160；次品掷过期 80 / 仿品 40 / 不能用 16，按 40/35/25 取均值。
+                { "large_purple_injector", 160f },
+                { "large_purple_injector_bad", 50f },
                 // 80 档补给箱按满箱内容估的均价，只用于界面的期望价值。
                 { "loot_crate_engineering", 450f },
                 { "loot_crate_service", 350f },
@@ -1155,12 +1169,19 @@ namespace DumpingGroundMap
         internal readonly float JunkChance;
         internal readonly float Ev;
 
+        /// <summary>
+        /// 贵重品在 Items / Probs 里的起始下标与件数。贵重品槽位可能和普通表里的
+        /// id 重名（0.3.65 起 100–200 的几件两边都有），告示板靠这两个值区分。
+        /// </summary>
+        internal readonly int HighStart;
+        internal readonly int HighCount;
+
         private readonly bool[] isJunk;
         private readonly int[] order;
         private readonly int junkIndex;
 
         internal EffectiveTable(string[] items, float[] probs, bool[] isHigh, bool[] isJunk,
-            float highChance, float junkChance, float ev)
+            float highChance, float junkChance, float ev, int highStart, int highCount)
         {
             Items = items;
             Probs = probs;
@@ -1169,6 +1190,8 @@ namespace DumpingGroundMap
             HighChance = highChance;
             JunkChance = junkChance;
             Ev = ev;
+            HighStart = highStart;
+            HighCount = highCount;
             junkIndex = Array.IndexOf(items, "junk");
 
             order = new int[items.Length];
