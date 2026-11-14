@@ -14,11 +14,9 @@ namespace DumpingGroundMap
     internal static class Tuning
     {
         internal const float DefaultJunkPercent = 50f;
-        internal const float DefaultHighPercent = 0f;
+        internal const float DefaultHighPercent = 3f;
         internal const int DefaultSpecialtyTier = 2;
 
-        /// <summary>80 档：高档物资出现率保底 3%（玩家设置更高时尊重玩家）。</summary>
-        internal const float Perk80HighFloor = 3f;
         /// <summary>80 档：每个有箱子的区，补给箱与对应钥匙卡各 0.5% 绝对概率。</summary>
         internal const float Perk80SpecialChance = 0.005f;
 
@@ -208,8 +206,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "每次拾荒单独判断：这一趟会不会出高档物资。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n高档物资换自普通物品，垃圾不受影响。\n声望达到 80（识货行家）后，本项最低按 3% 生效；\n设得更高时按你的设置。",
-                            "Rolled once per search:\nit decides only whether this haul includes a high-value item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nHigh-value items replace normal items; junk is not affected.\nAt 80 reputation (Connoisseur) this never goes below 3%;\nhigher settings are kept.");
+                            "每次拾荒单独判断：这一趟会不会出高档物资。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n高档物资换自普通物品，垃圾不受影响。\n本项在声望达到 80（识货行家）后生效：\n80 之前按 0 算（设置值会保留），80 之后完全按滑条数值生效。",
+                            "Rolled once per search:\nit decides only whether this haul includes a high-value item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nHigh-value items replace normal items; junk is not affected.\nThis setting activates at 80 reputation (Connoisseur):\nbefore 80 it counts as 0 (your value is kept); from 80 on the slider applies as-is.");
                     },
                     false);
 
@@ -487,8 +485,8 @@ namespace DumpingGroundMap
             }
             EffectiveTable table;
             if (cache.TryGetValue(region.Id, out table)) return table;
-            float highPercent = HighPercent;
-            if (perk80 && highPercent < Perk80HighFloor) highPercent = Perk80HighFloor;
+            // 80 档门控：声望不到 80 时高档一律按 0 算，滑条上的值只保留、不生效。
+            float highPercent = perk80 ? HighPercent : 0f;
             table = Build(region, JunkPercent, highPercent, SpecialtyPercent, perk80);
             cache[region.Id] = table;
             return table;

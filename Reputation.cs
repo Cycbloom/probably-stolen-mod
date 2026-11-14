@@ -66,7 +66,7 @@ namespace DumpingGroundMap
         internal const string Perk60NameZh = "眼力毒辣";
         internal const string Perk60NameEn = "Keen Eye";
 
-        /// <summary>80 档：高档保底 3%，高级区可翻到补给箱与对应钥匙卡。</summary>
+        /// <summary>80 档：高档出现率 80 门控，高级区可翻到补给箱与对应钥匙卡。</summary>
         internal const int Perk80Threshold = 80;
         internal const string Perk80NameZh = "识货行家";
         internal const string Perk80NameEn = "Connoisseur";
@@ -519,7 +519,7 @@ namespace DumpingGroundMap
         /// 20：每天多一名拾荒客客人 + 首次达到 20 点的一枚「拾荒者信物」和一张便条（已生效）。
         /// 40：三个高级区（拆解堆 / 医疗废弃点 / 废武器堆）的统一解锁门槛（已生效）。
         /// 60：只落门槛与档名，功能待定。
-        /// 80：高档物资出现率保底 3%；四个区可翻到补给箱与对应钥匙卡（已生效）。
+        /// 80：高档出现率改为 80 门控（不到 80 按 0，到了 80 完全按滑条值，默认 3%）；四个区可翻到补给箱与对应钥匙卡（已生效）。
         /// 100：只落门槛与档名，功能待定。
         /// </summary>
         private static readonly int[] PerkThresholds =
@@ -918,11 +918,12 @@ namespace DumpingGroundMap
             if (threshold >= Reputation.Perk80Threshold)
             {
                 return Copy.Text(
-                    "高档物资出现率最低按 3% 生效；高级区偶尔能翻到上锁的补给箱和对应的钥匙卡。"
-                    + "翻到箱子就是大奖，钥匙卡能把它打开。",
-                    "Your high-value find chance never drops below 3%; high-tier grounds can "
-                    + "occasionally turn up a locked supply crate and the matching keycard. "
-                    + "A crate is the jackpot; the keycard opens it.");
+                    "「高档物资出现率」设置开始生效：80 之前按 0 算，80 之后完全按滑条数值；"
+                    + "高级区偶尔能翻到上锁的补给箱和对应的钥匙卡。翻到箱子就是大奖，钥匙卡能把它打开。",
+                    "The high-value find chance setting now applies: it counts as 0 below 80 "
+                    + "and uses the slider value from 80 on. High-tier grounds can also turn up "
+                    + "a locked supply crate and its matching keycard. A crate is the jackpot; "
+                    + "the keycard opens it.");
             }
             if (threshold >= Reputation.Perk60Threshold)
             {
