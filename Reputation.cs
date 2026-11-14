@@ -177,7 +177,8 @@ namespace DumpingGroundMap
     /// 只在内存里合成一个 StoreReputation，不写 PlayerStore.storeReputations，
     /// 不落盘、不进 ES3。类型全部编译期绑定（typeof / 直接访问公开字段），
     /// 不使用字符串式反射或程序集扫描。
-    /// 只在災變日把面板切成“灯塔独占单”时让路，不再按“装了某 mod”直接跳过。
+    /// 唯一的短路是 layout 下已存在同名行；不针对任何其它 mod 做兼容判断，
+    /// 其它 mod 的运行状态只写进日志，不参与分支。
     /// </summary>
     [HarmonyPatch]
     internal static class ReputationBoardPatch
@@ -225,11 +226,6 @@ namespace DumpingGroundMap
                         + " prefab=" + (prefab == null ? "null" : prefab.name));
                     return;
                 }
-                if (LighthouseSheet(layout))
-                {
-                    Debug.Log("[DumpingGroundMap] reputation row: skip, lighthouse sheet");
-                    return;
-                }
                 if (layout.transform.Find(RowName) != null)
                 {
                     Debug.Log("[DumpingGroundMap] reputation row: skip, already present");
@@ -265,19 +261,6 @@ namespace DumpingGroundMap
             {
                 Debug.LogError("[DumpingGroundMap] reputation row failed: " + ex);
             }
-        }
-
-        /// <summary>災變日把面板切成灯塔独占单时会把原生行全部隐藏，这时不要插进去。</summary>
-        private static bool LighthouseSheet(GameObject layout)
-        {
-            if (layout.transform.Find("Reputation_Lighthouse") != null) return true;
-            int count = layout.transform.childCount;
-            if (count == 0) return false;
-            for (int i = 0; i < count; ++i)
-            {
-                if (layout.transform.GetChild(i).gameObject.activeSelf) return false;
-            }
-            return true;
         }
 
         /// <summary>合成一个只存在于内存里的派系声望，供原生 Init 读取。</summary>
