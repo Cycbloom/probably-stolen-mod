@@ -563,7 +563,7 @@ namespace DumpingGroundMap
             cover.SetSiblingIndex(window.Rect.GetSiblingIndex());
             shade.GetComponent<Image>().color = new Color32(9, 16, 19, 183);
 
-            b.AddLabel(Copy.Text("选一个地标即进入该区域；进入后点“拾荒”直接按该区权重拾取，本次停留内不再询问。告示板可查看该区物品概率。",
+            b.AddLabel(Copy.Text("选一个地标即进入该区域；进入后点“拾荒”直接按该区的物品表拾取，本次停留内不再询问。告示板可查看该区物品概率。",
                 "Pick a landmark to enter that area; after that, Search uses its table for the rest of the visit. Open a notice board to see its item chances."));
             Size(b.Last, -1, 44);
             b.AddSpace(6);

@@ -133,8 +133,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "这是倍率，不是「垃圾占全部掉落的百分比」：50 表示该区的基础垃圾出现率减半（入口空地 48.75% → 24.4%），100 表示维持基础值。减少的份额按原比例分给其它物品。范围 0–100%，步长 1%。",
-                            "This is a multiplier, not the junk share of all drops: 50 halves each area's base junk chance (Main Gate 48.75% -> 24.4%), and 100 keeps the base value. The freed share is split among the other items in their original proportions. Range 0-100%, step 1%.");
+                            "每次拾荒出多少垃圾，只由这条决定。\n50%：入口空地的垃圾约 49% → 约 24%。\n100%：原版水平（约 49%）；0%：不出垃圾。\n注意：50% 不是「一半掉落都是垃圾」，\n而是把原本的垃圾量减半。",
+                            "Sets how much junk shows up each search; it only changes junk.\n50%: Main Gate junk goes from about 49% to about 24%.\n100%: vanilla level (about 49%). 0%: no junk at all.\nNote: 50% does not mean half of all drops are junk -\nit halves the original junk amount.");
                     },
                     false);
 
@@ -144,8 +144,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "每次拾荒抽到高档物资的总概率，份额从全部普通物品按比例让出；各区的具体高档物品分布不同。范围 0–30%，步长 0.5%。",
-                            "Total chance per search to find a high-value item. The share is taken proportionally from all normal items; each area draws from its own high-value mix. Range 0-30%, step 0.5%.");
+                            "每次拾荒单独判断：这一趟会不会出高档物资。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n高档物资换自普通物品，垃圾不受影响。",
+                            "Rolled once per search:\nit decides only whether this haul includes a high-value item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nHigh-value items replace normal items; junk is not affected.");
                     },
                     false);
 
@@ -156,8 +156,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "四个区共用一档，决定这一趟捡到的东西里、除垃圾之外有多少是本区才有的特色物品。较少 = 25%，中等 = 50%，较多 = 75%，全部 = 100%（除垃圾外只出本区的东西）。四个区各有一份自己的特色清单，所以同一档在四个区会捡到不同的东西。垃圾是单独一档，出现率不受这一项影响，仍由上面的垃圾倍率决定。",
-                            "One tier shared by all four areas: how much of the haul, junk aside, is something only found in this region. Rare = 25%, Medium = 50%, High = 75%, All = 100% (only the region's own goods, plus junk). Each region has its own list, so the same tier still yields different goods per region. Junk is a separate tier, so its chance is untouched here and stays controlled by the junk multiplier above.");
+                            "决定除垃圾外，捡到的东西多偏向本区特产。\n档位越高，本区特产越多，通用物品越少。\n「全部」：除垃圾外只出本区特产。\n如报废终端区：「较少」仍有材料、食品，\n「全部」只出模组和电子件。\n四个区各有各的特产；垃圾不受影响。",
+                            "Controls how strongly, junk aside, a haul leans toward this region's own goods.\nHigher tiers mean more local goods and fewer generic ones.\nAll: nothing but local goods and junk.\nExample, Dead Terminals: Rare still brings materials and food;\nAll brings only modules and electronics.\nEach region has its own goods; junk is not affected.");
                     },
                     false);
 
