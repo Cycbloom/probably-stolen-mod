@@ -24,6 +24,12 @@ namespace DumpingGroundMap
         internal const float SpecialPercentMin = 0f;
         internal const float SpecialPercentMax = 5f;
 
+        /// <summary>60 档小奖：每次拾荒独立掷一次，默认 3%、范围 0–10%、0.1 步进。</summary>
+        internal const string MinorPercentKey = "minor_percent";
+        internal const float DefaultMinorPercent = 3f;
+        internal const float MinorPercentMin = 0f;
+        internal const float MinorPercentMax = 10f;
+
         internal const float JunkMin = 0f;
         internal const float JunkMax = 100f;
         internal const float HighMin = 0f;
@@ -63,6 +69,7 @@ namespace DumpingGroundMap
         private static ConfigEntry<float> highEntry;
         private static ConfigEntry<float> crateEntry;
         private static ConfigEntry<float> cardEntry;
+        private static ConfigEntry<float> minorEntry;
         private static ConfigEntry<float> stashCapEntry;
         private static ConfigEntry<string> specialtyEntry;
         private static ConfigEntry<bool> reputationPopEntry;
@@ -79,6 +86,7 @@ namespace DumpingGroundMap
         private static float liveHigh;
         private static float liveCrate;
         private static float liveCard;
+        private static float liveMinor;
         private static bool initialized;
 
         private static float EntryJunk()
@@ -107,6 +115,12 @@ namespace DumpingGroundMap
         {
             if (cardEntry == null) return DefaultSpecialPercent;
             return ClampSpecialPercent(cardEntry.Value);
+        }
+
+        private static float EntryMinorPercent()
+        {
+            if (minorEntry == null) return DefaultMinorPercent;
+            return ClampMinorPercent(minorEntry.Value);
         }
 
         private static int EntrySpecialtyTier()
@@ -193,6 +207,12 @@ namespace DumpingGroundMap
             get { return hasLive ? liveCard : EntryKeycardPercent(); }
         }
 
+        /// <summary>60 档小奖概率（%，0–10，0.1 步进）。</summary>
+        internal static float MinorPercent
+        {
+            get { return hasLive ? liveMinor : EntryMinorPercent(); }
+        }
+
         /// <summary>True while a slider drag is holding unsaved values in memory.</summary>
         internal static bool HasLive { get { return hasLive; } }
 
@@ -212,6 +232,14 @@ namespace DumpingGroundMap
             if (float.IsNaN(value)) return DefaultSpecialPercent;
             value = Mathf.Round(Mathf.Clamp(value, SpecialPercentMin, SpecialPercentMax) * 10f) / 10f;
             return Mathf.Clamp(value, SpecialPercentMin, SpecialPercentMax);
+        }
+
+        /// <summary>按 0.1 步进吸附并夹在 0–10。</summary>
+        internal static float ClampMinorPercent(float value)
+        {
+            if (float.IsNaN(value)) return DefaultMinorPercent;
+            value = Mathf.Round(Mathf.Clamp(value, MinorPercentMin, MinorPercentMax) * 10f) / 10f;
+            return Mathf.Clamp(value, MinorPercentMin, MinorPercentMax);
         }
 
         /// <summary>按 0.1 步进吸附并夹在 0.1–5.0。</summary>
@@ -281,8 +309,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "声望达到 80（识货行家）后，每次拾荒出补给箱的绝对概率。\n默认 0.5%，范围 0–5%，按 0.1 吸附；0% 不出。\n补给箱从普通物品份额里扣，垃圾概率不变。\n只在本区有对应箱子时生效（拆解堆、医疗废弃点、废武器堆）。",
-                            "Absolute chance per search for a supply crate, active at 80 reputation (Connoisseur).\nDefault 0.5%, range 0-5%, 0.1 steps; 0% disables it.\nThe crate share comes out of normal items, so junk chance is unchanged.\nOnly applies where the area has a matching crate (Scrap Pile, Medical Waste, Weapon Dump).");
+                            "声望达到 80（识货行家）后，每次拾荒出补给箱的绝对概率。\n默认 0.5%，范围 0–5%，按 0.1 吸附；0% 不出。\n补给箱从普通物品份额里扣，垃圾概率不变。\n只在本区有对应箱子时生效（拆解堆、生活废料带、医疗废弃点、废武器堆）。",
+                            "Absolute chance per search for a supply crate, active at 80 reputation (Connoisseur).\nDefault 0.5%, range 0-5%, 0.1 steps; 0% disables it.\nThe crate share comes out of normal items, so junk chance is unchanged.\nOnly applies where the area has a matching crate (Scrap Pile, Refuse Lane, Medical Waste, Weapon Dump).");
                     },
                     false);
 
@@ -292,8 +320,19 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "声望达到 80（识货行家）后，每次拾荒出对应钥匙卡的绝对概率。\n默认 0.5%，范围 0–5%，按 0.1 吸附；0% 不出。\n钥匙卡从普通物品份额里扣，垃圾概率不变。\n只在本区有对应箱子时生效（拆解堆、医疗废弃点、废武器堆）。",
-                            "Absolute chance per search for the matching keycard, active at 80 reputation (Connoisseur).\nDefault 0.5%, range 0-5%, 0.1 steps; 0% disables it.\nThe keycard share comes out of normal items, so junk chance is unchanged.\nOnly applies where the area has a matching crate (Scrap Pile, Medical Waste, Weapon Dump).");
+                            "声望达到 80（识货行家）后，每次拾荒出对应钥匙卡的绝对概率。\n默认 0.5%，范围 0–5%，按 0.1 吸附；0% 不出。\n钥匙卡从普通物品份额里扣，垃圾概率不变。\n只在本区有对应箱子时生效（拆解堆、生活废料带、医疗废弃点、废武器堆）。",
+                            "Absolute chance per search for the matching keycard, active at 80 reputation (Connoisseur).\nDefault 0.5%, range 0-5%, 0.1 steps; 0% disables it.\nThe keycard share comes out of normal items, so junk chance is unchanged.\nOnly applies where the area has a matching crate (Scrap Pile, Refuse Lane, Medical Waste, Weapon Dump).");
+                    },
+                    false);
+
+                minorEntry = config.Define(MinorPercentKey, DefaultMinorPercent, SectionName,
+                    delegate { return Copy.Text("小奖概率（%，0–10）", "Minor prize chance (%, 0-10)"); },
+                    MinorPercentMin, MinorPercentMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "声望达到 60（眼力毒辣）后，每次拾荒独立掷一次小奖。\n默认 3%，范围 0–10%，按 0.1 吸附；0% 不出。\n小奖按区翻出一整箱同一种物品（每区 2–3 种，总价约 150–250），\n不发新闻、不改价格、没有额外 25% 收获，也不影响爆大奖的累积窗口。\n同一次搜索里大奖、小奖都命中时只算大奖。\n小奖物品与正常拾荒一样计入声望。",
+                            "At 60 reputation (Keen Eye), every search rolls once for a minor prize.\nDefault 3%, range 0-10%, 0.1 steps; 0% disables it.\nA minor prize is a whole crate of one item type (2-3 crates per area, 150-250 total):\nno news, no price change, no extra 25% bonus, and no effect on the jackpot window.\nIf both jackpot and minor prize hit in the same search, only the jackpot counts.\nMinor prize items count toward reputation like any other find.");
                     },
                     false);
 
@@ -421,6 +460,12 @@ namespace DumpingGroundMap
                 {
                     float snapped = ClampSpecialPercent(value);
                     if (snapped != value) cardEntry.Set(snapped);
+                    Invalidated();
+                };
+                minorEntry.OnChanged += delegate(float value)
+                {
+                    float snapped = ClampMinorPercent(value);
+                    if (snapped != value) minorEntry.Set(snapped);
                     Invalidated();
                 };
                 specialtyEntry.OnChanged += delegate(string value)
@@ -553,6 +598,14 @@ namespace DumpingGroundMap
             Invalidated();
         }
 
+        /// <summary>小奖概率滑条预览（0–10%，内存态）。</summary>
+        internal static void SetMinorPercentLive(float value)
+        {
+            EnsureLive();
+            liveMinor = ClampMinorPercent(value);
+            Invalidated();
+        }
+
         private static void EnsureLive()
         {
             if (hasLive) return;
@@ -561,6 +614,7 @@ namespace DumpingGroundMap
             liveHigh = EntryHigh();
             liveCrate = EntryCratePercent();
             liveCard = EntryKeycardPercent();
+            liveMinor = EntryMinorPercent();
         }
 
         /// <summary>
@@ -574,11 +628,13 @@ namespace DumpingGroundMap
             float high = liveHigh;
             float crate = liveCrate;
             float card = liveCard;
+            float minor = liveMinor;
             hasLive = false;
             if (junkEntry != null && junkEntry.Value != junk) junkEntry.Set(junk);
             if (highEntry != null && highEntry.Value != high) highEntry.Set(high);
             if (crateEntry != null && crateEntry.Value != crate) crateEntry.Set(crate);
             if (cardEntry != null && cardEntry.Value != card) cardEntry.Set(card);
+            if (minorEntry != null && minorEntry.Value != minor) minorEntry.Set(minor);
             Invalidated();
         }
 

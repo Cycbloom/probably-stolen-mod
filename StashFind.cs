@@ -7,14 +7,18 @@ using UnityEngine;
 namespace DumpingGroundMap
 {
     /// <summary>
-    /// 60 档「眼力毒辣」的爆大奖。
+    /// 60 档「眼力毒辣」的爆大奖，以及同一档位的小奖。
     ///
-    /// 概率用 AIMD：起点 0.05%，未中且没到上限一半时翻倍（慢启动），
+    /// 大奖概率用 AIMD：起点 0.05%，未中且没到上限一半时翻倍（慢启动），
     /// 过半或中过奖后改为每次 +0.05% 线性爬升；中奖后窗口砍半再继续。
     /// 上限来自设置项 stash_cap（0.1–5.0，步进 0.1）；
     /// 声望不到 60 时上限硬顶 0.1%，但不完全排除。
     ///
-    /// 一趟（进入某处垃圾场后）最多中一次，标记只在内存里，换区时清空。
+    /// 小奖是独立设置项 minor_percent（0–10%，默认 3%），平常概率单独掷，
+    /// 不写 AIMD 状态、不登新闻、不改价格、不触发 25% 加成。
+    /// 同一次搜索里大奖命中时完全跳过小奖。
+    ///
+    /// 一趟（进入某处垃圾场后）最多中一次大奖，标记只在内存里，换区时清空。
     /// 中奖后当天、同一区域，每次搜索另有 25% 概率再给 1 件该区样板物品。
     ///
     /// 中奖当晚把「第二天出新闻」写进存档（同声望的 modData 机制），
@@ -38,7 +42,8 @@ namespace DumpingGroundMap
         internal const float HardCapLowRep = 0.1f;
 
         internal const float BonusChance = 25f;
-        internal const int JackpotItems = 5;
+        internal const int JackpotMinItems = 7;
+        internal const int JackpotMaxItems = 8;
         internal const int BonusItems = 1;
 
         private static float chance = StartChance;
@@ -109,6 +114,10 @@ namespace DumpingGroundMap
         /// <summary>
         /// 每次拾荒（GetRandomScavengedItem 的产物已经成型）调用一次。
         /// 追加的物品直接进同一次返回列表，因此后面按列表结算声望时会被计入。
+        ///
+        /// 顺序：先掷大奖（AIMD）；大奖命中就完全跳过小奖；
+        /// 大奖没中才独立掷小奖（不改 AIMD 状态）。
+        /// 当天同区 25% 额外收获最后判定，与两者互不干扰。
         /// </summary>
         internal static void OnScavenge(List<GameItem> items)
         {
@@ -116,63 +125,70 @@ namespace DumpingGroundMap
             Region region = Picker.ChosenRegion;
             if (region == null) return;
 
-            StashTemplate template = StashTemplate.For(region.Id);
-            if (template == null) return;   // 目前只有生活废料带落地
-
             EnsureLoaded();
             int today = Today();
             if (today < 0) return;
 
+            StashTemplate template = StashTemplate.For(region.Id);
             float cap = EffectiveCap();
             chance = ClampChance(chance, cap);
             bool bonusActive = hitDay == today && hitRegion == region.Id;
+            bool jackpotHit = false;
 
-            float roll = UnityEngine.Random.value * 100f;
-            bool hit = !tripHit && roll < chance;
-            float before = chance;
+            if (template != null)
+            {
+                float roll = UnityEngine.Random.value * 100f;
+                bool hit = !tripHit && roll < chance;
+                float before = chance;
 
-            if (hit)
-            {
-                AddReward(items, template, JackpotItems);
-                chance = Mathf.Max(StartChance, chance * 0.5f);
-                chance = ClampChance(chance, cap);
-                phase = 1;
-                tripHit = true;
-                hitDay = today;
-                hitRegion = region.Id;
-                newsDay = today + 1;
-                SaveState();
-                NotifyFind();
-                Debug.Log("[DumpingGroundMap] stash: jackpot region=" + region.Id
-                    + " day=" + today + " roll=" + roll.ToString("F3")
-                    + " items=" + JackpotItems + " chance " + before.ToString("F3")
-                    + " -> " + chance.ToString("F3") + " phase=" + phase
-                    + " news_day=" + newsDay);
-            }
-            else
-            {
-                float next;
-                if (phase == 0 && chance < cap * 0.5f)
+                if (hit)
                 {
-                    next = chance * 2f;
-                    if (next >= cap * 0.5f) phase = 1;
+                    int count = UnityEngine.Random.Range(JackpotMinItems, JackpotMaxItems + 1);
+                    AddReward(items, template, count);
+                    chance = Mathf.Max(StartChance, chance * 0.5f);
+                    chance = ClampChance(chance, cap);
+                    phase = 1;
+                    tripHit = true;
+                    hitDay = today;
+                    hitRegion = region.Id;
+                    newsDay = today + 1;
+                    jackpotHit = true;
+                    SaveState();
+                    NotifyFind();
+                    Debug.Log("[DumpingGroundMap] stash: jackpot region=" + region.Id
+                        + " day=" + today + " roll=" + roll.ToString("F3")
+                        + " items=" + count + " chance " + before.ToString("F3")
+                        + " -> " + chance.ToString("F3") + " phase=" + phase
+                        + " news_day=" + newsDay);
                 }
                 else
                 {
-                    next = chance + LinearStep;
-                    phase = 1;
+                    float next;
+                    if (phase == 0 && chance < cap * 0.5f)
+                    {
+                        next = chance * 2f;
+                        if (next >= cap * 0.5f) phase = 1;
+                    }
+                    else
+                    {
+                        next = chance + LinearStep;
+                        phase = 1;
+                    }
+                    if (next > cap) next = cap;
+                    chance = next;
+                    SaveState();
+                    Debug.Log("[DumpingGroundMap] stash: miss region=" + region.Id
+                        + " day=" + today + " roll=" + roll.ToString("F3")
+                        + " chance " + before.ToString("F3") + " -> " + chance.ToString("F3")
+                        + " cap=" + cap.ToString("F2") + " phase=" + phase
+                        + " trip_hit=" + (tripHit ? 1 : 0));
                 }
-                if (next > cap) next = cap;
-                chance = next;
-                SaveState();
-                Debug.Log("[DumpingGroundMap] stash: miss region=" + region.Id
-                    + " day=" + today + " roll=" + roll.ToString("F3")
-                    + " chance " + before.ToString("F3") + " -> " + chance.ToString("F3")
-                    + " cap=" + cap.ToString("F2") + " phase=" + phase
-                    + " trip_hit=" + (tripHit ? 1 : 0));
             }
 
-            if (bonusActive && UnityEngine.Random.value * 100f < BonusChance)
+            if (!jackpotHit) TryMinor(items, region, today);
+
+            if (bonusActive && template != null
+                && UnityEngine.Random.value * 100f < BonusChance)
             {
                 AddReward(items, template, BonusItems);
                 Debug.Log("[DumpingGroundMap] stash: bonus region=" + region.Id
@@ -226,6 +242,164 @@ namespace DumpingGroundMap
                 }
             }
         }
+
+        /// <summary>
+        /// 小奖：声望到 60 才参与，按设置项 minor_percent 独立掷一次。
+        /// 命中后从该区的整箱表里随机抽一种，整箱只放同一样东西。
+        /// 不写 AIMD 状态、不登新闻、不改价格、不触发 25% 加成。
+        /// </summary>
+        private static void TryMinor(List<GameItem> items, Region region, int today)
+        {
+            if (Reputation.Points < Reputation.Perk60Threshold) return;
+            float percent = Tuning.MinorPercent;
+            if (percent <= 0f) return;
+
+            MinorBox box = MinorBox.Roll(region.Id);
+            if (box == null) return;
+
+            float roll = UnityEngine.Random.value * 100f;
+            if (roll >= percent) return;
+
+            int count = UnityEngine.Random.Range(box.MinCount, box.MaxCount + 1);
+            int spawned = 0;
+            for (int i = 0; i < count; ++i)
+            {
+                try
+                {
+                    GameItem item = ItemSpawner.Spawn(box.ItemId);
+                    if (item != null)
+                    {
+                        items.Add(item);
+                        ++spawned;
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[DumpingGroundMap] stash: minor spawn failed " + box.ItemId);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogWarning("[DumpingGroundMap] stash: minor spawn failed "
+                        + box.ItemId + ": " + ex.Message);
+                }
+            }
+
+            NotifyMinor(box);
+            Debug.Log("[DumpingGroundMap] stash: minor region=" + region.Id
+                + " day=" + today + " box=" + box.ItemId + " items=" + spawned + "/" + count
+                + " roll=" + roll.ToString("F3") + " chance=" + percent.ToString("F1"));
+        }
+
+        /// <summary>小奖提示，复用同一条通知条，一句到底、不挡面板。</summary>
+        private static void NotifyMinor(MinorBox box)
+        {
+            try
+            {
+                if (StoreUIManager.Instance == null)
+                {
+                    Debug.LogWarning("[DumpingGroundMap] stash: minor notice skipped, no StoreUIManager");
+                    return;
+                }
+                string name = box.ItemName();
+                string text = Copy.Text(
+                    "你惊喜地发现，" + box.SiteZh + "压着一整箱" + name + "。",
+                    "To your surprise, a whole crate of " + name + " is tucked " + box.SiteEn + ".");
+                StoreUIManager.Instance.Notify(text, "sec");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] stash: minor notice failed: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// 每区 2–3 种「整箱」。整箱只放同一样东西，件数按单价反向配，
+        /// 让单次小奖总价值大致落在 150–250：便宜的 8–10 件，贵的 4–5 件。
+        /// </summary>
+        internal sealed class MinorBox
+        {
+            internal readonly string RegionId;
+            internal readonly string ItemId;
+            internal readonly int MinCount;
+            internal readonly int MaxCount;
+            private readonly string siteZh;
+            private readonly string siteEn;
+
+            internal string SiteZh { get { return siteZh; } }
+            internal string SiteEn { get { return siteEn; } }
+
+            private MinorBox(string regionId, string itemId, int minCount, int maxCount,
+                string siteZh, string siteEn)
+            {
+                RegionId = regionId;
+                ItemId = itemId;
+                MinCount = minCount;
+                MaxCount = maxCount;
+                this.siteZh = siteZh;
+                this.siteEn = siteEn;
+            }
+
+            private static readonly MinorBox[] All =
+            {
+                new MinorBox("refuse", "processed_meat", 8, 10,
+                    "废料堆底下", "under the refuse heap"),
+                new MinorBox("refuse", "toilet_paper", 8, 10,
+                    "塌了一半的车厢里", "in a half-collapsed carriage"),
+                new MinorBox("refuse", "paper_towel", 5, 5,
+                    "废料堆底下", "under the refuse heap"),
+
+                new MinorBox("scrap", "common_electronic", 5, 5,
+                    "掀开的铁皮板下", "under a peeled-back sheet of metal"),
+                new MinorBox("scrap", "gun_part", 8, 10,
+                    "工作台底下", "under a broken workbench"),
+                new MinorBox("scrap", "screwdriver", 8, 10,
+                    "塌了一半的车厢里", "in a half-collapsed carriage"),
+
+                new MinorBox("med", "hemostatic_bandage_item", 10, 10,
+                    "废墟下", "under the rubble"),
+                new MinorBox("med", "phagimycin_pill", 8, 10,
+                    "倒塌的隔墙后", "behind a collapsed partition"),
+                new MinorBox("med", "rubbing_alcohol", 5, 5,
+                    "废墟下", "under the rubble"),
+
+                new MinorBox("weapons", "small_pistol_ammo", 8, 10,
+                    "掀开的铁皮板下", "under a peeled-back sheet of metal"),
+                new MinorBox("weapons", "small_pistol_ammo_p", 8, 9,
+                    "塌了一半的车厢里", "in a half-collapsed carriage"),
+                new MinorBox("weapons", "heavy_pistol_ammo", 5, 5,
+                    "锈蚀的军械箱旁", "beside a rusted arms crate")
+            };
+
+            internal static MinorBox Roll(string regionId)
+            {
+                int matches = 0;
+                for (int i = 0; i < All.Length; ++i)
+                    if (All[i].RegionId == regionId) ++matches;
+                if (matches == 0) return null;
+
+                int pick = UnityEngine.Random.Range(0, matches);
+                for (int i = 0; i < All.Length; ++i)
+                {
+                    if (All[i].RegionId != regionId) continue;
+                    if (pick == 0) return All[i];
+                    --pick;
+                }
+                return null;
+            }
+
+            internal string ItemName()
+            {
+                try
+                {
+                    return LocHelper.GetLocalizedItem("item_" + ItemId + "_name", new object[0]);
+                }
+                catch (Exception)
+                {
+                    return ItemId;
+                }
+            }
+        }
+
 
         /// <summary>
         /// 每天开日的 Prefix：如果这次开日该出我们的事件，就先走原生
