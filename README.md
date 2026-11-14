@@ -9,8 +9,8 @@
 | 入口空地 | 低级 | 0 |
 | 生活废料带 | 低级 | 0 |
 | 拆解堆 | 高级 | 40 |
-| 医疗废弃点 | 高级 | 50 |
-| 废武器堆 | 高级 | 60 |
+| 医疗废弃点 | 高级 | 40 |
+| 废武器堆 | 高级 | 40 |
 
 ## 声望与解锁
 
@@ -18,7 +18,7 @@
 
 声望必须按存档隔离，所以不写进 `ModConfig`，而是用游戏自带的 mod 数据接口写进存档本体的 `PlayerStore.modData`（`ModHelper.GetModDataInt / SetModDataInt(Core.Id, "rep_total_value", 0)`），随存档一起保存。`OnGameLoadedLate` 读取、`OnNewGameStarted` 归零；`ModConfig` 只存三条掉落设置。
 
-**落盘时机是结束一天时的存档**：中途强退或崩溃，当晚声望会丢，与当晚捡到的其它收益一致。声望只存 `PlayerStore.modData`，模组不读写任何文件。门槛数字集中在一张表里：`UnlockCost.table`（拆解堆 40 / 医疗 50 / 废武器 60），改门槛只改这一处。
+**落盘时机是结束一天时的存档**：中途强退或崩溃，当晚声望会丢，与当晚捡到的其它收益一致。声望只存 `PlayerStore.modData`，模组不读写任何文件。门槛数字集中在一张表里：`UnlockCost.table`（三个高级区统一 40，0.3.24 起），改门槛只改这一处。柱子上另有三个奖励点 20 / 40 / 60：40 就是高级区门槛，20（每天多一名拾荒者客人）与 60（待定）目前只有图标占位，没有实际效果。
 
 未解锁的地标在图上压暗、编号后直接标出所需声望；点它会提示「需要声望 40 才能进入「拆解堆」；当前声望 12」。地图下方常驻一行当前声望与三个门槛。
 
@@ -29,17 +29,19 @@
 | 位置 | 内容 |
 |---|---|
 | 标题 | 拾荒客（英文环境 Scavenger），沿用原生标题的配色与字号 |
-| 状态 | 等级名：拾荒客 / 熟脸 / 老手 / 活地图（Scavenger / Regular / Old Hand / Living Map）；0.3.23 起标题也叫「拾荒客」，最低档与标题重名，待定新档名 |
-| 数字 | 未满 60：`当前/下一门槛`（如 `52/60`）；满 60：累计点数（如 `87`） |
-| 绿条 | 按 0–60 总进度填充，不用原生 ±200 定标 |
+| 状态 | 等级名：生手 / 熟脸 / 老手 / 活地图（Rookie / Regular / Old Hand / Living Map） |
+| 数字 | 0–200 刻度上的整数点数：`x/200` |
+| 绿条 | 不自己算比例，直接用原生 `Init → UpdateBar → GetBarHeight(v) = 65.5 × v / 100` |
+| 图标 | 柱上 20 / 40 / 60 三个奖励点，依次用 `spriteSmile` / `spriteHappy` / `spriteStar`；未解锁 alpha 0.35，`raycastTarget = false`（没有词条，避免空 tooltip）。只有 40 有实际效果 |
 
-四个等级的分界就是三个解锁门槛：0–40 拾荒客、40–50 熟脸、50–60 老手、60+ 活地图。
+四个等级的分界：0–40 生手、40–50 熟脸、50–60 老手、60+ 活地图。
 
-实现上是在 `ReputationUIManager.OpenUI` 的 Postfix 里 `Instantiate(reputationPrefab, layout.transform, false)`，再合成一个只存在于内存里的 `StoreReputation`（`perks` 给空列表）交给原生 `ReputationElement.Init` 排版，随后覆盖状态文本、数字文本和绿条高度。**不往 `PlayerStore.storeReputations` 里塞条目，不写存档，不进 ES3**，面板关闭后这一行随原生清空一起销毁。
+实现上是在 `ReputationUIManager.OpenUI` 的 Postfix 里 `Instantiate(reputationPrefab, layout.transform, false)`，再合成一个只存在于内存里的 `StoreReputation`（`perks` 填 20 / 40 / 60 三个奖励点）交给原生 `ReputationElement.Init` 排版，随后覆盖状态文本与数字文本、按档位覆盖图标 sprite 与透明度。**不往 `PlayerStore.storeReputations` 里塞条目，不写存档，不进 ES3**，面板关闭后这一行随原生清空一起销毁。
 
 - 原生 `layout` 若有布局组（`LayoutGroup`），追加后调用 `LayoutRebuilder.ForceRebuildLayoutImmediate`；没有布局组时按上一行的高度和位置手动往下排。这一条需要在游戏里目视确认，代码里两条路径都保留了。
 - 类型全部编译期绑定：`[HarmonyPatch]` + `AccessTools.Method(typeof(ReputationUIManager), "OpenUI")`，其余字段直接访问公开成员；不使用 `Type.GetType`、`TypeByName`、`Activator` 或程序集扫描，清单能力保持为空。游戏更新改动这些成员时会在编译期暴露，而不是运行期静默失败。
 - **不做跨 mod 兼容判断**：唯一的短路是 `layout` 下已存在 `DGM_ReputationRow`（防止重复追加）。不检查災變日 / ReputationInterfaceRemake 是否在运行，也不判断面板是否被别的 mod 改过；其它 mod 的运行状态只写进诊断日志，不参与任何分支。0.3.22 起删除了此前的 `LighthouseSheet` / `ForeignRunning` 判断。
+- **0.3.24 容器高度检查**：诊断日志会打出 `bar=<当前柱高>px barParent=<父容器高>px expectedAt200=131.0px`；父容器不足 131px 时会额外打 `bar container is only …px, 0–200 scale needs 131.0px` 的警告，此时 200 点会画出可视区，需要回报日志再定方案。
 - **0.3.21 诊断日志**：补丁关键节点各打一条 `Debug.Log`，前缀 `[DumpingGroundMap] reputation row`，包括：目标方法是否取到、Postfix 首次进入（附带 `disaster_day` / `cirno9.reputation_interface_remake` 的运行状态）、`layout` / `prefab` 是否为空、是否因重复行跳过、文本覆盖结果（状态/数字/条比例/标题）、布局组的类型与子物体数、最终 `anchoredPosition` 与 `sizeDelta`。异常走 `Debug.LogError` 打完整堆栈。只写游戏日志，不写文件。
 
 

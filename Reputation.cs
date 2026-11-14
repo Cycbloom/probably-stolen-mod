@@ -18,8 +18,8 @@ namespace DumpingGroundMap
             new Dictionary<string, int>
             {
                 { "scrap", 40 },
-                { "med", 50 },
-                { "weapons", 60 }
+                { "med", 40 },
+                { "weapons", 40 }
             };
 
         internal static int For(string regionId)
@@ -192,8 +192,15 @@ namespace DumpingGroundMap
         private const string ReputationRemakeId = "cirno9.reputation_interface_remake";
 
         private static readonly int[] Thresholds = { 40, 50, 60 };
-        private static readonly string[] TierZh = { "拾荒客", "熟脸", "老手", "活地图" };
-        private static readonly string[] TierEn = { "Scavenger", "Regular", "Old Hand", "Living Map" };
+        /// <summary>
+        /// 柱子上的三个奖励点，与原生 perk 同一套刻度（0–200）。
+        /// TODO 20：每天多一名拾荒者客人（未实现，仅图标占位）。
+        /// 40：三个高级区（拆解堆 / 医疗废弃点 / 废武器堆）的统一解锁门槛，已生效。
+        /// TODO 60：待定（未实现，仅图标占位）。
+        /// </summary>
+        private static readonly int[] PerkThresholds = { 20, 40, 60 };
+        private static readonly string[] TierZh = { "生手", "熟脸", "老手", "活地图" };
+        private static readonly string[] TierEn = { "Rookie", "Regular", "Old Hand", "Living Map" };
 
         private static bool patchLogged;
 
@@ -249,6 +256,7 @@ namespace DumpingGroundMap
 
                 element.Init(entry);
                 ApplyRow(element, points);
+                StylePerks(row, points, __instance);
                 PlaceRow(row, layout);
                 Debug.Log("[DumpingGroundMap] reputation row: added " + points
                     + " active=" + row.activeSelf
@@ -269,32 +277,88 @@ namespace DumpingGroundMap
             StoreReputation entry = new StoreReputation();
             entry.factionDisplay = Copy.Text(TitleZh, TitleEn);
             entry.factionColor2 = TitleColor;
-            entry.perks = new List<StoreReputationPerk>();
+            entry.perks = BuildPerks(points);
             entry.SetReputation(points);
             return entry;
         }
 
-        /// <summary>Init 之后覆盖状态、数字与条：等级名 + 下一门槛 + 0–60 总进度。</summary>
+        /// <summary>
+        /// 三个奖励图标，阈值就是 20 / 40 / 60。只有 40 目前有实际效果
+        /// （三个高级区的解锁门槛），20 与 60 仅占位，见 PerkThresholds 的 TODO。
+        /// </summary>
+        private static List<StoreReputationPerk> BuildPerks(int points)
+        {
+            List<StoreReputationPerk> perks = new List<StoreReputationPerk>(PerkThresholds.Length);
+            for (int i = 0; i < PerkThresholds.Length; ++i)
+            {
+                StoreReputationPerk perk = new StoreReputationPerk();
+                perk.perkId = string.Empty;
+                perk.perkThreshold = PerkThresholds[i];
+                perk.perkType = 1;
+                perk.isUnlocked = points >= PerkThresholds[i];
+                perks.Add(perk);
+            }
+            return perks;
+        }
+
+        /// <summary>
+        /// Init 之后覆盖状态与数字：等级名 + 0–200 刻度上的整数点数。
+        /// 柱子不再自己算高度，直接用原生 Init → UpdateBar → GetBarHeight 的结果。
+        /// </summary>
         private static void ApplyRow(ReputationElement element, int points)
         {
             if (element.reputationStatus != null) element.reputationStatus.SetText(StatusName(points));
             if (element.reputationNumber != null) element.reputationNumber.SetText(NumberText(points));
 
+            float barHeight = 0f;
+            float containerHeight = 0f;
             if (element.greenImage != null)
             {
-                element.greenImage.gameObject.SetActive(true);
-                RectTransform rect = element.greenImage.rectTransform;
-                Vector2 size = rect.sizeDelta;
-                size.y = BarFullHeight * BarRatio(points);
-                rect.sizeDelta = size;
+                barHeight = element.greenImage.rectTransform.rect.height;
+                RectTransform parent = element.greenImage.rectTransform.parent as RectTransform;
+                if (parent != null) containerHeight = parent.rect.height;
             }
-            if (element.redImage != null) element.redImage.gameObject.SetActive(false);
 
             Debug.Log("[DumpingGroundMap] reputation row: text status="
                 + (element.reputationStatus == null ? "missing" : StatusName(points))
                 + " number=" + (element.reputationNumber == null ? "missing" : NumberText(points))
-                + " bar=" + (element.greenImage == null ? "missing" : BarRatio(points).ToString("F2"))
-                + " title=" + (element.reputationTitle == null ? "missing" : element.reputationTitle.text));
+                + " bar=" + barHeight.ToString("F1") + "px"
+                + " barParent=" + containerHeight.ToString("F1") + "px"
+                + " expectedAt200=" + (BarFullHeight * 2f).ToString("F1") + "px");
+            if (containerHeight > 0f && containerHeight < BarFullHeight * 2f - 1f)
+            {
+                Debug.LogWarning("[DumpingGroundMap] reputation row: bar container is only "
+                    + containerHeight.ToString("F1") + "px, 0–200 scale needs "
+                    + (BarFullHeight * 2f).ToString("F1") + "px; 200 points will overflow");
+            }
+        }
+
+        /// <summary>
+        /// 图标：原生按阈值自动挑，40/60 会重复成同一个笑脸，所以按顺序覆盖成
+        /// 微笑 / 笑脸 / 星星；未解锁 alpha 0.35。没有本地化词条，关掉射线避免空 tooltip。
+        /// </summary>
+        private static void StylePerks(GameObject row, int points, ReputationUIManager manager)
+        {
+            int index = 0;
+            for (int i = 0; i < row.transform.childCount; ++i)
+            {
+                PerkElement perk = row.transform.GetChild(i).GetComponent<PerkElement>();
+                if (perk == null || perk.image == null) continue;
+
+                if (index == 0) perk.image.sprite = manager.spriteSmile;
+                else if (index == 1) perk.image.sprite = manager.spriteHappy;
+                else perk.image.sprite = manager.spriteStar;
+
+                int threshold = index < PerkThresholds.Length
+                    ? PerkThresholds[index] : PerkThresholds[PerkThresholds.Length - 1];
+                Color color = perk.image.color;
+                color.a = points >= threshold ? 1f : 0.35f;
+                perk.image.color = color;
+                perk.image.raycastTarget = false;
+                ++index;
+            }
+            Debug.Log("[DumpingGroundMap] reputation row: perks=" + index
+                + " points=" + points);
         }
 
         private static string StatusName(int points)
@@ -304,30 +368,10 @@ namespace DumpingGroundMap
             return Copy.Text(TierZh[tier], TierEn[tier]);
         }
 
-        /// <summary>未满 60 显示「当前/下一门槛」，满 60 显示累计点数。</summary>
+        /// <summary>原生同一套数字：整数点数 / 200。</summary>
         private static string NumberText(int points)
         {
-            int next = NextThreshold(points);
-            if (next <= 0) return points.ToString(CultureInfo.InvariantCulture);
-            return points.ToString(CultureInfo.InvariantCulture) + "/"
-                + next.ToString(CultureInfo.InvariantCulture);
-        }
-
-        private static int NextThreshold(int points)
-        {
-            for (int i = 0; i < Thresholds.Length; ++i)
-            {
-                if (points < Thresholds[i]) return Thresholds[i];
-            }
-            return 0;
-        }
-
-        /// <summary>条按 0–60 总进度，与原生的 ±200 定标无关，避免 60 点只有三成高。</summary>
-        private static float BarRatio(int points)
-        {
-            if (points <= 0) return 0f;
-            float ratio = points / (float)Thresholds[Thresholds.Length - 1];
-            return ratio > 1f ? 1f : ratio;
+            return points.ToString(CultureInfo.InvariantCulture) + "/200";
         }
 
         /// <summary>原生 layout 若有布局组就重建；没有就按上一行的高度手动往下排。</summary>
