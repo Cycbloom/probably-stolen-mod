@@ -838,14 +838,10 @@ namespace DumpingGroundMap
         private static CustomUIWindow window;
         private static CustomUIWindow builtFor;
         private static CustomUIElement junkValue, highValue, specialtyValue;
-        private static CustomUIElement changeLabel;
         private static CustomUIElement[] evLabels;
         private static CustomUIElement junkSlider, highSlider, specialtySlider;
-        private static float[] evBefore;
-        private static string changeNote = "";
         private static bool dragging;
         private static int dragKind;
-        private static float dragFrom;
         private static float lastSlideAt;
         private static int slideCount;
         private static float lastLogAt;
@@ -872,7 +868,6 @@ namespace DumpingGroundMap
                     Reset();
                     builtFor = target;
                     window = target;
-                    evBefore = CaptureEv();
                 }
                 building = b;
                 buildingKey = key;
@@ -1027,10 +1022,6 @@ namespace DumpingGroundMap
             if (header.text != null) header.text.color = Picker.Accent;
             Picker.Size(header, -1, 26);
 
-            b.AddLabel("", "dgm_ev_change");
-            changeLabel = b.Last;
-            Picker.Size(changeLabel, -1, 26);
-
             evLabels = new CustomUIElement[Region.All.Length + 1];
             for (int i = 0; i < evLabels.Length; ++i)
             {
@@ -1089,13 +1080,11 @@ namespace DumpingGroundMap
 
             float baseSum = 0f;
             float newSum = 0f;
-            float[] current = new float[Region.All.Length];
             for (int i = 0; i < Region.All.Length; ++i)
             {
                 Region region = Region.All[i];
                 float before = Tuning.BaseEv(region);
                 EffectiveTable table = Tuning.TableFor(region);
-                current[i] = table.Ev;
                 baseSum += before;
                 newSum += table.Ev;
                 evLabels[i].SetText(Line(region.Name, before, table.Ev));
@@ -1104,7 +1093,6 @@ namespace DumpingGroundMap
             evLabels[Region.All.Length].SetText(Line(
                 Copy.Text("四区平均", "four-area average"), baseSum / count, newSum / count));
 
-            if (changeLabel != null) changeLabel.SetText(ChangeLine(current));
             SyncWidgets();
         }
 
@@ -1116,50 +1104,6 @@ namespace DumpingGroundMap
                 + Copy.Text("现在 ", "now ")
                 + after.ToString("0.00", CultureInfo.InvariantCulture)
                 + "（" + (change >= 0f ? "+" : "") + change.ToString("0.0", CultureInfo.InvariantCulture) + "%）";
-        }
-
-        private static string ChangeLine(float[] current)
-        {
-            if (dragging)
-            {
-                changeNote = DragNote();
-            }
-            else if (changeNote.Length == 0)
-            {
-                return Copy.Text(
-                    "尚未改动：下面是出厂默认与当前设置的对比。",
-                    "Not changed yet: below compares the factory default with the current setting.");
-            }
-
-            string same = Copy.Text("四区数字同时变化。", "All four areas change together.");
-            string only = Copy.Text("仅这些区变化：", "Only these areas changed: ");
-            string none = Copy.Text("四区数字暂时没有变化。", "No visible change in any area.");
-            if (evBefore == null) evBefore = CaptureEv();
-            int changed = 0;
-            string list = "";
-            for (int i = 0; i < Region.All.Length; ++i)
-            {
-                if (Mathf.Abs(current[i] - evBefore[i]) < 5E-04f) continue;
-                ++changed;
-                list += (list.Length == 0 ? "" : Copy.Text("、", ", ")) + Region.All[i].Name;
-            }
-            string scope;
-            if (changed == 0) scope = none;
-            else if (changed >= Region.All.Length) scope = same;
-            else scope = only + list;
-            return Copy.Text("本次：", "This change: ") + changeNote + "　" + scope;
-        }
-
-        private static string DragNote()
-        {
-            if (dragKind == 2)
-                return Copy.Text("高档物资出现率 ", "high-value chance ")
-                    + Num(dragFrom) + "% → " + Num(Tuning.HighPercent) + "%";
-            if (dragKind >= 3)
-                return Copy.Text("区域专精度 ", "region specialty ")
-                    + Num(dragFrom) + "% → " + Num(Tuning.SpecialtyPercent) + "%";
-            return Copy.Text("垃圾出现率倍率 ", "junk chance multiplier ")
-                + Num(dragFrom) + "% → " + Num(Tuning.JunkPercent) + "%";
         }
 
         private static void OnSlide(int kind, float value)
@@ -1193,10 +1137,6 @@ namespace DumpingGroundMap
         private static void ApplyPreset(int preset)
         {
             EndDrag();
-            string[] names = { Copy.Text("默认", "default preset"),
-                Copy.Text("专精拉满", "specialty max preset"),
-                Copy.Text("赌高档", "gamble preset") };
-            BeginChange(names[Mathf.Clamp(preset, 0, names.Length - 1)]);
             Tuning.ApplyPreset(preset);
             Refresh();
         }
@@ -1223,10 +1163,8 @@ namespace DumpingGroundMap
                 if (dragging) Tuning.CommitLive();
                 dragging = true;
                 dragKind = kind;
-                dragFrom = from;
                 slideCount = 0;
                 lastLogAt = 0f;
-                BeginChange(string.Empty);
                 Debug.Log(LogTag + "drag begin kind=" + kind + " from="
                     + from.ToString("0.###", CultureInfo.InvariantCulture));
             }
@@ -1259,19 +1197,6 @@ namespace DumpingGroundMap
                 + " ev=" + Tuning.TableFor(Region.All[0]).Ev.ToString("0.####", CultureInfo.InvariantCulture));
         }
 
-        private static void BeginChange(string note)
-        {
-            changeNote = note;
-            evBefore = CaptureEv();
-        }
-
-        private static float[] CaptureEv()
-        {
-            float[] values = new float[Region.All.Length];
-            for (int i = 0; i < values.Length; ++i) values[i] = Tuning.TableFor(Region.All[i]).Ev;
-            return values;
-        }
-
         private static string Num(float value)
         {
             return value.ToString("0.#", CultureInfo.InvariantCulture);
@@ -1290,18 +1215,14 @@ namespace DumpingGroundMap
             junkValue = null;
             highValue = null;
             specialtyValue = null;
-            changeLabel = null;
             evLabels = null;
             junkSlider = null;
             highSlider = null;
             specialtySlider = null;
             building = null;
             buildingKey = null;
-            evBefore = null;
-            changeNote = "";
             dragging = false;
             dragKind = 0;
-            dragFrom = 0f;
             lastSlideAt = 0f;
             slideCount = 0;
             lastLogAt = 0f;
