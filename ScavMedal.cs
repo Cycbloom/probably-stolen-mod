@@ -25,9 +25,10 @@ namespace DumpingGroundMap
     /// 两件原子发放：先放信物，再放便条；便条放不下就把信物收回来，且不写标记，
     /// 次日重来。绝不出现“只给了其中一样”。
     ///
-    /// 便条用原生空白纸条 slip + PreBuiltItemHelper.CreatePaperWithText：
-    /// 标题同时是物品名，正文写在 SLIP_BODY 标签里，点开走原生的 PaperUIManager，
-    /// 与原版导师纸条、情报纸条是同一套机制。
+    /// 便条用原生便签 handnote + PreBuiltItemHelper.CreateHandnote：
+    /// 小面板，只有标题 / 正文 / 落款三段，点开是 HandnoteUIManager 的小纸条，
+    /// 不是 slip 那种整页文档；标题同时是物品名。
+    /// 文案用拾荒者自己的第一人称复数口吻（“我们认你”），不是旁观者描述。
     ///
     /// 一次性：标记写在 PlayerStore.modData（键 scav_medal_given），随存档保存，
     /// 即“每个存档时间线一次”。读回发过之后的存档不再发；回档到发之前的存档
@@ -41,17 +42,18 @@ namespace DumpingGroundMap
         private const string ItemId = "scav_token";
         private const string GivenKey = "scav_medal_given";
 
-        private const string NoteTitleZh = "拾荒老手的信物";
-        private const string NoteTitleEn = "A Veteran Scavenger's Token";
+        private const string NoteTitleZh = "我们认你";
+        private const string NoteTitleEn = "You're one of us";
 
         private const string NoteBodyZh =
-            "恭喜——你把手伸进垃圾场最脏的地方，摸回了一枚像样的信物。"
-            + "它现在就在前台，往后每天都会多一位拾荒客愿意进店看看。";
+            "这枚信物是我们给的。往后你在这片垃圾场里，我们的人会多来你店里。";
 
         private const string NoteBodyEn =
-            "Congratulations — you reached into the filthiest corner of the dump and came back "
-            + "with something worth keeping. It's on the front counter now; from here on, "
-            + "one more scavenger will drop by each day.";
+            "This token is from us. From now on, out in the dump, "
+            + "our people will come by your shop more often.";
+
+        private const string NoteSignZh = "——我们";
+        private const string NoteSignEn = "— us";
 
         internal static void OnShutterOpenedLate()
         {
@@ -91,8 +93,11 @@ namespace DumpingGroundMap
                     return;
                 }
 
-                GameItem note = PreBuiltItemHelper.CreatePaperWithText(
-                    Copy.Text(NoteBodyZh, NoteBodyEn), Copy.Text(NoteTitleZh, NoteTitleEn));
+                // 便签：handnote 的小纸条面板（标题 / 正文 / 落款），字体参数 1 与
+                // 原生便签（如 Lou 的感谢条）一致。
+                GameItem note = PreBuiltItemHelper.CreateHandnote(
+                    Copy.Text(NoteBodyZh, NoteBodyEn), Copy.Text(NoteTitleZh, NoteTitleEn),
+                    Copy.Text(NoteSignZh, NoteSignEn), 1);
                 if (!store.TryAddDirectSellingItemToTable(note, true, false, true, 0))
                 {
                     RollbackToken(token);
@@ -102,7 +107,7 @@ namespace DumpingGroundMap
                 }
 
                 ModHelper.SetModDataBool(Core.Id, GivenKey, true);
-                Debug.Log("[DumpingGroundMap] scav medal: +1 " + ItemId + " +1 slip(note) on front counter"
+                Debug.Log("[DumpingGroundMap] scav medal: +1 " + ItemId + " +1 handnote(note) on front counter"
                     + " day=" + StoreStation.GetDayCounter() + " points=" + points
                     + " note=" + note.name);
             }
