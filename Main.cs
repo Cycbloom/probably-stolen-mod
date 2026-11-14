@@ -206,6 +206,64 @@ namespace DumpingGroundMap
             }
         }
 
+        /// <summary>
+        /// 一个大类：Share 是它在整张表里的固定权重（一张表按 10000 计），
+        /// 类内 Items/Weights 只决定彼此之间的相对比例。以后其它区要改成
+        /// 「大类 → 子项」时，直接复用这套结构即可。
+        /// </summary>
+        private sealed class Category
+        {
+            internal readonly int Share;
+            internal readonly string[] Items;
+            internal readonly int[] Weights;
+
+            internal Category(int share, string[] items, int[] weights)
+            {
+                Share = share;
+                Items = items;
+                Weights = weights;
+            }
+        }
+
+        private static Category Cat(int share, string[] items, int[] weights)
+        {
+            return new Category(share, items, weights);
+        }
+
+        /// <summary>
+        /// 把若干大类摊平成一张表：每类先按 Share 定总量，再按类内权重分给子项，
+        /// 取整误差补给类内权重最大的一项。
+        /// </summary>
+        private static RegionLootTable BuildCategories(params Category[] categories)
+        {
+            Builder b = new Builder();
+            for (int c = 0; c < categories.Length; ++c)
+            {
+                Category cat = categories[c];
+                int sum = 0;
+                int largest = 0;
+                for (int i = 0; i < cat.Weights.Length; ++i)
+                {
+                    sum += cat.Weights[i];
+                    if (cat.Weights[i] > cat.Weights[largest]) largest = i;
+                }
+
+                int[] weights = new int[cat.Items.Length];
+                int assigned = 0;
+                for (int i = 0; i < cat.Items.Length; ++i)
+                {
+                    weights[i] = (int)Math.Round(cat.Share * (double)cat.Weights[i] / sum,
+                        MidpointRounding.AwayFromZero);
+                    if (weights[i] < 1) weights[i] = 1;
+                    assigned += weights[i];
+                }
+                weights[largest] += cat.Share - assigned;
+
+                for (int i = 0; i < cat.Items.Length; ++i) b.Add(cat.Items[i], weights[i]);
+            }
+            return b.Build();
+        }
+
         private static RegionLootTable BuildVanilla()
         {
             Builder b = new Builder();
@@ -356,61 +414,43 @@ namespace DumpingGroundMap
             b.Add("common_medical", 35);
             result["med"] = b.Build();
 
-            // 废武器堆：弹药与近战杂件为主，掺少量枪械和改装件。
-            b = new Builder();
-            b.Add("junk", 1059);
-            b.Add("small_pistol_ammo_nl", 217);
-            b.Add("small_pistol_ammo", 152);
-            b.Add("heavy_pistol_ammo_nl", 127);
-            b.Add("small_pistol_ammo_p", 117);
-            b.Add("heavy_pistol_ammo", 101);
-            b.Add("lou_etched_round", 101);
-            b.Add("heavy_pistol_ammo_p", 84);
-            b.Add("box_cutter", 7);
-            b.Add("crowbar", 7);
-            b.Add("glass_shard_shiv", 7);
-            b.Add("kitchen_knife", 6);
-            b.Add("pipe_weapon", 6);
-            b.Add("mag_22", 4);
-            b.Add("silencer_makeshift", 4);
-            b.Add("hatchet", 3);
-            b.Add("internal_springs_improved", 3);
-            b.Add("kitchen_cleaver", 3);
-            b.Add("laser_toy", 3);
-            b.Add("printed_gun", 3);
-            b.Add("bipod", 2);
-            b.Add("combat_knife", 2);
-            b.Add("grip", 2);
-            b.Add("internal_springs", 2);
-            b.Add("mag_10mm", 2);
-            b.Add("mag_10mm_high", 2);
-            b.Add("mag_22_ext", 2);
-            b.Add("mag_22_high", 2);
-            b.Add("pistol_switch", 2);
-            b.Add("rds_makeshift", 2);
-            b.Add("short_stock", 2);
-            b.Add("skinning_knife", 2);
-            b.Add("stock", 2);
-            b.Add("ammo_display", 1);
-            b.Add("barrel", 1);
-            b.Add("combat_machete", 1);
-            b.Add("compensator", 1);
-            b.Add("grip_gel", 1);
-            b.Add("handmade_pistol", 1);
-            b.Add("heavy_handmade_pistol", 1);
-            b.Add("laser", 1);
-            b.Add("laser2", 1);
-            b.Add("mag_10mm_ext", 1);
-            b.Add("mag_10mm_smg", 1);
-            b.Add("mag_10mm_smg_box", 1);
-            b.Add("mag_10mm_smg_high", 1);
-            b.Add("match_barrel", 1);
-            b.Add("rds", 1);
-            b.Add("silencer", 1);
-            b.Add("silencer2", 1);
-            b.Add("stun_baton", 1);
-            b.Add("trigger_group", 1);
-            result["weapons"] = b.Build();
+            // 废武器堆：按大类分（一张表 10000 份）。
+            // 垃圾 5000、材料 2000、近战 1500、子弹 480、配件 520、枪支 500。
+            // 子弹与配件名义上各 5%，把 20 份从子弹挪给配件，让配件总量略高于子弹。
+            result["weapons"] = BuildCategories(
+                // 垃圾：5000。主题表的垃圾权重等于非垃圾权重和，专精 100% +
+                // 垃圾倍率 100% 时正好占一半（见 Tuning.Build 的 junk 插值）。
+                Cat(5000, new[] { "junk" }, new[] { 1 }),
+                // 材料：枪械零件最多，其次金属锭、电子元件，其余基础材料递减。
+                Cat(2000,
+                    new[] { "gun_part", "metal_ingot", "common_electronic", "wire", "printer_plastic", "nuts_metal", "scrap_metal" },
+                    new[] { 40, 22, 16, 11, 8, 6, 5 }),
+                // 近战：便宜的日用品刀、工具、美工刀占多数，贵重近战很少。
+                Cat(1500,
+                    new[] { "box_cutter", "pipe_weapon", "glass_shard_shiv", "crowbar", "kitchen_knife",
+                        "hatchet", "kitchen_cleaver", "combat_knife", "skinning_knife", "combat_machete", "stun_baton" },
+                    new[] { 26, 22, 18, 12, 8, 5, 4, 3, 1, 1, 1 }),
+                // 子弹：先归一个大类，再在类内抽具体弹种；多数是便宜的 .22。
+                Cat(480,
+                    new[] { "small_pistol_ammo", "small_pistol_ammo_nl", "heavy_pistol_ammo",
+                        "small_pistol_ammo_p", "heavy_pistol_ammo_nl", "heavy_pistol_ammo_p", "lou_etched_round" },
+                    new[] { 30, 20, 20, 12, 10, 6, 2 }),
+                // 配件：便宜的弹匣、消音器、激光笔最常见，高档件只作点缀。
+                Cat(520,
+                    new[] { "mag_22", "silencer_makeshift", "laser_toy", "internal_springs_improved",
+                        "mag_22_high", "rds_makeshift", "mag_10mm", "internal_springs", "short_stock", "grip", "bipod",
+                        "mag_22_ext", "mag_10mm_high", "mag_10mm_ext", "barrel", "compensator", "laser",
+                        "stock", "rds", "silencer", "trigger_group", "mag_10mm_smg", "mag_10mm_smg_high",
+                        "mag_10mm_smg_box", "match_barrel", "silencer2", "laser2", "ammo_display", "grip_gel" },
+                    new[] { 14, 12, 10, 9, 7, 6, 5, 4, 4, 4, 3,
+                        3, 3, 2, 2, 2, 2,
+                        1, 1, 1, 1, 1, 1,
+                        1, 1, 1, 1, 1, 1 }),
+                // 枪支：土枪、打印枪最多，制式手枪次之，冲锋枪与霰弹枪最稀有。
+                Cat(500,
+                    new[] { "printed_gun", "handmade_pistol", "heavy_handmade_pistol", "glock_receiver",
+                        "revolver", "stun_gun", "smg", "shotgun" },
+                    new[] { 40, 24, 16, 8, 5, 3, 2, 2 }));
 
             return result;
         }
@@ -436,7 +476,9 @@ namespace DumpingGroundMap
             AddAll(result, "makeshiftWeaponTable",
                 "glass_shard_shiv", "box_cutter", "kitchen_knife",
                 "combat_knife", "kitchen_cleaver", "hatchet", "skinning_knife", "stun_baton", "combat_machete");
-            AddAll(result, "gunTable", "printed_gun", "handmade_pistol", "heavy_handmade_pistol", "revolver");
+            AddAll(result, "gunTable",
+                "printed_gun", "handmade_pistol", "heavy_handmade_pistol", "glock_receiver",
+                "revolver", "stun_gun", "smg", "shotgun");
             AddAll(result, "ammoTable",
                 "small_pistol_ammo", "small_pistol_ammo_p", "small_pistol_ammo_nl",
                 "heavy_pistol_ammo", "heavy_pistol_ammo_p", "heavy_pistol_ammo_nl", "lou_etched_round");
@@ -469,6 +511,48 @@ namespace DumpingGroundMap
         private static void AddAll(Dictionary<string, string> target, string tableId, params string[] items)
         {
             for (int i = 0; i < items.Length; ++i) target[items[i]] = tableId;
+        }
+    }
+
+    /// <summary>
+    /// 废武器堆的枪械成色。游戏里枪的「品质」是物品特征
+    /// ItemFeatureList.EquipmentCondition（New / Excellent / Good / Fair / Poor），
+    /// 不是耐久度，也不是靠不同 item id 区分；成色会经由 ItemCondition.modValue
+    /// 影响成交价。拾荒生成后按权重掷一档并覆盖工厂默认值，让废武器堆以破旧枪为主。
+    /// </summary>
+    internal static class WeaponWear
+    {
+        // 顺序与 EquipmentCondition 一致：New, Excellent, Good, Fair, Poor。
+        private static readonly Dictionary<string, int[]> Weights =
+            new Dictionary<string, int[]>
+            {
+                { "printed_gun", new[] { 1, 1, 9, 24, 65 } },
+                { "handmade_pistol", new[] { 1, 1, 10, 30, 58 } },
+                { "heavy_handmade_pistol", new[] { 1, 2, 13, 34, 50 } },
+                { "glock_receiver", new[] { 2, 4, 22, 34, 38 } },
+                { "revolver", new[] { 2, 4, 21, 33, 40 } },
+                { "stun_gun", new[] { 3, 4, 23, 35, 35 } },
+                { "smg", new[] { 2, 4, 20, 34, 40 } },
+                { "shotgun", new[] { 2, 4, 20, 32, 42 } }
+            };
+
+        /// <summary>枪械物品 id 时重掷成色；其它物品直接跳过。</summary>
+        internal static void Apply(string itemId, GameItem item)
+        {
+            int[] weights;
+            if (item == null || !Weights.TryGetValue(itemId, out weights)) return;
+
+            int sum = 0;
+            for (int i = 0; i < weights.Length; ++i) sum += weights[i];
+
+            int roll = UnityEngine.Random.Range(0, sum);
+            int pick = 0;
+            for (int i = 0; i < weights.Length; ++i)
+            {
+                roll -= weights[i];
+                if (roll < 0) { pick = i; break; }
+            }
+            GunHelper.SetEquipmentCondition(item, (ItemFeatureList.EquipmentCondition)pick);
         }
     }
 
@@ -1724,6 +1808,7 @@ namespace DumpingGroundMap
 
             GameItem item = ItemSpawner.Spawn(itemId);
             if (item == null) return true;
+            WeaponWear.Apply(itemId, item);
 
             LootRollContext context = new LootRollContext();
             context.groupId = "dumpingGroundTG";
