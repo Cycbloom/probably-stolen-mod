@@ -1,0 +1,25 @@
+# 构建产物（由 build.ps1 生成，不入库）
+dist/
+*.pdb
+*.mdb
+
+# IDE / 编辑器
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.DotSettings.user
+
+# Python 缓存（draw_map.py 用）
+__pycache__/
+*.py[cod]
+
+# 临时文件与日志
+*.log
+*.tmp
+*.bak
+*.orig
+*~
+Thumbs.db
+.DS_Store
