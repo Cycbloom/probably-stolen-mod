@@ -389,6 +389,18 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
+        /// 下拉框换档：立即写回配置项，由 OnChanged → Invalidated 统一清缓存并刷新
+        /// EV 文本，不依赖「应用」。不清 hasLive，避免打断正在预览的滑条数值。
+        /// </summary>
+        internal static void SetSpecialtyTierLive(int tier)
+        {
+            if (specialtyEntry == null) return;
+            string label = SpecialtyLabels[Mathf.Clamp(tier, 0, SpecialtyLabels.Length - 1)];
+            if (specialtyEntry.Value == label) return;
+            specialtyEntry.Set(label);
+        }
+
+        /// <summary>
         /// Slider preview: keeps the value in memory only, so a drag can refresh
         /// numbers and EV every frame without touching the config file.
         /// </summary>

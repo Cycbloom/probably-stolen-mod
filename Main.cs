@@ -1083,6 +1083,7 @@ namespace DumpingGroundMap
                 else if (key == Tuning.SpecialtyKey)
                 {
                     specialtyDropdown = b.Last;
+                    HookSpecialtyDropdown(specialtyDropdown, key);
                     AddEvBlock(b);
                 }
                 else if (key == Tuning.DebugEnabledKey)
@@ -1220,6 +1221,30 @@ namespace DumpingGroundMap
             }
             element.OnToggle(delegate(bool value) { Tuning.SetDebugEnabledLive(value); });
             Debug.Log(LogTag + key + ": live listener bound");
+        }
+
+        /// <summary>
+        /// 原生下拉框的 onChanged 也是 null，换档只改控件、按「应用」才写回配置。
+        /// 这里自己绑 OnDropdown，换档立即写配置项并走同一条刷新链路
+        /// （Tuning.Invalidated → NativeSettings.RefreshIfOpen → Refresh），
+        /// 与滑条拖动、预设按钮完全一致。
+        /// </summary>
+        private static void HookSpecialtyDropdown(CustomUIElement element, string key)
+        {
+            if (element == null || element.dropdown == null)
+            {
+                Debug.LogWarning(LogTag + key + ": dropdown widget missing, live EV refresh disabled");
+                return;
+            }
+            element.OnDropdown(delegate(int index)
+            {
+                Tuning.SetSpecialtyTierLive(index);
+                Debug.Log(LogTag + "ev refresh tier=" + Tuning.SpecialtyTier
+                    + " percent=" + Tuning.SpecialtyPercent.ToString("0.#", CultureInfo.InvariantCulture)
+                    + " source=dropdown");
+            });
+            Debug.Log(LogTag + key + ": dropdown bound (options="
+                + element.dropdown.options.Count + ")");
         }
 
         private static CustomUIElement HookDebugSlider(CustomUIWindow target, string key)
