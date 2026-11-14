@@ -76,10 +76,17 @@ namespace DumpingGroundMap
         {
             loadedStore = StoreKey();
             totalValue = 0L;
+            ScavengerPerkPatch.ResetCache();
             Debug.Log("[DumpingGroundMap] reputation reset for new game");
         }
 
-        /// <summary>存档加载完成后读一次；同一个存档重复触发时不再读。</summary>
+        /// <summary>
+        /// 存档加载完成后无条件重读一次。
+        ///
+        /// 不能用「runID 没变就跳过」：同一局里读回关店前的自动存档时 runID 不变，
+        /// 但 modData 里是旧值，跳过就会让内存里的静态值保留读档后的较新数值
+        /// （Shutter Autosave 这类快照存档会踩到）。每次都用存档里的值覆盖。
+        /// </summary>
         internal static void Reload()
         {
             string store = StoreKey();
@@ -88,16 +95,13 @@ namespace DumpingGroundMap
                 Debug.LogWarning("[DumpingGroundMap] reputation load skipped: no PlayerStore");
                 return;
             }
-            if (store == loadedStore)
-            {
-                Debug.Log("[DumpingGroundMap] reputation load skipped: same store " + store
-                    + " value=" + totalValue + " points=" + Points);
-                return;
-            }
+            long previous = totalValue;
             loadedStore = store;
             totalValue = StoredValue();
+            ScavengerPerkPatch.ResetCache();
             Debug.Log("[DumpingGroundMap] reputation load: id=" + Core.Id + " key=" + DataKey
-                + " store=" + store + " value=" + totalValue + " points=" + Points);
+                + " store=" + store + " value=" + totalValue + " points=" + Points
+                + " previous=" + previous);
         }
 
         /// <summary>累计价值，供日志核对。</summary>

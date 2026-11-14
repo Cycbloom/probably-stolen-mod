@@ -32,6 +32,17 @@ namespace DumpingGroundMap
         private static string lastStore;
         private static int lastDay = int.MinValue;
 
+        /// <summary>
+        /// 读档/新档时清掉「今天已加过」的内存标记。
+        /// 这个标记只防同一局内同一天重复加；读回旧存档后它属于过期状态，
+        /// 必须与存档一起归零，否则读档后当天会误跳过、或与存档里的客人重复。
+        /// </summary>
+        internal static void ResetCache()
+        {
+            lastStore = null;
+            lastDay = int.MinValue;
+        }
+
         private static MethodBase TargetMethod()
         {
             MethodBase method = AccessTools.Method(typeof(StoreClientManager), "GenerateClient", new Type[0]);
