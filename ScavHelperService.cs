@@ -20,6 +20,9 @@ namespace DumpingGroundMap
         /// <summary>整个搬运服务一次性收费。</summary>
         internal const int Fee = 50;
 
+        /// <summary>「店铺便捷升级：背包挂钩」的 mod id。</summary>
+        private const string BackpackHookModId = "backpack_wall_slot_mod";
+
         /// <summary>面板向下让出的高度：按钮高 30 + 间隙 8 + 底部留白 10。</summary>
         private const float ExtraHeight = 48f;
 
@@ -43,6 +46,20 @@ namespace DumpingGroundMap
         internal static bool Available
         {
             get { return Core.Enabled && Reputation.Points >= Reputation.Perk40Threshold; }
+        }
+
+        /// <summary>
+        /// 装了「店铺便捷升级：背包挂钩」时，背包交给原版离场流程处理：
+        /// 对方在 EmporiumEntry.TryAddToPlayerInv 上的前缀会把包挂到墙上，店里就省下一个格子。
+        /// 我们这边只做「不搬背包」——挂钩被占或被关掉时，原版仍会照老路子把包放进店里，不会丢。
+        /// </summary>
+        private static bool BackpackHookInstalled
+        {
+            get
+            {
+                try { return ModHelper.IsModRunning(BackpackHookModId); }
+                catch { return false; }
+            }
         }
 
         /// <summary>每次重建拾荒场景时清掉未消费的标记。</summary>
@@ -244,7 +261,16 @@ namespace DumpingGroundMap
             GameGridInventory ground = entry.afterhourInventory;
             int before = ground == null || ground.childItems == null ? 0 : ground.childItems.Count;
 
-            MoveCarried(entry, entry.afterhourPocketSlotInvBackpack);
+            // 装了背包挂钩：背包留在口袋里，让原版离场流程把它挂到墙上。
+            // 这样它不占店内格子，帮手搬地面时也不用替它留位置。
+            if (BackpackHookInstalled)
+            {
+                Debug.Log("[DumpingGroundMap] helper: backpack left for wall hook");
+            }
+            else
+            {
+                MoveCarried(entry, entry.afterhourPocketSlotInvBackpack);
+            }
             MoveCarried(entry, entry.afterhourPocketSlotInvRight);
             MoveCarried(entry, entry.afterhourPocketSlotInvLeft);
 

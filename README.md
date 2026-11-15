@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.76
+# 垃圾场拾荒地图 · 0.3.77
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -700,6 +700,43 @@ NullReferenceException
 - 只用一个进程内静态标记「这次确认框要不要加按钮」，由 `MapUIManager.CheckItemLeftOnGround` 开框前按「声望 ≥ 40 + 当前地点是垃圾场 + 地面非空」判定，`EmporiumEntry.SetupAfterhourInv` 时复位；不写 `PlayerStore.modData`，不新增存档键，读旧档无差异。
 - 搬运完全走原版容器逻辑：进店的东西就是正常的后场 / 柜台 / 展示柜物品，可以正常上架卖出，不会出现「搬到店里但无法交易」的中间态。
 - 与 0.3.73 的溢出提示衔接：声望 ≥ 40 时溢出提示末尾会加一句「离开时可以花钱请拾荒者帮手（离场确认框里多一个按钮），他们会把地上剩下的东西按价值从高到低搬进店里；店里也装不下的仍然会被丢掉」，不写金额，也不另弹面板。
+
+## 第三方 mod 兼容（0.3.77）
+
+另有两个第三方 mod 与本模组同场时原本有摩擦，这一版各自加了一条独立兼容；两者互不依赖，也都不检查对方是否装了本模组。都不安装时，本模组的代码路径与 0.3.76 完全一致。
+
+### 背包挂钩（`backpack_wall_slot_mod`）
+
+**对方的实现**
+
+「店铺便捷升级：背包挂钩 / 桌面工具箱 / NPC 鉴别」在 `EmporiumEntry.TryAddToPlayerInv` 上加了一个 Priority 800 的前缀：它在 `EmporiumEntry.TransferAfterhourToInv` 的前缀里置一个「正在处理离场口袋」的私有标志，然后只要这个标志为真、传进来的物品是背包、且挂钩内槽（`BackpackHookInnerSlot`）为空，就用 `GraphUtils.TryAccept` 把包直接挂到墙上并返回 false 跳过原版。也就是说**「返回时自动把背上的包挂到挂钩」这件事它自己已经做了**，本模组不需要调用它的任何方法。
+
+**本模组的改法**
+
+原来的帮手搬运（`ScavHelperService.CarryBack`）会先把背包槽里的包搬进店里，占掉后场 / 柜台一个格子；有了挂钩之后这一步是多余的。现在装了这个 mod 时跳过背包槽，只搬右手、左手和地面，包留在口袋里交给原版离场流程 → 由对方的前缀挂墙，店里省一格。
+
+- 判定只用游戏自带的 `ModHelper.IsModRunning("backpack_wall_slot_mod")`，不读对方的字段、不调对方的方法，**没有反射**，`<Capabilities />` 仍为空。
+- 挂钩被别的东西占着、或玩家把挂钩功能关掉时，对方的前缀不会接这个包，原版 `TryAddToPlayerInv` 会照老路子把它放进后场 / 柜台 / 展示柜；三处都满时物品留在原口袋槽、不销毁，不会丢包。
+- 帮手与溢出提示本来就只统计地面 `afterhourInventory`，挂到墙上的包不在其中，不会被重复算成占位。日志：`[DumpingGroundMap] helper: backpack left for wall hook`。
+- 没装这个 mod 时走原路径（背包槽 → 右手 → 左手 → 地面），与 0.3.76 逐行一致。
+
+### 势力声望面板重制（`cirno9.reputation_interface_remake`）
+
+**差异定位**
+
+它没有只改数字格式化，而是**整套换掉了面板的渲染**：`ReputationUIManager.OpenUI` 上挂前缀 / 后缀拿到原生 `layout`，`BoardData.Collect` 遍历 `layout` 里的 `ReputationElement` 生成自己的 `BoardEntry`，再把原生 layout 隐藏（`CanvasGroup` alpha 0），改用自建的 `BoardRow` 显示。
+
+我们插入的那一行**仍然存在、也被它收集到了**——它按 `layout` 的子物体遍历，不看派系 id。丢失小数发生在 `BoardData.Fill`：条目能对应到 `StoreReputation`（`entry.Rep != null`）时，它直接写 `rep.GetReputationExact().ToString("+0.00;-0.00;0.00")`，完全绕过 `ReputationElement` 的文本；而我们的合成行此前写的是整数点数（`SetReputation(points)`），所以显示成 `x.00`。原版面板不受影响，是因为我们自己的 `ApplyRow` 会用 `Reputation.ExactPoints` 覆盖数字。
+
+**本模组的改法**
+
+`Reputation.BuildEntry` 改为 `entry.SetReputation(Reputation.ExactPoints)`（累计价值 / 100，未取整），合成行本身就带小数：
+
+- 原版面板：`ApplyRow` 照旧用 `ExactPoints.ToString("F2") + "/200"` 覆盖文本，显示零变化。
+- 重制面板：`GetReputationExact()` 拿到两位小数，显示为 `+x.xx`。
+- 档位门槛、绿条高度与图标仍走 `GetReputation()`（取整），因为 `GetReputation()` 是 `(int)amount` 截断，写入精确值不会改变任何整数判断；悬停文案与五个奖励图标也不受影响。
+
+已知差异（改动前就存在，本次未改）：重制面板里我们的行状态文字取自 `StoreReputation.GetReputationStatus(int)`，是原生通用档名而不是本模组的自定义档名；数字格式统一为 `+0.00`、不带 `/200` 后缀——这两点对面板里所有派系统一，属于对方的设计。
 
 ## 兼容性
 

@@ -647,7 +647,9 @@ namespace DumpingGroundMap
             entry.factionDisplay = Copy.Text(TitleZh, TitleEn);
             entry.factionColor2 = TitleColor;
             entry.perks = BuildPerks(points);
-            entry.SetReputation(points);
+            // 写精确值而不是整数点数：原版面板的数字由 ApplyRow 覆盖成两位小数，
+            // 但「势力声望面板重制」是直接读 GetReputationExact() 重画，写整数就会变成 x.00。
+            entry.SetReputation(Reputation.ExactPoints);
             return entry;
         }
 
