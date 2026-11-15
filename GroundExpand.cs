@@ -226,7 +226,7 @@ namespace DumpingGroundMap
         /// </summary>
         internal static void OnRejected(GraphNodeStorage storage)
         {
-            if (!scavenging || overflowNoticed) return;
+            if (!Core.Enabled || !scavenging || overflowNoticed) return;
             EmporiumEntry entry = EmporiumEntry.Instance;
             if (entry == null || !ReferenceEquals(storage, entry.afterhourInventory)) return;
             overflowNoticed = true;
