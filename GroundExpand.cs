@@ -230,10 +230,22 @@ namespace DumpingGroundMap
             EmporiumEntry entry = EmporiumEntry.Instance;
             if (entry == null || !ReferenceEquals(storage, entry.afterhourInventory)) return;
             overflowNoticed = true;
-            StashFind.ShowNotice(Copy.Text(
-                "地面放满了，这次有战利品没能放进来，已经被丢掉。先把地面的东西搬进口袋或背包。",
-                "The ground is full, so some loot could not be placed and was dropped. Move items into your pockets or backpack first."),
-                "ground-full");
+            string text = Copy.Text(
+                "地面放满了，这次有战利品没能放进来，已经被丢掉。",
+                "The ground is full, so some loot could not be placed and was dropped.");
+            if (Reputation.Points >= Reputation.Perk40Threshold)
+            {
+                text += Copy.Text(
+                    " 离开时可以花 50 信用点请拾荒者帮手，把地面上的东西搬回店里。",
+                    " When leaving, you can hire a scavenger helper for 50 credits to carry what is left back to the store.");
+            }
+            else
+            {
+                text += Copy.Text(
+                    "先把地面的东西搬进口袋或背包。",
+                    " Move items into your pockets or backpack first.");
+            }
+            StashFind.ShowNotice(text, "ground-full");
         }
     }
 

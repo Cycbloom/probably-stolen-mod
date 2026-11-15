@@ -14,7 +14,7 @@ $arguments = '/noconfig','/nologo','/t:library','/platform:x64','/optimize+','/c
 $arguments += @($refs | ForEach-Object { "/r:$managed/$_.dll" })
 
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
-& $compiler @arguments (Join-Path $PSScriptRoot 'Main.cs') (Join-Path $PSScriptRoot 'Tuning.cs') (Join-Path $PSScriptRoot 'Reputation.cs') (Join-Path $PSScriptRoot 'ReputationPopBridge.cs') (Join-Path $PSScriptRoot 'ScavengerPerk.cs') (Join-Path $PSScriptRoot 'ScavMedal.cs') (Join-Path $PSScriptRoot 'StashFind.cs') (Join-Path $PSScriptRoot 'GroundExpand.cs')
+& $compiler @arguments (Join-Path $PSScriptRoot 'Main.cs') (Join-Path $PSScriptRoot 'Tuning.cs') (Join-Path $PSScriptRoot 'Reputation.cs') (Join-Path $PSScriptRoot 'ReputationPopBridge.cs') (Join-Path $PSScriptRoot 'ScavengerPerk.cs') (Join-Path $PSScriptRoot 'ScavMedal.cs') (Join-Path $PSScriptRoot 'StashFind.cs') (Join-Path $PSScriptRoot 'GroundExpand.cs') (Join-Path $PSScriptRoot 'ScavHelperService.cs')
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $LASTEXITCODE" }
 
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'manifest.xml') -Destination $dist -Force
