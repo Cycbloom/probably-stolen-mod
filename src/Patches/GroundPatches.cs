@@ -62,8 +62,17 @@ namespace DumpingGroundMap
     [HarmonyPatch(typeof(ScavHelper), "ScavengeDumpingGrounds")]
     internal static class ScavengeGroundScopePatch
     {
-        private static void Prefix() { GroundExpand.BeginScavenge(); }
-        private static void Postfix() { GroundExpand.EndScavenge(); }
+        private static void Prefix(out bool __state)
+        {
+            __state = false;
+            GroundExpand.BeginScavenge();
+            __state = true;
+        }
+        internal static System.Exception Finalizer(System.Exception __exception, bool __state)
+        {
+            if (__state) GroundExpand.EndScavenge();
+            return __exception;
+        }
     }
 
     [HarmonyPatch(typeof(GraphUtils), "TryAcceptAll")]

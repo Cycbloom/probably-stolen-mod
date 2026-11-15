@@ -34,82 +34,38 @@ namespace DumpingGroundMap
         internal const string DataKey = "rep_total_value";
         private const string PendingFlagKey = "dgm_debug_pending";
         private const string PendingPointsKey = "dgm_debug_pending_points";
-
-        /// <summary>五档门槛与名称。改档名只改这几行，其它地方不要再写死。</summary>
-        internal const int Perk20Threshold = 20;
-        internal const string Perk20NameZh = "拾荒老手";
-        internal const string Perk20NameEn = "Scavenger Veteran";
-
-        internal const int Perk40Threshold = 40;
-        internal const string Perk40NameZh = "熟门熟路";
-        internal const string Perk40NameEn = "Knows the Back Ways";
-
-        /// <summary>60 档：只落门槛与档名，功能待定。</summary>
-        internal const int Perk60Threshold = 60;
-        internal const string Perk60NameZh = "眼力毒辣";
-        internal const string Perk60NameEn = "Keen Eye";
-
-        /// <summary>80 档：贵重品出现率 80 门控，高级区可翻到补给箱与对应钥匙卡。</summary>
-        internal const int Perk80Threshold = 80;
-        internal const string Perk80NameZh = "识货行家";
-        internal const string Perk80NameEn = "Connoisseur";
-
-        /// <summary>100 档：只落门槛与档名，功能待定。</summary>
-        internal const int Perk100Threshold = 100;
-        internal const string Perk100NameZh = "自己人";
-        internal const string Perk100NameEn = "One of Us";
+        private const string PendingRunKey = "dgm_debug_pending_run";
+        private const string PendingSlotKey = "dgm_debug_pending_slot";
 
         /// <summary>客人卡上的来访原因（原生字段只能填类型/物品名，这里在 UI 侧改写）。</summary>
         internal static string Perk20Reason
         {
             get
             {
-                return Copy.Text("被「" + Perk20NameZh + "」的名声吸引",
-                    "Drawn by a " + Perk20NameEn + "'s reputation");
+                return Copy.Text("被「" + PerkCatalog.Perk20NameZh + "」的名声吸引",
+                    "Drawn by a " + PerkCatalog.Perk20NameEn + "'s reputation");
             }
         }
 
         private static long totalValue;
         private static string loadedStore;
-        private static bool hooked;
         private static bool multiplierWarned;
 
         internal static int Points { get { return (int)(totalValue / ValuePerPoint); } }
 
-        internal static void Hook()
+        internal static void ResetSession()
         {
-            if (hooked) return;
-            try
-            {
-                ModHook.OnGameLoadedLate += Reload;
-                ModHook.OnNewGameStarted += NewGame;
-                ModHook.OnShutterOpenedLate += ScavMedal.OnShutterOpenedLate;
-                StashFind.Hook();
-                hooked = true;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("[DumpingGroundMap] could not hook reputation: " + ex);
-            }
-        }
-
-        internal static void Unhook()
-        {
-            if (!hooked) return;
-            ModHook.OnGameLoadedLate -= Reload;
-            ModHook.OnNewGameStarted -= NewGame;
-            ModHook.OnShutterOpenedLate -= ScavMedal.OnShutterOpenedLate;
-            StashFind.Unhook();
-            hooked = false;
+            loadedStore = null;
+            totalValue = 0L;
+            ScavengerPerkPatch.ResetCache();
         }
 
         /// <summary>新开一局：新的 PlayerStore.modData 是空字典，读到 0，自然归零。</summary>
-        private static void NewGame(string saveName)
+        internal static void NewGame(string saveName)
         {
             loadedStore = StoreKey();
             totalValue = 0L;
             ScavengerPerkPatch.ResetCache();
-            ApplyPendingDebugPoints(false);
             Debug.Log("[DumpingGroundMap] reputation reset for new game");
         }
 
@@ -276,10 +232,13 @@ namespace DumpingGroundMap
         /// 主菜单/无法立即存档时改调试点数：先存进游戏自己的 SaveFiles 索引，
         /// 下次读档/新档时应用一次。why 只用于日志。
         /// </summary>
-        internal static bool QueueDebugPoints(float points, string why)
+        internal static bool QueueDebugPoints(float points, string why, bool bindToCurrentRun = false)
         {
             try
             {
+                PlayerStore owner = bindToCurrentRun && PlayerStore.HasInstance ? PlayerStore.Instance : null;
+                SaveFiles.IndexSave<string>(PendingRunKey, owner == null ? "" : owner.runID ?? "");
+                SaveFiles.IndexSave<int>(PendingSlotKey, owner == null ? -1 : owner.saveSlotId);
                 SaveFiles.IndexSave<bool>(PendingFlagKey, true);
                 SaveFiles.IndexSave<float>(PendingPointsKey, points);
                 Debug.Log("[DumpingGroundMap] debug: queued "
@@ -300,6 +259,8 @@ namespace DumpingGroundMap
             {
                 SaveFiles.IndexDeleteKey(PendingFlagKey);
                 SaveFiles.IndexDeleteKey(PendingPointsKey);
+                SaveFiles.IndexDeleteKey(PendingRunKey);
+                SaveFiles.IndexDeleteKey(PendingSlotKey);
             }
             catch (Exception ex)
             {
@@ -313,7 +274,7 @@ namespace DumpingGroundMap
         /// 新档时 false——新档的 InitialSave 由原生 EmporiumEntry.Start 负责，
         /// 那里 PlayerStore 还没初始化完，我们自己调 SaveGame 不安全。
         /// </summary>
-        private static void ApplyPendingDebugPoints(bool saveNow)
+        internal static void ApplyPendingDebugPoints(bool saveNow)
         {
             bool pending;
             try
@@ -331,6 +292,21 @@ namespace DumpingGroundMap
                 Debug.LogWarning("[DumpingGroundMap] debug: pending points kept, no PlayerStore yet");
                 return;
             }
+            string pendingRun;
+            int pendingSlot;
+            try
+            {
+                pendingRun = SaveFiles.IndexLoad<string>(PendingRunKey, "");
+                pendingSlot = SaveFiles.IndexLoad<int>(PendingSlotKey, -1);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] debug: could not read pending owner: " + ex.Message);
+                return;
+            }
+            PlayerStore current = PlayerStore.Instance;
+            if (pendingSlot >= 0 && ((current.runID ?? "") != pendingRun || current.saveSlotId != pendingSlot))
+                return;
             float points;
             try
             {
@@ -357,8 +333,8 @@ namespace DumpingGroundMap
         {
             try
             {
-                PlayerStore store = PlayerStore.Instance;
-                if (store == null)
+                PlayerStore store = PlayerStore.HasInstance ? PlayerStore.Instance : null;
+                if (!Core.Enabled || EmporiumEntry.Instance == null || store == null)
                 {
                     Debug.LogWarning("[DumpingGroundMap] save now (" + reason + "): no PlayerStore");
                     return false;
@@ -376,7 +352,7 @@ namespace DumpingGroundMap
                 // 只有调试项会走到这里（"debug" 直接改、"queued" 应用排队值时补存），
                 // 两条都该保住这个值。
                 float points = ExactPoints;
-                QueueDebugPoints(points, "save failed: " + reason);
+                QueueDebugPoints(points, "save failed: " + reason, true);
                 Debug.LogWarning("[DumpingGroundMap] debug: save failed, "
                     + points.ToString("0.##", CultureInfo.InvariantCulture)
                     + " points queued for next load");

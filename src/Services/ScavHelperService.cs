@@ -45,7 +45,7 @@ namespace DumpingGroundMap
 
         internal static bool Available
         {
-            get { return Core.Enabled && Reputation.Points >= Reputation.Perk40Threshold; }
+            get { return Core.Enabled && Reputation.Points >= PerkCatalog.Perk40Threshold; }
         }
 
         /// <summary>
@@ -65,7 +65,12 @@ namespace DumpingGroundMap
         /// <summary>每次重建拾荒场景时清掉未消费的标记。</summary>
         internal static void Reset()
         {
-            armed = false;
+            Cancel();
+            if (helperSlot != null) UnityEngine.Object.Destroy(helperSlot.gameObject);
+            helperSlot = null;
+            helperButton = null;
+            panelOwner = null;
+            panelRect = bodyRect = groupRect = null;
         }
 
         /// <summary>原版「地面还有东西，确认离开」即将弹框时调用。</summary>

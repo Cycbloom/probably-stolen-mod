@@ -388,7 +388,7 @@ namespace DumpingGroundMap
         /// <summary>
         /// 原生下拉框的 onChanged 也是 null，换档只改控件、按「应用」才写回配置。
         /// 这里自己绑 OnDropdown，换档立即写配置项并走同一条刷新链路
-        /// （Tuning.Invalidated → NativeSettings.RefreshIfOpen → Refresh），
+        /// （Tuning.Changed → ModLifecycle.RefreshViews → NativeSettings.RefreshIfOpen → Refresh），
         /// 与滑条拖动、预设按钮完全一致。
         /// </summary>
         private static void HookSpecialtyDropdown(CustomUIElement element, string key)

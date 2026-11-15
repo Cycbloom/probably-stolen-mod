@@ -30,11 +30,9 @@ namespace DumpingGroundMap
     [HarmonyPatch(typeof(StoreClientManager), "GetNormalCustomerCount")]
     internal static class ScavengerCustomerPatch
     {
-        private static bool suppressed;
-
-        private static void Prefix()
+        private static void Prefix(out RestoreScope __state)
         {
-            suppressed = false;
+            __state = null;
             if (!Core.Enabled || !ScavengerStart.Active) return;
             PlayerStore store = PlayerStore.HasInstance ? PlayerStore.Instance : null;
             if (store == null || store.healthData == null) return;
@@ -44,30 +42,21 @@ namespace DumpingGroundMap
             MapUIManager map = MapUIManager.Instance;
             if (map == null || map.LastVisitedTonightId != ScavengerStart.DumpingGroundId) return;
 
-            store.healthData.wentToAfterhoursLastNight = false;
-            suppressed = true;
+            HealthData health = store.healthData;
+            bool original = health.wentToAfterhoursLastNight;
+            __state = new RestoreScope(() => health.wentToAfterhoursLastNight = original);
+            health.wentToAfterhoursLastNight = false;
         }
 
-        private static void Postfix()
+        private static void Postfix(RestoreScope __state)
         {
-            Restore();
+            if (__state != null) __state.Restore();
         }
 
-        private static Exception Finalizer(Exception __exception)
+        private static Exception Finalizer(Exception __exception, RestoreScope __state)
         {
-            Restore();
+            if (__state != null) __state.Restore();
             return __exception;
-        }
-
-        private static void Restore()
-        {
-            if (!suppressed) return;
-            suppressed = false;
-            PlayerStore store = PlayerStore.HasInstance ? PlayerStore.Instance : null;
-            if (store != null && store.healthData != null)
-            {
-                store.healthData.wentToAfterhoursLastNight = true;
-            }
         }
     }
 }

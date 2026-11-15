@@ -18,6 +18,7 @@ namespace DumpingGroundMap
         internal readonly float HighChance;
         internal readonly float JunkChance;
         internal readonly float Ev;
+        internal readonly LootSlot[] Slots;
 
         /// <summary>
         /// 贵重品在 Items / Probs 里的起始下标与件数。贵重品槽位可能和普通表里的
@@ -31,7 +32,7 @@ namespace DumpingGroundMap
         private readonly int junkIndex;
 
         internal EffectiveTable(string[] items, float[] probs, bool[] isHigh, bool[] isJunk,
-            float highChance, float junkChance, float ev, int highStart, int highCount)
+            float highChance, float junkChance, float ev, int highStart, int highCount, Region region)
         {
             Items = items;
             Probs = probs;
@@ -43,6 +44,15 @@ namespace DumpingGroundMap
             HighStart = highStart;
             HighCount = highCount;
             junkIndex = Array.IndexOf(items, "junk");
+            Slots = new LootSlot[items.Length];
+            for (int i = 0; i < items.Length; ++i)
+            {
+                LootKind kind = i < highStart ? LootKind.Ordinary
+                    : i < highStart + highCount ? LootKind.Valuable
+                    : items[i] == LootCatalog.CrateFor(region.Id) ? LootKind.SupplyCrate : LootKind.Keycard;
+                Slots[i] = new LootSlot(items[i], kind,
+                    kind == LootKind.Ordinary ? region.Loot.CategoryOf(items[i]) : -1);
+            }
 
             order = new int[items.Length];
             for (int i = 0; i < order.Length; ++i) order[i] = i;
@@ -60,6 +70,12 @@ namespace DumpingGroundMap
 
         internal int PickIndex(float junkScale)
         {
+            return PickIndex(junkScale, UnityEngine.Random.value);
+        }
+
+        internal int PickIndex(float junkScale, float sample)
+        {
+            junkScale = Math.Max(0f, junkScale);
             float sum = 0f;
             for (int i = 0; i < Items.Length; ++i)
             {
@@ -68,7 +84,7 @@ namespace DumpingGroundMap
             }
             if (sum <= 0f) return -1;
 
-            float roll = UnityEngine.Random.value * sum;
+            float roll = ProbabilityMath.Clamp(sample, 0f, 1f) * sum;
             int last = -1;
             for (int i = 0; i < Items.Length; ++i)
             {
@@ -78,6 +94,14 @@ namespace DumpingGroundMap
                 if (roll < 0f) return i;
             }
             return last;
+        }
+
+        internal float ProbabilityOf(LootKind kind)
+        {
+            float result = 0f;
+            for (int i = 0; i < Count; ++i)
+                if (Slots[i].Kind == kind) result += Probs[i];
+            return result;
         }
     }
 }

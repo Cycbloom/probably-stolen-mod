@@ -28,7 +28,21 @@ $arguments = '/noconfig','/nologo','/t:library','/platform:x64','/optimize+','/c
 $arguments += @($refs | ForEach-Object { "/r:$managed/$_.dll" })
 
 New-Item -ItemType Directory -Force -Path $intermediate | Out-Null
-& $compiler @arguments @sources
+[xml]$manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'manifest.xml') -Raw
+$releaseVersion = [version]$manifest.Manifest.ModVersion
+$commit = 'unknown'
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    $candidate = & git -C $PSScriptRoot rev-parse --short HEAD 2>$null
+    if ($LASTEXITCODE -eq 0 -and $candidate -match '^[0-9a-f]+$') { $commit = $candidate }
+}
+$buildInfo = Join-Path $intermediate 'BuildInfo.cs'
+$fileVersion = '{0}.{1}.{2}.0' -f $releaseVersion.Major,$releaseVersion.Minor,$releaseVersion.Build
+Set-Content -LiteralPath $buildInfo -Encoding UTF8 -Value @"
+using System.Reflection;
+[assembly: AssemblyFileVersion("$fileVersion")]
+[assembly: AssemblyInformationalVersion("$releaseVersion+$commit")]
+"@
+& $compiler @arguments @sources $buildInfo
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $LASTEXITCODE" }
 
 if ($Check) {
@@ -50,3 +64,4 @@ if ($Install) {
     Write-Output "Installed to $destination"
 }
 Write-Output "Built $(Join-Path $dist 'DumpingGroundMap.dll') ($($sources.Count) source files)"
+Write-Output "Version $releaseVersion; source $commit; SHA256 $((Get-FileHash -LiteralPath (Join-Path $dist 'DumpingGroundMap.dll')).Hash)"

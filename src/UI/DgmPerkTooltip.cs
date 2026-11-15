@@ -64,98 +64,34 @@ namespace DumpingGroundMap
 
         private string Title()
         {
-            string zh;
-            string en;
-            if (threshold >= Reputation.Perk100Threshold)
-            {
-                zh = Reputation.Perk100NameZh;
-                en = Reputation.Perk100NameEn;
-            }
-            else if (threshold >= Reputation.Perk80Threshold)
-            {
-                zh = Reputation.Perk80NameZh;
-                en = Reputation.Perk80NameEn;
-            }
-            else if (threshold >= Reputation.Perk60Threshold)
-            {
-                zh = Reputation.Perk60NameZh;
-                en = Reputation.Perk60NameEn;
-            }
-            else if (threshold >= Reputation.Perk40Threshold)
-            {
-                zh = Reputation.Perk40NameZh;
-                en = Reputation.Perk40NameEn;
-            }
-            else
-            {
-                zh = Reputation.Perk20NameZh;
-                en = Reputation.Perk20NameEn;
-            }
-            return Copy.Text(zh, en);
+            PerkDefinition perk = PerkCatalog.For(threshold);
+            return Copy.Text(perk.NameZh, perk.NameEn);
         }
 
-        /// <summary>
-        /// 0.3.51 定稿：五档统一「正文一行 + 斜体风味一行」，正文里句子之间只用句号、不手动换行。
-        /// 60 的隐藏储藏 / 报纸事迹与 100 的雇人服务尚未实现，文案先落，功能上线后再核一次。
-        /// </summary>
         private string Description()
         {
-            if (threshold >= Reputation.Perk100Threshold)
-            {
-                return Copy.Text(
-                    "拾荒者会把你当成自己人。拾荒前可以花钱雇一名拾荒者帮手。",
-                    "The scavengers treat you as one of their own. "
-                    + "Before scavenging, you can pay to hire a scavenger helper.");
-            }
-            if (threshold >= Reputation.Perk80Threshold)
-            {
-                return Copy.Text(
-                    "拾荒时可能遇到贵重品。偶尔还能翻到补给箱和对应的钥匙卡。",
-                    "While scavenging you may come across valuable goods. "
-                    + "Now and then you can even turn up a supply crate and its matching keycard.");
-            }
-            if (threshold >= Reputation.Perk60Threshold)
-            {
-                return Copy.Text(
-                    "拾荒时更有机会找到隐藏的储藏。第二天你会在报纸上看到自己的事迹。",
-                    "You have a better chance of finding a hidden stash while scavenging. "
-                    + "The next day you'll see your deed in the newspaper.");
-            }
-            if (threshold >= Reputation.Perk40Threshold)
-            {
-                return Copy.Text(
-                    "你对这片场子越来越熟。三个高级拾荒场对你开放：拆解堆、医疗废弃点、废武器堆。"
-                    + "离开时还可以花钱请拾荒者帮手，把拾荒时得到的东西搬回店里。",
-                    "You know this place better and better. "
-                    + "Three high-tier scavenging grounds are open to you: "
-                    + "Scrap Pile, Medical Waste, Weapon Dump. "
-                    + "When you leave, you can also pay a scavenger helper to carry "
-                    + "what you found back to the store.");
-            }
-            return Copy.Text(
-                "你结交了许多拾荒者朋友。每天会多一名拾荒者来你店里。",
-                "You've made a lot of scavenger friends. "
-                + "One more scavenger visits your shop each day.");
+            PerkDefinition perk = PerkCatalog.For(threshold);
+            return Copy.Text(perk.DescriptionZh, perk.DescriptionEn);
         }
 
         private string Flavor()
         {
-            if (threshold >= Reputation.Perk100Threshold)
+            if (threshold >= PerkCatalog.Perk100Threshold)
             {
                 return Copy.Text("在这片垃圾场里，所有人都把你当兄弟。",
                     "In this dump, everyone treats you like a brother.");
             }
-            if (threshold >= Reputation.Perk80Threshold)
+            if (threshold >= PerkCatalog.Perk80Threshold)
             {
                 return Copy.Text("值钱的东西，你一眼就认得出来。",
                     "You can tell something valuable at a glance.");
             }
-            if (threshold >= Reputation.Perk60Threshold)
+            if (threshold >= PerkCatalog.Perk60Threshold)
             {
                 return Copy.Text("别人翻过去的东西，你还会再看一眼。",
                     "Others walk right past it; you take a second look.");
             }
-            if (threshold >= Reputation.Perk40Threshold)
+            if (threshold >= PerkCatalog.Perk40Threshold)
             {
                 return Copy.Text("你知道哪里能捡到更好的东西。",
                     "You know where the better finds are.");

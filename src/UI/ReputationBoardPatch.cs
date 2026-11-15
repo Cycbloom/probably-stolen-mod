@@ -34,23 +34,23 @@ namespace DumpingGroundMap
         /// <summary>0–200 刻度上的档位分界：20 / 40 / 60 / 80 / 100。</summary>
         private static readonly int[] Thresholds =
         {
-            Reputation.Perk20Threshold, Reputation.Perk40Threshold,
-            Reputation.Perk60Threshold, Reputation.Perk80Threshold,
-            Reputation.Perk100Threshold
+            PerkCatalog.Perk20Threshold, PerkCatalog.Perk40Threshold,
+            PerkCatalog.Perk60Threshold, PerkCatalog.Perk80Threshold,
+            PerkCatalog.Perk100Threshold
         };
         /// <summary>
         /// 柱子上的五个奖励点，与原生 perk 同一套刻度（0–200）。
         /// 20：每天多一名拾荒客客人 + 首次达到 20 点的一枚「拾荒者信物」和一张便条（已生效）。
         /// 40：三个高级区（拆解堆 / 医疗废弃点 / 废武器堆）的统一解锁门槛（已生效）。
-        /// 60：只落门槛与档名，功能待定。
+        /// 60：隐藏储藏与小奖机会提升。
         /// 80：贵重品出现率改为 80 门控（不到 80 按 0，到了 80 完全按滑条值，默认 3%）；四个区可翻到补给箱与对应钥匙卡（已生效）。
         /// 100：只落门槛与档名，功能待定。
         /// </summary>
         private static readonly int[] PerkThresholds =
         {
-            Reputation.Perk20Threshold, Reputation.Perk40Threshold,
-            Reputation.Perk60Threshold, Reputation.Perk80Threshold,
-            Reputation.Perk100Threshold
+            PerkCatalog.Perk20Threshold, PerkCatalog.Perk40Threshold,
+            PerkCatalog.Perk60Threshold, PerkCatalog.Perk80Threshold,
+            PerkCatalog.Perk100Threshold
         };
 
         /// <summary>
@@ -61,13 +61,13 @@ namespace DumpingGroundMap
         private static readonly float[] PerkScales = { 0.65f, 0.78f, 0.90f, 1f, 1f };
         private static readonly string[] TierZh =
         {
-            "生手", Reputation.Perk20NameZh, Reputation.Perk40NameZh,
-            Reputation.Perk60NameZh, Reputation.Perk80NameZh, Reputation.Perk100NameZh
+            "生手", PerkCatalog.Perk20NameZh, PerkCatalog.Perk40NameZh,
+            PerkCatalog.Perk60NameZh, PerkCatalog.Perk80NameZh, PerkCatalog.Perk100NameZh
         };
         private static readonly string[] TierEn =
         {
-            "Rookie", Reputation.Perk20NameEn, Reputation.Perk40NameEn,
-            Reputation.Perk60NameEn, Reputation.Perk80NameEn, Reputation.Perk100NameEn
+            "Rookie", PerkCatalog.Perk20NameEn, PerkCatalog.Perk40NameEn,
+            PerkCatalog.Perk60NameEn, PerkCatalog.Perk80NameEn, PerkCatalog.Perk100NameEn
         };
 
         private static bool patchLogged;
@@ -175,7 +175,7 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// 五个奖励图标，阈值就是 20 / 40 / 60 / 80 / 100。20、40、80 已生效，
-        /// 60 与 100 目前只有档名与占位说明，见 PerkThresholds 的注释。
+        /// 奖励文案与门槛由 PerkCatalog 定义；100 档额外待遇尚未开放。
         /// </summary>
         private static List<StoreReputationPerk> BuildPerks(int points)
         {

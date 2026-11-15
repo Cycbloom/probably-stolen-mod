@@ -38,7 +38,7 @@ namespace DumpingGroundMap
     internal static class ScavMedal
     {
         /// <summary>与柱子上的 20 点刻度、ScavengerPerkPatch 保持一致。</summary>
-        private const int Threshold = 20;
+        private const int Threshold = PerkCatalog.Perk20Threshold;
 
         private const string ItemId = "scav_token";
         private const string GivenKey = "scav_medal_given";

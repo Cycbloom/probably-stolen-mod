@@ -13,6 +13,7 @@ namespace DumpingGroundMap
     /// </summary>
     internal static class Tuning
     {
+        internal static event Action Changed;
         internal const float DefaultJunkPercent = 50f;
         internal const float DefaultHighPercent = 3f;
         internal const int DefaultSpecialtyTier = 2;
@@ -118,9 +119,7 @@ namespace DumpingGroundMap
         private static int liveGroundWidth;
         private static int liveGroundHeight;
         private static bool debugIgnoredLogged;
-        private static readonly Dictionary<string, EffectiveTable> cache =
-            new Dictionary<string, EffectiveTable>();
-        private static bool cachePerk80;
+        private static readonly LootTableCache cache = new LootTableCache();
         private static readonly Dictionary<string, float> baseEvCache =
             new Dictionary<string, float>();
         private static bool hasLive;
@@ -372,7 +371,7 @@ namespace DumpingGroundMap
             get
             {
                 float percent = MinorPercent;
-                if (Reputation.Points < Reputation.Perk60Threshold) percent *= 0.1f;
+                percent *= PerkCatalog.MinorMultiplier(Reputation.Points);
                 return percent;
             }
         }
@@ -441,7 +440,7 @@ namespace DumpingGroundMap
         {
             float ev;
             if (baseEvCache.TryGetValue(region.Id, out ev)) return ev;
-            ev = Build(region, 100f, 0f, 0f, false).Ev;
+            ev = LootCalculator.Build(region, new LootSettings(100f, 0f, 0f, 0f, 0f), false).Ev;
             baseEvCache[region.Id] = ev;
             return ev;
         }
@@ -719,8 +718,8 @@ namespace DumpingGroundMap
         private static void Invalidated()
         {
             cache.Clear();
-            NativeSettings.RefreshIfOpen();
-            Picker.RefreshBoardIfOpen();
+            Action changed = Changed;
+            if (changed != null) changed();
         }
 
         /// <summary>
@@ -935,19 +934,9 @@ namespace DumpingGroundMap
         internal static EffectiveTable TableFor(Region region)
         {
             Init();
-            bool perk80 = Reputation.Points >= Reputation.Perk80Threshold;
-            if (perk80 != cachePerk80)
-            {
-                cachePerk80 = perk80;
-                cache.Clear();
-            }
-            EffectiveTable table;
-            if (cache.TryGetValue(region.Id, out table)) return table;
-            // 80 档门控：声望不到 80 时贵重品一律按 0 算，滑条上的值只保留、不生效。
-            float highPercent = perk80 ? HighPercent : 0f;
-            table = Build(region, JunkPercent, highPercent, SpecialtyPercent, perk80);
-            cache[region.Id] = table;
-            return table;
+            bool perk80 = Reputation.Points >= PerkCatalog.Perk80Threshold;
+            return cache.Get(region, new LootSettings(JunkPercent, HighPercent, SpecialtyPercent,
+                CratePercent, KeycardPercent), perk80);
         }
 
         /// <summary>
@@ -961,408 +950,6 @@ namespace DumpingGroundMap
             return table.Items[index];
         }
 
-        private static EffectiveTable Build(Region region, float junkPercent,
-            float highPercent, float specialtyPercent, bool perk80)
-        {
-            RegionLootTable theme = region.Loot;
-            RegionLootTable vanilla = ScavLoot.Vanilla;
-            float specialty = Mathf.Clamp(specialtyPercent, 0f, 100f) / 100f;
-
-            // 1) 两张表各自归一化：非垃圾权重和记成 1，垃圾单独记成
-            //    「每 1 份非垃圾权重对应多少垃圾权重」。专精就是这两张表
-            //    之间的线性插值，垃圾也一起插。
-            float vanillaNonJunk = 0f;
-            for (int i = 0; i < vanilla.Count; ++i)
-                if (vanilla.Items[i] != "junk") vanillaNonJunk += vanilla.Weights[i];
-            float themeNonJunk = 0f;
-            for (int i = 0; i < theme.Count; ++i)
-                if (theme.Items[i] != "junk") themeNonJunk += theme.Weights[i];
-            if (vanillaNonJunk <= 0f) vanillaNonJunk = 1f;
-            if (themeNonJunk <= 0f) themeNonJunk = 1f;
-
-            // 两张表的并集：主题表在前，原版表独有、主题表没有的物品补在后面。
-            List<string> idList = new List<string>(theme.Items);
-            for (int i = 0; i < vanilla.Count; ++i)
-                if (theme.IndexOf(vanilla.Items[i]) < 0) idList.Add(vanilla.Items[i]);
-
-            int count = idList.Count;
-            string[] ids = idList.ToArray();
-            int junkIndex = Array.IndexOf(ids, "junk");
-            float[] weights = new float[count];
-            float otherTotal = 0f;
-            for (int i = 0; i < count; ++i)
-            {
-                if (i == junkIndex) continue;
-                int themeIndex = theme.IndexOf(ids[i]);
-                int vanillaIndex = vanilla.IndexOf(ids[i]);
-                float themeWeight = themeIndex >= 0 ? theme.Weights[themeIndex] / themeNonJunk : 0f;
-                float vanillaWeight = vanillaIndex >= 0 ? vanilla.Weights[vanillaIndex] / vanillaNonJunk : 0f;
-                float weight = (1f - specialty) * vanillaWeight + specialty * themeWeight;
-                weights[i] = weight;
-                otherTotal += weight;
-            }
-
-            // 2) 垃圾概率 = 插值后的垃圾占比 × 垃圾倍率。垃圾倍率是唯一能
-            //    单独调垃圾多少的旋钮，专精插值不会把它清零。
-            float vanillaJunkShare = vanilla.JunkWeight / vanillaNonJunk;
-            float themeJunkShare = theme.JunkWeight / themeNonJunk;
-            float junkPerNonJunk = (1f - specialty) * vanillaJunkShare + specialty * themeJunkShare;
-            float junkBase = junkPerNonJunk / (junkPerNonJunk + 1f);
-            float junkProb = Mathf.Clamp(junkBase * junkPercent / 100f, 0f, 0.995f);
-
-            // 3) The valuable share and the 80-tier crate/keycard shares are
-            //    carved out of the non-junk items only.
-            float highChance = Mathf.Clamp(highPercent, 0f, 30f) / 100f;
-            string crateId = perk80 ? CrateFor(region.Id) : null;
-            string cardId = perk80 ? CardFor(region.Id) : null;
-            bool withCrate = crateId != null && CratePercent > 0f;
-            bool withCard = cardId != null && KeycardPercent > 0f;
-            float crateChance = withCrate ? ClampSpecialPercent(CratePercent) / 100f : 0f;
-            float cardChance = withCard ? ClampSpecialPercent(KeycardPercent) / 100f : 0f;
-            float reserved = highChance + crateChance + cardChance;
-            if (reserved > 0.995f - junkProb)
-            {
-                float scale = reserved > 0f ? Mathf.Max(0f, 0.995f - junkProb) / reserved : 0f;
-                highChance *= scale;
-                crateChance *= scale;
-                cardChance *= scale;
-                reserved = highChance + crateChance + cardChance;
-            }
-            if (otherTotal <= 0f) junkProb = 1f - reserved;
-            float normalProb = Mathf.Max(0f, 1f - junkProb - reserved);
-
-            bool withHigh = highChance > 0f;
-            int highCount = withHigh ? HighValue.Length : 0;
-            int specialCount = (withCrate ? 1 : 0) + (withCard ? 1 : 0);
-
-            string[] items = new string[count + highCount + specialCount];
-            float[] probs = new float[count + highCount + specialCount];
-            bool[] isHigh = new bool[count + highCount + specialCount];
-            bool[] isJunk = new bool[count + highCount + specialCount];
-
-            for (int i = 0; i < count; ++i)
-            {
-                items[i] = ids[i];
-                if (i == junkIndex) probs[i] = junkProb;
-                else probs[i] = otherTotal > 0f ? normalProb * (weights[i] / otherTotal) : 0f;
-                isJunk[i] = i == junkIndex;
-            }
-
-            if (withHigh)
-            {
-                int[] highWeights = HighWeights[RegionIndex(region)];
-                float highTotal = 0f;
-                for (int j = 0; j < HighValue.Length; ++j) highTotal += highWeights[j];
-                if (highTotal <= 0f) highTotal = 1f;
-                for (int j = 0; j < HighValue.Length; ++j)
-                {
-                    int slot = count + j;
-                    items[slot] = HighValue[j];
-                    probs[slot] = highChance * highWeights[j] / highTotal;
-                    isHigh[slot] = true;
-                }
-            }
-
-            int slotNext = count + highCount;
-            if (withCrate)
-            {
-                items[slotNext] = crateId;
-                probs[slotNext] = crateChance;
-                ++slotNext;
-            }
-            if (withCard)
-            {
-                items[slotNext] = cardId;
-                probs[slotNext] = cardChance;
-            }
-
-            // 4) Expected value of one roll.
-            float expected = 0f;
-            for (int i = 0; i < items.Length; ++i)
-                expected += probs[i] * ValueOf(items[i]);
-
-            float finalJunk = junkIndex >= 0 ? probs[junkIndex] : 0f;
-            return new EffectiveTable(items, probs, isHigh, isJunk, highChance, finalJunk, expected,
-                count, highCount);
-        }
-
-        private static int RegionIndex(Region region)
-        {
-            for (int i = 0; i < Region.All.Length; ++i)
-                if (Region.All[i].Id == region.Id) return i;
-            return 0;
-        }
-
-        /// <summary>
-        /// 80 档：该区对应的满箱上锁补给箱。入口空地不给箱子。
-        /// 用 PreBuiltItemHelper 的 loot_crate_* id，ItemSpawner 会自动走预构建满箱。
-        /// </summary>
-        internal static string CrateFor(string regionId)
-        {
-            switch (regionId)
-            {
-                case "scrap": return "loot_crate_engineering";
-                case "refuse": return "loot_crate_service";
-                case "med": return "loot_crate_medical";
-                case "weapons": return "loot_crate_security";
-                default: return null;
-            }
-        }
-
-        /// <summary>80 档：与箱子同区出现的对应钥匙卡。</summary>
-        internal static string CardFor(string regionId)
-        {
-            switch (regionId)
-            {
-                case "scrap": return "eng_keycard";
-                case "refuse": return "ser_keycard";
-                case "med": return "med_keycard";
-                case "weapons": return "sec_keycard";
-                default: return null;
-            }
-        }
-
-        internal static float ValueOf(string itemId)
-        {
-            float value;
-            return UnitValues.TryGetValue(itemId, out value) ? value : 0f;
-        }
-
-        /// <summary>
-        /// 贵重品池：原版没有单独的索引，这里是本模组自己拼的一池稀有物品，
-        /// 分四类——芯片类（打印枪、弹匣、近战的打印芯片）、贵重枪支、
-        /// 贵重刀具 / 近战、枪匠需要的高价材料与工具，另有原来那 7 件。
-        /// 与游戏自带的「奢侈品 / LUXURY_ITEM」类别不是一回事：那一类是
-        /// 买卖与展览用的奢侈品标签，本池只是拾荒时按概率抽取的物品清单。
-        /// 它们不进基础表，只有贵重品出现率大于 0 且声望达到 80 时才进最终表。
-        /// </summary>
-        private static readonly string[] HighValue =
-        {
-            // 原有 7 件
-            "blue_blood_bag", "water_filter_adv",
-            "portable_water_purifier", "bottled_water_premium", "black_injector",
-            "rare_electronic", "module_extractor_advanced",
-            // 芯片类
-            "printer_chip_pistol_double", "printer_chip_heavy_handmade_pistol_frame",
-            "printer_chip_combat_machete", "printer_chip_gun_part", "printer_chip_10_mag_ext",
-            // 贵重枪支
-            "revolver", "stun_gun", "smg", "shotgun",
-            // 贵重刀具 / 近战
-            "combat_machete", "stun_baton",
-            // 枪匠需要的高价材料与工具（X 光扫描仪只注册、游戏内无任何获取途径，0.3.72 移除）
-            "advanced_flux_agent",
-            // 0.3.65 起：正品免疫宁（160）与几件 100–200 的「普货」。
-            // 同一 id 仍留在普通表里当「大货」，贵重品这边是另一条独立槽位。
-            "large_purple_injector", "glock_receiver", "heavy_handmade_pistol",
-            "surgery_tool", "module_extractor",
-            // 0.3.66 起：正品海明威香烟、酵母生物反应器（酿酒线的高价件）。
-            "packet_red_cigarette", "wine_yeast_infinite"
-        };
-
-        /// <summary>正品免疫宁：贵重品槽位固定给这一件，次品走 InjectorBadId。</summary>
-        internal const string InjectorId = "large_purple_injector";
-
-        /// <summary>普通表里的免疫宁次品（过期 / 仿品 / 不能用），生成时再掷具体状态。</summary>
-        internal const string InjectorBadId = "large_purple_injector_bad";
-
-        /// <summary>正品海明威香烟（贵重品槽位）。</summary>
-        internal const string CigaretteId = "packet_red_cigarette";
-
-        /// <summary>普通表里的假海明威香烟。</summary>
-        internal const string CigaretteFakeId = "packet_red_cigarette_fake";
-
-        /// <summary>普通表里的仿品食品券。</summary>
-        internal const string StampFakeId = "food_stamp_fake";
-
-        /// <summary>小瓶酒精：不是目录 id，要调 PreBuildChemHelper 现做。</summary>
-        internal const string MiniAlcoholId = "mini_alcohol_bottle";
-
-        /// <summary>贵重品池（按展示顺序）；告示牌用它拼「贵重品」分组。</summary>
-        internal static string[] HighValueIds { get { return HighValue; } }
-
-        internal static bool IsHighValue(string itemId)
-        {
-            return Array.IndexOf(HighValue, itemId) >= 0;
-        }
-
-        /// <summary>
-        /// Per-area valuable mix, in Region.All order (gate, scrap, refuse,
-        /// medical, weapons). 每个区都能掉到池里的全部四类，只是权重偏向本区主题。
-        /// </summary>
-        private static readonly int[][] HighWeights =
-        {
-            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1 }, // Main Gate
-            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 1, 1, 1, 1, 3, 1, 2 }, // Scrap Pile
-            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 3, 1 }, // Refuse Lane
-            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 4, 1, 1, 4, 1, 1, 1 }, // Medical Waste
-            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1, 3, 3, 1, 1, 1, 1 }  // Weapon Dump
-        };
-
-        /// <summary>
-        /// Same figures as the balance document (GameItem.unitValue, boxes folded
-        /// into their contents, random modules counted at 70).
-        /// </summary>
-        private static readonly Dictionary<string, float> UnitValues =
-            new Dictionary<string, float>
-            {
-                { "junk", 3f },
-                { "glass_shard", 2f },
-                { "system_module_ruined", 30f },
-                { "pipe_weapon", 15f },
-                { "empty_beer_bottle", 5f },
-                { "scratcher", 20f },
-                { "scrap_metal", 10f },
-                { "nuts_metal", 14f },
-                { "flux_agent", 4f },
-                { "printer_plastic", 12f },
-                { "wire", 16f },
-                { "gun_part", 25f },
-                { "common_electronic", 33f },
-                { "kotton_fabric", 65f },
-                { "random_performance_module", 70f },
-                { "random_efficiency_module", 70f },
-                { "random_quality_module", 70f },
-                { "system_module_performance", 70f },
-                { "system_module_eco", 100f },
-                { "system_module_fineness", 100f },
-                { "screwdriver", 25f },
-                { "wire_cutter", 40f },
-                { "module_extractor", 100f },
-                { "welder", 80f },
-                { "turbo_booster", 35f },
-                { "crowbar", 75f },
-                { "caffeine_pill", 10f },
-                { "toothpaste", 15f },
-                { "water_filter", 25f },
-                { "shampoo", 30f },
-                { "paper_towel", 35f },
-                { "toilet_paper", 25f },
-                { "full_water_test_strip_box", 31f },
-                { "full_water_purification_tablet_box", 55f },
-                { "glass_shard_shiv", 8f },
-                { "box_cutter", 28f },
-                { "kitchen_knife", 45f },
-                { "galaxy_blend", 25f },
-                { "energy_drink", 18f },
-                { "soda_red", 15f },
-                { "cat_bar", 15f },
-                { "li_eat_snackbar", 17f },
-                { "red_beer", 18f },
-                { "processed_milk", 16f },
-                { "processed_juice", 14f },
-                { "processed_meat", 25f },
-                { "zerochew", 8f },
-                { "cup_noodle", 20f },
-                { "nudka", 85f },
-                { "beis_icecream", 40f },
-                { "bandage_item", 8f },
-                { "hemostatic_bandage_item", 16f },
-                { "topical_bandage_item", 16f },
-                { "blood_bag", 33f },
-                { "rubbing_alcohol", 35f },
-                { "salve", 80f },
-                { "surgery_tool", 200f },
-                { "birth_control_pill", 15f },
-                { "fanta_pill", 12f },
-                { "phagimycin_pill", 25f },
-                { "zyanide_pill", 33f },
-                { "smelling_salt", 15f },
-                { "dream_dust", 18f },
-                { "nightmare_dust", 36f },
-                { "common_medical", 40f },
-                { "metal_ingot", 50f },
-                { "system_module_corrupt", 45f },
-                { "blank_module", 60f },
-                { "combat_knife", 75f },
-                { "kitchen_cleaver", 65f },
-                { "stun_baton", 165f },
-                { "hatchet", 55f },
-                { "skinning_knife", 100f },
-                { "combat_machete", 185f },
-                { "printed_gun", 40f },
-                { "handmade_pistol", 120f },
-                { "heavy_handmade_pistol", 160f },
-                { "glock_receiver", 200f },
-                { "revolver", 240f },
-                { "stun_gun", 250f },
-                { "smg", 280f },
-                { "shotgun", 310f },
-                { "small_pistol_ammo", 20f },
-                { "small_pistol_ammo_p", 26f },
-                { "small_pistol_ammo_nl", 14f },
-                { "heavy_pistol_ammo", 30f },
-                { "heavy_pistol_ammo_p", 36f },
-                { "heavy_pistol_ammo_nl", 24f },
-                { "lou_etched_round", 30f },
-                { "rds", 60f },
-                { "rds_makeshift", 25f },
-                { "silencer", 55f },
-                { "silencer2", 90f },
-                { "silencer_makeshift", 15f },
-                { "barrel", 60f },
-                { "compensator", 50f },
-                { "mag_10mm", 30f },
-                { "mag_10mm_high", 40f },
-                { "mag_10mm_ext", 50f },
-                { "mag_22", 15f },
-                { "mag_22_high", 25f },
-                { "mag_22_ext", 35f },
-                { "mag_10mm_smg", 55f },
-                { "mag_10mm_smg_high", 70f },
-                { "mag_10mm_smg_box", 85f },
-                { "laser", 50f },
-                { "laser2", 100f },
-                { "laser_toy", 18f },
-                { "bipod", 40f },
-                { "gl", 150f },
-                { "grip", 40f },
-                { "stock", 40f },
-                { "short_stock", 35f },
-                { "internal_springs", 40f },
-                { "internal_springs_improved", 20f },
-                { "trigger_group", 50f },
-                { "match_barrel", 75f },
-                { "pistol_switch", 40f },
-                { "ammo_display", 70f },
-                { "grip_gel", 70f },
-                { "blue_blood_bag", 250f },
-                { "water_filter_adv", 350f },
-                { "portable_water_purifier", 325f },
-                { "bottled_water_premium", 325f },
-                { "black_injector", 350f },
-                { "rare_electronic", 350f },
-                { "module_extractor_advanced", 350f },
-                // 贵重品池新增：芯片、贵重枪械、贵重近战、枪匠高价材料与工具。
-                { "printer_chip_pistol_double", 400f },
-                { "printer_chip_heavy_handmade_pistol_frame", 450f },
-                { "printer_chip_combat_machete", 480f },
-                { "printer_chip_gun_part", 300f },
-                { "printer_chip_10_mag_ext", 400f },
-                { "advanced_flux_agent", 300f },
-                // 0.3.65：正品免疫宁 160；次品掷过期 80 / 仿品 40 / 不能用 16，按 40/35/25 取均值。
-                { "large_purple_injector", 160f },
-                { "large_purple_injector_bad", 50f },
-                // 0.3.66：烟、酒瓶与酿酒原料；小瓶酒精按瓶 + 酒精液体估 25。
-                { "packet_red_cigarette", 80f },
-                { "packet_red_cigarette_fake", 40f },
-                { "food_stamp_fake", 3f },
-                { "mini_alcohol_bottle", 25f },
-                { "wine_bottle", 12f },
-                { "wine_berry", 14f },
-                { "wine_yeast", 10f },
-                { "wine_yeast_red", 8f },
-                { "wine_superyeast", 20f },
-                { "wine_yeast_infinite", 250f },
-                // 80 档补给箱按满箱内容估的均价，只用于界面的期望价值。
-                { "loot_crate_engineering", 450f },
-                { "loot_crate_service", 350f },
-                { "loot_crate_medical", 500f },
-                { "loot_crate_security", 600f },
-                { "eng_keycard", 60f },
-                { "ser_keycard", 60f },
-                { "med_keycard", 60f },
-                { "sec_keycard", 60f }
-            };
 
     }
 }

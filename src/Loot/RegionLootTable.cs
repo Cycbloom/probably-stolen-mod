@@ -35,6 +35,19 @@ namespace DumpingGroundMap
         internal RegionLootTable(string[] items, int[] weights,
             string[] categoryZh, string[] categoryEn, int[] itemCategory)
         {
+            if (items == null || weights == null || items.Length == 0 || items.Length != weights.Length)
+                throw new ArgumentException("Loot items and weights must have matching non-empty lengths.");
+            if (categoryZh != null && (categoryEn == null || categoryZh.Length != categoryEn.Length
+                || itemCategory == null || itemCategory.Length != items.Length))
+                throw new ArgumentException("Loot category metadata must cover every item.");
+            HashSet<string> unique = new HashSet<string>();
+            for (int i = 0; i < items.Length; ++i)
+            {
+                if (string.IsNullOrEmpty(items[i]) || !unique.Add(items[i]) || weights[i] <= 0)
+                    throw new ArgumentException("Invalid or duplicate loot item: " + items[i]);
+                if (categoryZh != null && (itemCategory[i] < 0 || itemCategory[i] >= categoryZh.Length))
+                    throw new ArgumentException("Invalid category for " + items[i]);
+            }
             Items = items;
             Weights = weights;
             this.categoryZh = categoryZh;

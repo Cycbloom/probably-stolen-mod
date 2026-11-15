@@ -59,29 +59,14 @@ namespace DumpingGroundMap
 
         private static bool loaded;
         private static bool tripHit;
-        private static bool hooked;
 
-        internal static void Hook()
+        internal static void ResetSession()
         {
-            if (hooked) return;
-            try
-            {
-                ModHook.OnGameLoadedLate += Reload;
-                ModHook.OnNewGameStarted += NewGame;
-                hooked = true;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError("[DumpingGroundMap] could not hook stash find: " + ex);
-            }
-        }
-
-        internal static void Unhook()
-        {
-            if (!hooked) return;
-            ModHook.OnGameLoadedLate -= Reload;
-            ModHook.OnNewGameStarted -= NewGame;
-            hooked = false;
+            chance = StartChance;
+            phase = 0;
+            hitDay = newsDay = newsFired = -1;
+            hitRegion = "";
+            loaded = tripHit = false;
         }
 
         /// <summary>进入某个区域时调用：一趟最多中一次，换区/重新进图都重置。</summary>
@@ -104,7 +89,7 @@ namespace DumpingGroundMap
         private static float EffectiveCap()
         {
             float cap = Tuning.StashCap;
-            if (Reputation.Points < Reputation.Perk60Threshold)
+            if (Reputation.Points < PerkCatalog.Perk60Threshold)
                 cap = Mathf.Min(cap, HardCapLowRep);
             return cap;
         }
@@ -347,15 +332,12 @@ namespace DumpingGroundMap
         {
             try
             {
-                string realId = LootVariants.RealId(id);
-                GameItem item = LootVariants.Create(id);
+                GameItem item = LootFactory.Create(id);
                 if (item == null)
                 {
                     Debug.LogWarning("[DumpingGroundMap] stash: spawn failed " + id);
                     return false;
                 }
-                LootVariants.Apply(id, item);
-                WeaponWear.Apply(realId, item);
                 items.Add(item);
                 return true;
             }
@@ -412,7 +394,7 @@ namespace DumpingGroundMap
             Debug.Log("[DumpingGroundMap] stash: minor region=" + region.Id
                 + " day=" + today + " box=" + box.ItemId + " items=" + spawned + "/" + count
                 + " value=" + crateValue + " target=" + Tuning.MinorValue.ToString("F0")
-                + " tier=" + (Reputation.Points < Reputation.Perk60Threshold ? "1/10" : "full")
+                + " tier=" + (Reputation.Points < PerkCatalog.Perk60Threshold ? "1/10" : "full")
                 + " roll=" + roll.ToString("F3") + " chance=" + percent.ToString("F2"));
         }
 
@@ -699,7 +681,7 @@ namespace DumpingGroundMap
         }
 
         /// <summary>OnGameLoadedLate 是无参委托（与声望那套一致）。</summary>
-        private static void Reload()
+        internal static void Reload()
         {
             Reload(CurrentStoreName());
         }
@@ -728,7 +710,7 @@ namespace DumpingGroundMap
             }
         }
 
-        private static void NewGame(string saveName)
+        internal static void NewGame(string saveName)
         {
             chance = StartChance;
             phase = 0;

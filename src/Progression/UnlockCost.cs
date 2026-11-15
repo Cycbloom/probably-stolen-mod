@@ -18,9 +18,9 @@ namespace DumpingGroundMap
         private static readonly Dictionary<string, int> table =
             new Dictionary<string, int>
             {
-                { "scrap", 40 },
-                { "med", 40 },
-                { "weapons", 40 }
+                { "scrap", PerkCatalog.Perk40Threshold },
+                { "med", PerkCatalog.Perk40Threshold },
+                { "weapons", PerkCatalog.Perk40Threshold }
             };
 
         internal static int For(string regionId)

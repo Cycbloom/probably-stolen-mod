@@ -19,9 +19,13 @@ namespace DumpingGroundMap
     {
         private static DeferredSave pending;
         private string reason;
+        private RunIdentity identity;
 
         internal static void Run(string why)
         {
+            if (!Core.Enabled || !PlayerStore.HasInstance || EmporiumEntry.Instance == null) return;
+            PlayerStore owner = PlayerStore.Instance;
+            if (pending != null && !pending.identity.Matches(owner, owner.runID, owner.saveSlotId)) Cancel();
             if (pending != null)
             {
                 if (string.IsNullOrEmpty(pending.reason)) pending.reason = why;
@@ -31,6 +35,17 @@ namespace DumpingGroundMap
             UnityEngine.Object.DontDestroyOnLoad(go);
             pending = go.AddComponent<DeferredSave>();
             pending.reason = why;
+            pending.identity = new RunIdentity(owner, owner.runID, owner.saveSlotId);
+        }
+
+        internal static void Cancel()
+        {
+            DeferredSave save = pending;
+            pending = null;
+            if (save == null) return;
+            save.reason = null;
+            save.enabled = false;
+            UnityEngine.Object.Destroy(save.gameObject);
         }
 
         private void LateUpdate()
@@ -41,7 +56,10 @@ namespace DumpingGroundMap
             pending = null;
             try
             {
-                Reputation.SaveNow(why);
+                PlayerStore owner = PlayerStore.HasInstance ? PlayerStore.Instance : null;
+                if (Core.Enabled && owner != null && EmporiumEntry.Instance != null
+                    && identity.Matches(owner, owner.runID, owner.saveSlotId))
+                    Reputation.SaveNow(why);
             }
             finally
             {

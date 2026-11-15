@@ -140,9 +140,23 @@ namespace DumpingGroundMap
 
         private static bool NamePrefix(string id, ref string __result)
         {
-            if (id != FactionId) return true;
+            if (!Core.Enabled || id != FactionId) return true;
             __result = Copy.Text("拾荒客", "Scavenger");
             return false;
+        }
+
+        internal static void Shutdown()
+        {
+            if (patchTried)
+            {
+                MethodInfo target = AccessTools.Method(typeof(StoreReputation), "GetFactionNameByID",
+                    new Type[] { typeof(string) });
+                MethodInfo prefix = AccessTools.Method(typeof(ReputationPopBridge), "NamePrefix");
+                if (target != null && prefix != null)
+                    new Harmony(Core.Id + ".reputation_pop").Unpatch(target, prefix);
+            }
+            record = null;
+            resolved = patchTried = missingLogged = disabledLogged = false;
         }
     }
 }

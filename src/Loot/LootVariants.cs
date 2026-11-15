@@ -18,17 +18,17 @@ namespace DumpingGroundMap
     {
         internal static string RealId(string itemId)
         {
-            if (itemId == Tuning.InjectorBadId) return Tuning.InjectorId;
-            if (itemId == Tuning.CigaretteFakeId) return Tuning.CigaretteId;
-            if (itemId == Tuning.StampFakeId) return "food_stamp";
-            if (itemId == Tuning.MiniAlcoholId) return "mini_bottle";
+            if (itemId == LootCatalog.InjectorBadId) return LootCatalog.InjectorId;
+            if (itemId == LootCatalog.CigaretteFakeId) return LootCatalog.CigaretteId;
+            if (itemId == LootCatalog.StampFakeId) return "food_stamp";
+            if (itemId == LootCatalog.MiniAlcoholId) return "mini_bottle";
             return itemId;
         }
 
         /// <summary>小瓶酒精要现灌液体，不能走目录 id；其余直接生成。</summary>
         internal static GameItem Create(string itemId)
         {
-            if (itemId == Tuning.MiniAlcoholId)
+            if (itemId == LootCatalog.MiniAlcoholId)
                 return PreBuildChemHelper.CreateMiniAlcoholBottle();
             return ItemSpawner.Spawn(RealId(itemId));
         }
@@ -36,11 +36,11 @@ namespace DumpingGroundMap
         internal static void Apply(string itemId, GameItem item)
         {
             if (item == null) return;
-            if (itemId == Tuning.InjectorBadId) { InjectorQuality.ApplyBad(item); return; }
-            if (itemId == Tuning.InjectorId) { InjectorQuality.ApplyGenuine(item); return; }
-            if (itemId == Tuning.CigaretteId) { Cigarette(item, 80L, true); return; }
-            if (itemId == Tuning.CigaretteFakeId) { Cigarette(item, 40L, false); return; }
-            if (itemId == Tuning.StampFakeId) { FakeStamp(item); return; }
+            if (itemId == LootCatalog.InjectorBadId) { InjectorQuality.ApplyBad(item); return; }
+            if (itemId == LootCatalog.InjectorId) { InjectorQuality.ApplyGenuine(item); return; }
+            if (itemId == LootCatalog.CigaretteId) { Cigarette(item, 80L, true); return; }
+            if (itemId == LootCatalog.CigaretteFakeId) { Cigarette(item, 40L, false); return; }
+            if (itemId == LootCatalog.StampFakeId) { FakeStamp(item); return; }
         }
 
         /// <summary>

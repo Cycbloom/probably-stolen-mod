@@ -24,7 +24,8 @@ namespace DumpingGroundMap
         private static EmporiumEntry appliedOwner;
         private static bool applied;
         private static bool visible;
-        private static bool scavenging;
+        private static int scavengeDepth;
+        internal static bool SearchActive { get { return scavengeDepth > 0; } }
         private static bool overflowNoticed;
 
         internal static void Apply(EmporiumEntry entry)
@@ -264,13 +265,18 @@ namespace DumpingGroundMap
 
         internal static void BeginScavenge()
         {
-            scavenging = true;
-            overflowNoticed = false;
+            if (scavengeDepth++ == 0) overflowNoticed = false;
         }
 
         internal static void EndScavenge()
         {
-            scavenging = false;
+            scavengeDepth = System.Math.Max(0, scavengeDepth - 1);
+        }
+
+        internal static void ResetSearch()
+        {
+            scavengeDepth = 0;
+            overflowNoticed = false;
         }
 
         /// <summary>地面窗口当前是否显示（ShowAfterhourInv / HideAfterhourInv 维护）。</summary>
@@ -287,6 +293,8 @@ namespace DumpingGroundMap
         /// <summary>SetupAfterhourInv 每次都会重建一块新的地面，接管状态要跟着重置。</summary>
         internal static void ResetForSetup()
         {
+            scavengeDepth = 0;
+            overflowNoticed = false;
             applied = false;
             appliedOwner = null;
             visible = false;
@@ -298,14 +306,14 @@ namespace DumpingGroundMap
         /// </summary>
         internal static void OnRejected(GraphNodeStorage storage)
         {
-            if (!Core.Enabled || !scavenging || overflowNoticed) return;
+            if (!Core.Enabled || scavengeDepth == 0 || overflowNoticed) return;
             EmporiumEntry entry = EmporiumEntry.Instance;
             if (entry == null || !ReferenceEquals(storage, entry.afterhourInventory)) return;
             overflowNoticed = true;
             string text = Copy.Text(
                 "地面放满了，这次有战利品没能放进来，已经被丢掉。",
                 "The ground is full, so some loot could not be placed and was dropped.");
-            if (Reputation.Points >= Reputation.Perk40Threshold)
+            if (Reputation.Points >= PerkCatalog.Perk40Threshold)
             {
                 text += Copy.Text(
                     " 离开时可以花钱请拾荒者帮手（离场确认框里多一个按钮），他们会把地上剩下的东西按价值从高到低搬进店里；店里也装不下的仍然会被丢掉。",

@@ -16,14 +16,11 @@ namespace DumpingGroundMap
     [HarmonyPatch(typeof(ScavHelper), "SpawnDumpingGroundLoot")]
     internal static class DumpingGroundLootPatch
     {
-        private static readonly MethodInfo fireLootRolled =
-            AccessTools.Method(typeof(ModHook), "FireOnLootRolled");
-
         private static bool Prefix(ref GameItem __result)
         {
             if (!Core.Enabled) return true;
             Region region = Picker.ChosenRegion;
-            if (region == null) return true;
+            if (region == null || !Picker.IsAtDump(MapUIManager.Instance)) return true;
 
             float junkChance = 0f;
             AfterhourLocation location = AfterhourLocation.Get("dumping_ground");
@@ -33,22 +30,10 @@ namespace DumpingGroundMap
             string itemId = Tuning.Pick(region, scale);
             if (string.IsNullOrEmpty(itemId)) return true;
 
-            // 表里的虚拟 id（次品免疫宁 / 假烟 / 仿券 / 小瓶酒精）在这里换成真物品并补状态。
-            string realId = LootVariants.RealId(itemId);
-            GameItem item = LootVariants.Create(itemId);
-            if (item == null) return true;
-            LootVariants.Apply(itemId, item);
-            WeaponWear.Apply(realId, item);
-
-            LootRollContext context = new LootRollContext();
-            context.groupId = "dumpingGroundTG";
-            context.tableId = ScavLoot.SourceTable(realId);
-            context.itemId = realId;
-            if (fireLootRolled != null)
-                fireLootRolled.Invoke(null, new object[] { context });
-
-            __result = item;
-            StashFind.NoticeSpecialFind(itemId);
+            // Match vanilla: subscribers can replace/cancel the ID before spawning.
+            string resolved = NativeLootEvents.Resolve(itemId);
+            __result = LootFactory.Create(resolved);
+            if (__result != null) StashFind.NoticeSpecialFind(resolved);
             return false;
         }
     }

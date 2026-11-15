@@ -143,7 +143,7 @@ namespace DumpingGroundMap
             if (frameFieldMissing || frameField == null) return;
             // 只认我们加的那位：来源标记由 ScavengerPerkPatch 在创建时写入。
             if (storeClient.sourceModId != Core.Id) return;
-            if (Reputation.Points < Reputation.Perk20Threshold) return;
+            if (Reputation.Points < PerkCatalog.Perk20Threshold) return;
 
             try
             {

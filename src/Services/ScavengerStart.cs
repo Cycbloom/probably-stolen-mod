@@ -23,8 +23,7 @@ namespace DumpingGroundMap
     ///
     /// 初始声望按 20 点基准、乘游戏的难度倍率（Difficulty.Rules.
     /// reputationGainMultiplier）后写入；不放在 onStart：HandleInitialItem 末尾
-    /// 会触发 ModHook.OnNewGameStarted，Reputation 在那里把声望归零；本类在
-    /// Reputation.Hook() 之后订阅同一个事件，因此排在归零之后写入。
+    /// 会触发 ModHook.OnNewGameStarted，Reputation 在那里把声望归零；由 ModLifecycle 在归零之后显式调用本类写入。
     /// </summary>
     internal static class ScavengerStart
     {
@@ -78,7 +77,6 @@ namespace DumpingGroundMap
             try
             {
                 RegisterScenario();
-                ModHook.OnNewGameStarted += OnNewGameStarted;
                 hooked = true;
             }
             catch (Exception ex)
@@ -90,7 +88,6 @@ namespace DumpingGroundMap
         internal static void Unhook()
         {
             if (!hooked) return;
-            ModHook.OnNewGameStarted -= OnNewGameStarted;
             try
             {
                 StartingScenario.RemoveMod(Core.Id);
@@ -299,7 +296,7 @@ namespace DumpingGroundMap
         /// 与拾荒收益同一口径：乘游戏的 Difficulty.Rules.reputationGainMultiplier，
         /// 最高难度「赤字连连」是 10 点、最低难度「价格欺诈」是 30 点。
         /// </summary>
-        private static void OnNewGameStarted(string scenarioId)
+        internal static void OnNewGameStarted(string scenarioId)
         {
             if (!string.Equals(scenarioId, ScenarioId, StringComparison.Ordinal)) return;
             try
