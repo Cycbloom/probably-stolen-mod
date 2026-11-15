@@ -43,8 +43,8 @@ namespace DumpingGroundMap
         /// <summary>每趟拾荒额外次数。</summary>
         internal const int ExtraScavAttempts = 2;
 
-        /// <summary>初始家当从 600 起始资金里扣掉的额度，扣完剩 200。</summary>
-        private const int StartCashCost = 400;
+        /// <summary>初始家当从 600 起始资金里扣掉的额度，扣完剩 400。</summary>
+        private const int StartCashCost = 200;
 
         /// <summary>工具箱解锁的格子数，正好放三件工具。</summary>
         private const int ToolboxSlots = 3;
