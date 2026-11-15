@@ -247,15 +247,16 @@ namespace DumpingGroundMap
             }
         }
 
-        /// <summary>大奖提示：语气是「翻出一整间储藏室」，两行靠 \n 分隔。</summary>
+        /// <summary>大奖提示：每区一句「翻到了什么」，地点仍从该区措辞池里随机取。</summary>
         private static void NotifyFind(string regionId)
         {
+            StashTemplate template = StashTemplate.For(regionId);
+            if (template == null) return;
+
             PlaceTalk talk = PlaceTalk.For(regionId);
             int pick = talk.Roll();
-            ShowNotice(Copy.Text(
-                "你在" + talk.Zh[pick] + "翻出了一整间储藏室。\n今天在这个地方，每次搜索都可能多一件东西。",
-                "You uncovered a whole storeroom " + talk.En[pick]
-                    + ".\nEvery search here today may turn up something extra."), "jackpot");
+            string place = Copy.Text(talk.Zh[pick], talk.En[pick]);
+            ShowNotice(string.Format(template.Notice, place), "jackpot");
         }
 
         /// <summary>
@@ -612,10 +613,17 @@ namespace DumpingGroundMap
             ev.IsKnown = true;
             // 与原版「储藏室被挖出」同一档；报纸布局有限时按重要性降序取前几条。
             ev.importance = 3;
-            if (template.ItemType != null && template.PricePercent != 0)
+            if (template.ItemTypes != null)
             {
-                ev.negociationDatas.Add(new NegociationData(template.ItemType,
-                    template.PricePercent, template.NewsName, template.DisplayName));
+                for (int i = 0; i < template.ItemTypes.Length; ++i)
+                {
+                    string type = template.ItemTypes[i];
+                    int percent = template.PricePercents != null && i < template.PricePercents.Length
+                        ? template.PricePercents[i] : 0;
+                    if (string.IsNullOrEmpty(type) || percent == 0) continue;
+                    ev.negociationDatas.Add(new NegociationData(type, percent,
+                        template.NewsName, template.DisplayName));
+                }
             }
             return ev;
         }
@@ -700,16 +708,18 @@ namespace DumpingGroundMap
     }
 
     /// <summary>
-    /// 爆大奖的区域样板：奖励物品池、报纸文案、以及「要不要真挂价格效果」。
-    /// 目前只落地「生活废料带 → 日用品」；以后加医疗品等只需再补一条，
-    /// 没有对应市场品类的区域把 ItemType 留 null、只在正文里提一句。
+    /// 爆大奖的区域样板：奖励物品池、当场提示、报纸文案，以及中奖次日的价格修正。
+    /// 五个区各一条；价格修正按品类挂，可以挂多条（生活废料带同时挂食品与日用品）。
+    /// 没有对应市场品类的区域（医疗废弃点）把品类数组留空，只写报纸、不真降价。
     /// </summary>
     internal sealed class StashTemplate
     {
         internal readonly string RegionId;
         internal readonly string[] RewardIds;
-        internal readonly string ItemType;
-        internal readonly int PricePercent;
+        internal readonly string[] ItemTypes;
+        internal readonly int[] PricePercents;
+        private readonly string noticeZh;
+        private readonly string noticeEn;
         private readonly string newsNameZh;
         private readonly string newsNameEn;
         private readonly string newsDescZh;
@@ -717,14 +727,18 @@ namespace DumpingGroundMap
         private readonly string displayZh;
         private readonly string displayEn;
 
-        private StashTemplate(string regionId, string[] rewardIds, string itemType, int pricePercent,
+        private StashTemplate(string regionId, string[] rewardIds,
+            string[] itemTypes, int[] pricePercents,
+            string noticeZh, string noticeEn,
             string newsNameZh, string newsNameEn, string newsDescZh, string newsDescEn,
             string displayZh, string displayEn)
         {
             RegionId = regionId;
             RewardIds = rewardIds;
-            ItemType = itemType;
-            PricePercent = pricePercent;
+            ItemTypes = itemTypes;
+            PricePercents = pricePercents;
+            this.noticeZh = noticeZh;
+            this.noticeEn = noticeEn;
             this.newsNameZh = newsNameZh;
             this.newsNameEn = newsNameEn;
             this.newsDescZh = newsDescZh;
@@ -733,26 +747,77 @@ namespace DumpingGroundMap
             this.displayEn = displayEn;
         }
 
+        internal string Notice { get { return Copy.Text(noticeZh, noticeEn); } }
         internal string NewsName { get { return Copy.Text(newsNameZh, newsNameEn); } }
         internal string NewsDescription { get { return Copy.Text(newsDescZh, newsDescEn); } }
         internal string DisplayName { get { return Copy.Text(displayZh, displayEn); } }
 
-        // 日用品清单与 Tuning 的生活废料带主题表同源，随机/盒装不做区分。
-        private static readonly string[] HouseholdIds =
-        {
-            "caffeine_pill", "toothpaste", "water_filter", "shampoo",
-            "paper_towel", "toilet_paper",
-            "full_water_test_strip_box", "full_water_purification_tablet_box"
-        };
-
         private static readonly StashTemplate[] All =
         {
-            new StashTemplate("refuse", HouseholdIds, "HOUSEHOLD_GOOD", -20,
-                "垃圾场里翻出的储藏",
-                "A Storeroom Found in the Dump",
-                "某位店主昨晚在垃圾场里翻出了一整间储藏室，日用品装了好几箱。大量商品涌入市场，很可能导致今日价格下跌。",
-                "A shopkeeper dug a whole storeroom out of the dump last night, household goods by the crate. A high volume of goods making its way to market will likely lower prices today.",
-                "储藏室出货", "Storeroom Surplus")
+            // 入口空地：工具盈余。奖池取本区工具类（全部带 TOOL 类型）。
+            new StashTemplate("gate",
+                new[] { "screwdriver", "wire_cutter", "welder", "module_extractor",
+                        "crowbar", "box_cutter", "hatchet" },
+                new[] { "TOOL" }, new[] { -20 },
+                "你在{0}撬开一只塞满工具的铁皮柜。\n今天在这个地方，每次搜索都可能多一件东西。",
+                "You pried open a tin chest packed with tools {0}.\nEvery search here today may turn up something extra.",
+                "门口空地挖出的工具箱",
+                "A Tool Chest Dug Up at the Main Gate",
+                "有人昨夜在入口空地的垃圾堆里拖出一只整箱工具，扳手、钳子、焊枪一应俱全。五金铺老板今早脸色不太好——今天工具多半要便宜。",
+                "Someone dragged a whole chest of tools out of the trash by the main gate last night — wrenches, pliers, a welding torch, the lot. The hardware dealer was looking sour this morning; tools are likely to go cheap today.",
+                "工具倾销", "Tool Surplus"),
+
+            // 拆解堆：材料盈余。奖池取本区材料类（全部带 MATERIAL 类型）。
+            new StashTemplate("scrap",
+                new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire",
+                        "gun_part", "common_electronic", "metal_ingot", "flux_agent" },
+                new[] { "MATERIAL" }, new[] { -20 },
+                "你在{0}刨出一整垛还没回炉的料。\n今天在这个地方，每次搜索都可能多一件东西。",
+                "You dug out a whole stack of unprocessed stock {0}.\nEvery search here today may turn up something extra.",
+                "拆解堆出了整垛料",
+                "A Whole Stack of Stock From the Scrap Pile",
+                "拆解堆昨夜出了怪事：有人从塌掉的夹层里拖出整垛还没回炉的金属和塑料。消息传开，收料的开价一个比一个低，今天材料怕是要贱卖。",
+                "Something odd happened at the scrap pile last night: someone hauled a whole stack of unmelted metal and plastic out of a collapsed cavity. Word got around, and the buyers are already undercutting each other — materials will probably sell cheap today.",
+                "材料过剩", "Material Glut"),
+
+            // 生活废料带：食品 + 日用品两类一起覆盖，价格修正挂两条。
+            new StashTemplate("refuse",
+                new[] { "zerochew", "processed_juice", "cat_bar", "processed_meat",
+                        "toothpaste", "toilet_paper", "shampoo", "water_filter" },
+                new[] { "FOOD", "HOUSEHOLD_GOOD" }, new[] { -20, -20 },
+                "你在{0}翻出了一整车没拆封的食品和日用品。\n今天在这个地方，每次搜索都可能多一件东西。",
+                "You uncovered a whole cart of sealed food and household goods {0}.\nEvery search here today may turn up something extra.",
+                "废料带里翻出的年货",
+                "A Holiday Haul in the Refuse Lane",
+                "有拾荒客说，昨晚在生活废料带里翻出了一整车没拆封的食品和日用品。货一到早市，摊主们就抢着压价，今天这两类东西恐怕都不值钱了。",
+                "A scavenger claims to have hauled a whole cart of sealed food and household goods out of the refuse lane last night. By the time it reached the morning market, stallholders were already undercutting each other — both are likely to go cheap today.",
+                "食品日用品涌入", "Food and Household Surplus"),
+
+            // 医疗废弃点：只写报纸，不挂价格修正（原版没有医疗降价先例）。
+            new StashTemplate("med",
+                new[] { "bandage_item", "hemostatic_bandage_item", "topical_bandage_item",
+                        "blood_bag", "rubbing_alcohol", "salve", "phagimycin_pill", "common_medical" },
+                null, null,
+                "你在{0}找到一批还没过期的医疗物资。\n今天在这个地方，每次搜索都可能多一件东西。",
+                "You found a batch of still-unexpired medical supplies {0}.\nEvery search here today may turn up something extra.",
+                "医疗废弃点翻出成箱药品",
+                "Crates of Medicine From the Medical Dump",
+                "医疗废弃点那边传来消息，有人在一间封死的处置室里翻出成箱的绷带和药。虽然还没见谁真拿出来卖，街面上已经在传这批货的来路。",
+                "Word from the medical dump: someone pried open a sealed treatment room and found crates of bandages and pills. Nobody has seen the goods on a stall yet, but the street is already trading guesses about where they came from.",
+                "医疗物资流出", "Medical Supplies Surface"),
+
+            // 废武器堆：弹药 + 枪械 + 枪械配件三类，奖池也按这三类取。
+            new StashTemplate("weapons",
+                new[] { "small_pistol_ammo", "heavy_pistol_ammo", "small_pistol_ammo_nl",
+                        "mag_22", "silencer", "printed_gun", "handmade_pistol", "revolver" },
+                new[] { "AMMUNITION", "FIREARM", "GUN_MOD" }, new[] { -20, -20, -20 },
+                "你在{0}翻出一整箱弹药和几支还能打响的枪。\n今天在这个地方，每次搜索都可能多一件东西。",
+                "You turned up a full crate of ammunition and a few guns that still fire {0}.\nEvery search here today may turn up something extra.",
+                "废武器堆的军械箱",
+                "An Arms Crate in the Weapon Dump",
+                "有人昨夜在废武器堆撬开一只军械箱，抱走成把的子弹和两三支还能打响的枪，连枪上的配件都拆下来带走了。枪铺今天大概要被迫让价。",
+                "Someone cracked open an arms crate in the weapon dump last night and walked off with fistfuls of rounds, two or three working guns, and the mods stripped off them. The gun shop will likely be forced to cut prices today.",
+                "军械流入市场", "Arms Flood the Market")
         };
 
         internal static StashTemplate For(string regionId)

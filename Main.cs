@@ -1217,7 +1217,8 @@ namespace DumpingGroundMap
             if (crateId != null) probabilities.TryGetValue(crateId, out crate);
             if (cardId != null) probabilities.TryGetValue(cardId, out card);
 
-            // 该区没有对应样板时，这几率实际是 0，所以整行隐藏而不是显示 0。
+            // 0.3.67 起五区都有大奖样板，这一行只在声望不到 60 时隐藏；
+            // 留着 HasJackpot 判断，是为了以后加没有样板的区域时仍然不显示 0。
             bool showJackpot = tier60 && StashFind.HasJackpot(region.Id);
             bool showMinor = tier60 && StashFind.HasMinor(region.Id);
             bool showCrate = tier80 && crate > 0f;
