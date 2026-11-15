@@ -963,8 +963,8 @@ namespace DumpingGroundMap
             "revolver", "stun_gun", "smg", "shotgun",
             // 贵重刀具 / 近战
             "combat_machete", "stun_baton",
-            // 枪匠需要的高价材料与工具
-            "advanced_flux_agent", "xray_scanner",
+            // 枪匠需要的高价材料与工具（X 光扫描仪只注册、游戏内无任何获取途径，0.3.72 移除）
+            "advanced_flux_agent",
             // 0.3.65 起：正品免疫宁（160）与几件 100–200 的「普货」。
             // 同一 id 仍留在普通表里当「大货」，贵重品这边是另一条独立槽位。
             "large_purple_injector", "glock_receiver", "heavy_handmade_pistol",
@@ -1005,11 +1005,11 @@ namespace DumpingGroundMap
         /// </summary>
         private static readonly int[][] HighWeights =
         {
-            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1 }, // Main Gate
-            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 2, 1, 1, 1, 1, 3, 1, 2 }, // Scrap Pile
-            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1, 3, 1 }, // Refuse Lane
-            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 1, 4, 1, 1, 4, 1, 1, 1 }, // Medical Waste
-            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1, 1, 3, 3, 1, 1, 1, 1 }  // Weapon Dump
+            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1 }, // Main Gate
+            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 1, 1, 1, 1, 3, 1, 2 }, // Scrap Pile
+            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 3, 1 }, // Refuse Lane
+            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 4, 1, 1, 4, 1, 1, 1 }, // Medical Waste
+            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1, 3, 3, 1, 1, 1, 1 }  // Weapon Dump
         };
 
         /// <summary>
@@ -1153,7 +1153,6 @@ namespace DumpingGroundMap
                 { "printer_chip_gun_part", 300f },
                 { "printer_chip_10_mag_ext", 400f },
                 { "advanced_flux_agent", 300f },
-                { "xray_scanner", 400f },
                 // 0.3.65：正品免疫宁 160；次品掷过期 80 / 仿品 40 / 不能用 16，按 40/35/25 取均值。
                 { "large_purple_injector", 160f },
                 { "large_purple_injector_bad", 50f },

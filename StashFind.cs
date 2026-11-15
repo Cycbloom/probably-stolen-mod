@@ -866,8 +866,8 @@ namespace DumpingGroundMap
                         "crowbar", "box_cutter", "hatchet")
                 },
                 new[] { "rare_electronic", "module_extractor_advanced", "printer_chip_gun_part",
-                        "advanced_flux_agent", "xray_scanner" },
-                new[] { 12, 12, 50, 50, 4 },
+                        "advanced_flux_agent" },
+                new[] { 12, 12, 50, 50 },
                 new[] { "TOOL" }, new[] { -20 },
                 "你在{0}撬开一只铁皮柜：上层工具码得整整齐齐，底层压着成捆的材料和几块值钱的芯片。\n今天在这个地方，每次搜索都可能多一件东西。",
                 "You pried open a tin chest {0}: tools stacked neatly on top, bundles of stock and a few pricey chips wedged underneath.\nEvery search here today may turn up something extra.",

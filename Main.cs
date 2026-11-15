@@ -568,7 +568,7 @@ namespace DumpingGroundMap
                 "water_filter_adv", "portable_water_purifier", "bottled_water_premium");
             AddAll(result, "dumpingGroundMedical", "blue_blood_bag", "black_injector");
             AddAll(result, "materialTable", "rare_electronic", "advanced_flux_agent");
-            AddAll(result, "toolTable", "module_extractor_advanced", "xray_scanner");
+            AddAll(result, "toolTable", "module_extractor_advanced");
             AddAll(result, "t2moduleTable",
                 "printer_chip_pistol_double", "printer_chip_heavy_handmade_pistol_frame",
                 "printer_chip_combat_machete", "printer_chip_gun_part", "printer_chip_10_mag_ext");
