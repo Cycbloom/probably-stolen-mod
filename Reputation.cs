@@ -32,6 +32,10 @@ namespace DumpingGroundMap
 
     /// <summary>
     /// 声望。每趟拾荒捡到的东西按当前金币价值累计，每 100 点价值记 1 点声望。
+    /// 难度会乘在「本次新增的累计价值」上：倍率直接读游戏的
+    /// Difficulty.Rules.reputationGainMultiplier（原生 Difficulty.Vanilla 里
+    /// cozy 1.5 / normal 1 / hard 0.75 / challenge 0.5），因此最高难度
+    /// 「赤字连连」是 200 价值 1 点、最低难度「价格欺诈」是约 66.7 价值 1 点。
     /// 按存档隔离：只写 PlayerStore.modData（ModHelper.Get/SetModDataInt），
     /// 随存档本体保存。key 是 rep_total_value，存累计价值，
     /// 不足 100 的余数不会丢。中途强退时当晚声望会丢，与当晚其它收益一致。
@@ -89,6 +93,7 @@ namespace DumpingGroundMap
         private static long totalValue;
         private static string loadedStore;
         private static bool hooked;
+        private static bool multiplierWarned;
 
         internal static int Points { get { return (int)(totalValue / ValuePerPoint); } }
 
@@ -161,23 +166,80 @@ namespace DumpingGroundMap
         /// <summary>未取整的声望点数（累计价值 / 100），用于两位小数显示。</summary>
         internal static float ExactPoints { get { return totalValue / (float)ValuePerPoint; } }
 
-        /// <summary>把一趟拾荒的总价值折成声望；不足 100 的部分留在 modData 里继续累计。</summary>
-        internal static void Add(long value)
+        /// <summary>
+        /// 难度倍率：直接读游戏自己的 Difficulty.Rules.reputationGainMultiplier。
+        /// 原生 Difficulty.Vanilla() 定义 cozy 1.5 / normal 1 / hard 0.75 / challenge 0.5，
+        /// 原生 StoreReputation.ModReputation 也是用它乘正声望增量；这里复用同一条来源，
+        /// 游戏以后调数值会自动跟着走。取不到（无存档 / mod 难度没配 rules / 非正数）时
+        /// 退化成 1，行为与不装本 mod 一致。
+        /// </summary>
+        internal static float ReadGainMultiplier(out string difficultyId)
         {
-            if (value <= 0L) return;
+            difficultyId = "?";
+            try
+            {
+                // Difficulty.Rules → Difficulty.Current → PlayerStore.Instance；
+                // 无存档时 get_Instance 会新建 PlayerStore 并在主菜单抛异常，先挡住。
+                if (!PlayerStore.HasInstance) return 1f;
+                Difficulty current = Difficulty.Current;
+                if (current != null) difficultyId = current.id;
+                DifficultyRules rules = Difficulty.Rules;
+                if (rules == null) return 1f;
+                float multiplier = rules.reputationGainMultiplier;
+                return multiplier > 0f ? multiplier : 1f;
+            }
+            catch (Exception ex)
+            {
+                if (!multiplierWarned)
+                {
+                    multiplierWarned = true;
+                    Debug.LogWarning("[DumpingGroundMap] difficulty multiplier unavailable: "
+                        + Describe(ex));
+                }
+                return 1f;
+            }
+        }
+
+        /// <summary>按难度倍率折算本次新增的累计价值；四舍五入到整数价值（远离零）。</summary>
+        private static long ScaleValue(long value, float multiplier)
+        {
+            if (multiplier == 1f) return value;
+            double scaled = value * (double)multiplier;
+            return scaled <= 0d ? 0L : (long)Math.Round(scaled, MidpointRounding.AwayFromZero);
+        }
+
+        /// <summary>
+        /// 把一趟拾荒的总价值折成声望；难度倍率乘在「本次新增的累计价值」上，
+        /// 已累计的旧值不追溯（不会因为换难度/读旧档而重算）。
+        /// 返回实际计入的累计价值（已乘倍率），供飘字与日志使用。
+        /// 不足 100 的部分留在 modData 里继续累计。
+        /// </summary>
+        internal static long Add(long value)
+        {
+            if (value <= 0L) return 0L;
             string store = StoreKey();
             if (store == null)
             {
                 Debug.LogWarning("[DumpingGroundMap] scavenge: reputation add skipped, no PlayerStore (value="
                     + value + ")");
-                return;
+                return 0L;
             }
             if (store != loadedStore)
             {
                 loadedStore = store;
                 totalValue = StoredValue();
             }
-            totalValue = WriteStored(totalValue + value);
+            string difficultyId;
+            float multiplier = ReadGainMultiplier(out difficultyId);
+            long scaled = ScaleValue(value, multiplier);
+            totalValue = WriteStored(totalValue + scaled);
+            if (multiplier != 1f)
+            {
+                Debug.Log("[DumpingGroundMap] reputation: difficulty=" + difficultyId
+                    + " multiplier=" + multiplier.ToString("0.###", CultureInfo.InvariantCulture)
+                    + " value=" + value + " -> " + scaled);
+            }
+            return scaled;
         }
 
         /// <summary>
@@ -478,10 +540,11 @@ namespace DumpingGroundMap
                     Debug.LogWarning("[DumpingGroundMap] scavenge: value failed: " + ex.Message);
                 }
             }
-            Reputation.Add(sum);
-            ReputationPopBridge.Show(sum);
+            long repValue = Reputation.Add(sum);
+            ReputationPopBridge.Show(repValue);
             Debug.Log("[DumpingGroundMap] scavenge: items=" + count + " value=" + sum
-                + " total=" + Reputation.TotalValue + " points=" + Reputation.Points);
+                + " repValue=" + repValue + " total=" + Reputation.TotalValue
+                + " points=" + Reputation.Points);
             if (count > 0 && sum <= 0L)
             {
                 Debug.LogWarning("[DumpingGroundMap] scavenge: items found but total value is 0");

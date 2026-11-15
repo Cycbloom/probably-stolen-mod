@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.78
+# 垃圾场拾荒地图 · 0.3.79
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -49,11 +49,22 @@
 
 **初始声望**
 
-20 点不写在 `onStart`：`HandleInitialItem` 末尾会触发 `ModHook.OnNewGameStarted`，`Reputation.NewGame` 在那里把声望归零。`ScavengerStart.Hook()` 在 `Reputation.Hook()` 之后订阅同一事件，因此按订阅顺序排在归零之后，调 `Reputation.SetPoints(20)` 写入 2000 累计价值，并清掉「今天已加过拾荒客客人」的缓存。普通难度与困难难度都是 20；要分难度只改 `ScavengerStart.StartReputation` 一处。
+20 点不写在 `onStart`：`HandleInitialItem` 末尾会触发 `ModHook.OnNewGameStarted`，`Reputation.NewGame` 在那里把声望归零。`ScavengerStart.Hook()` 在 `Reputation.Hook()` 之后订阅同一事件，因此按订阅顺序排在归零之后，用 `Reputation.SetPoints(20 × 难度倍率)` 写入对应累计价值，并清掉「今天已加过拾荒客客人」的缓存。四档下分别是 30 / 20 / 15 / 10（倍率见下面的「难度倍率」）；基准值只改 `ScavengerStart.StartReputation` 一处。
 
 ## 声望与解锁
 
 每趟拾荒结束后，把这一趟捡到的所有物品按当前金币价值（`GameItem.GetCurrentValue`）相加，**每 100 点价值记 1 点声望**。不足 100 的部分不丢，会留在存档里继续累计。
+
+**难度倍率（0.3.79）**：倍率不写死，直接读游戏自己的 `Difficulty.Rules.reputationGainMultiplier`（`Difficulty.Vanilla()` 里定义，原生 `StoreReputation.ModReputation` 也用它乘正声望增量）。倍率乘在**本次新增的累计价值**上，已累计的旧值不追溯，所以读旧档、换难度都不会把历史点数重算。
+
+| 难度 | 倍率 | 1 点声望需要 |
+|---|---:|---:|
+| 最低（Price Gouge，比普通宽松） | 1.5 | 约 66.7 价值 |
+| 普通（Mark Up） | 1.0 | 100 价值 |
+| 困难（Thin Margins） | 0.75 | 约 133.3 价值 |
+| 最高（Red Ink / 赤字连连） | 0.5 | 200 价值 |
+
+取值顺序是 `PlayerStore.HasInstance` → `Difficulty.Current` → `Difficulty.Rules`；没有存档、未知的 mod 难度或倍率非正数时退回 1.0。调试写点（`debug_points`）走 `SetPoints` 原路，不乘倍率。「拾荒客」开局的初始声望同样乘这个倍率：20 点在四档下分别是 30 / 20 / 15 / 10。
 
 声望必须按存档隔离，所以不写进 `ModConfig`，而是用游戏自带的 mod 数据接口写进存档本体的 `PlayerStore.modData`（`ModHelper.GetModDataInt / SetModDataInt(Core.Id, "rep_total_value", 0)`），随存档一起保存。`OnGameLoadedLate` 读取、`OnNewGameStarted` 归零；`ModConfig` 只存掉落与调试设置。
 

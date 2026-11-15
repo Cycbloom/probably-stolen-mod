@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using HarmonyLib;
 using UnityEngine;
 
@@ -20,9 +21,10 @@ namespace DumpingGroundMap
     /// - 夜间去垃圾场拾荒后，次日客人不减少：见 ScavengerCustomerPatch。
     /// 没选这个开局（startScenarioId 不是我们的 id）时两条补丁都不生效。
     ///
-    /// 初始声望 20 点不放在 onStart：HandleInitialItem 末尾会触发
-    /// ModHook.OnNewGameStarted，Reputation 在那里把声望归零；本类在
-    /// Reputation.Hook() 之后订阅同一个事件，因此排在归零之后写入 20 点。
+    /// 初始声望按 20 点基准、乘游戏的难度倍率（Difficulty.Rules.
+    /// reputationGainMultiplier）后写入；不放在 onStart：HandleInitialItem 末尾
+    /// 会触发 ModHook.OnNewGameStarted，Reputation 在那里把声望归零；本类在
+    /// Reputation.Hook() 之后订阅同一个事件，因此排在归零之后写入。
     /// </summary>
     internal static class ScavengerStart
     {
@@ -142,8 +144,8 @@ namespace DumpingGroundMap
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("初始拾荒客声望 " + StartReputation + " 点",
-                    "Start with " + StartReputation + " Scavenger reputation");
+                return Copy.Text("初始拾荒客声望 " + StartReputation + " 点（随难度倍率调整）",
+                    "Start with " + StartReputation + " Scavenger reputation (scaled by difficulty)");
             });
             scenario.startWithProviders.Add(delegate
             {
@@ -260,15 +262,26 @@ namespace DumpingGroundMap
             Debug.Log("[DumpingGroundMap] scavenger start: " + id + " into back room");
         }
 
-        /// <summary>新档把拾荒客声望写成 20 点（在 Reputation.NewGame 归零之后执行）。</summary>
+        /// <summary>
+        /// 新档把拾荒客声望写成 20 点（在 Reputation.NewGame 归零之后执行）。
+        /// 与拾荒收益同一口径：乘游戏的 Difficulty.Rules.reputationGainMultiplier，
+        /// 最高难度「赤字连连」是 10 点、最低难度「价格欺诈」是 30 点。
+        /// </summary>
         private static void OnNewGameStarted(string scenarioId)
         {
             if (!string.Equals(scenarioId, ScenarioId, StringComparison.Ordinal)) return;
             try
             {
-                Reputation.SetPoints(StartReputation);
+                string difficultyId;
+                float multiplier = Reputation.ReadGainMultiplier(out difficultyId);
+                float points = StartReputation * multiplier;
+                Reputation.SetPoints(points);
                 ScavengerPerkPatch.ResetCache();
-                Debug.Log("[DumpingGroundMap] scavenger start: reputation = " + StartReputation);
+                Debug.Log("[DumpingGroundMap] scavenger start: reputation = "
+                    + points.ToString("0.##", CultureInfo.InvariantCulture)
+                    + " (base " + StartReputation + " x "
+                    + multiplier.ToString("0.###", CultureInfo.InvariantCulture)
+                    + " difficulty=" + difficultyId + ")");
             }
             catch (Exception ex)
             {
