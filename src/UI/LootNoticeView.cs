@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Reflection;
-using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -12,12 +10,36 @@ namespace DumpingGroundMap
     internal static class LootNoticeView
     {
         private const string BoardWindowId = Core.Id + ":board";
+        private const float RowHeight = 28f;
         private static CustomUIWindow boardWindow;
+
+        /// <summary>名称可省略，概率始终占独立的一列；悬停可查看完整内容。</summary>
+        private sealed class BoardRow
+        {
+            internal GameObject Root;
+            internal CustomUIElement Name;
+            internal CustomUIElement Chance;
+
+            internal void SetText(string name, string chance)
+            {
+                Name.SetText(name);
+                Chance.SetText(chance);
+                string full = name + "  ·  " + chance;
+                Name.SetTooltip(full);
+                Chance.SetTooltip(full);
+            }
+
+            internal void SetVisible(bool visible)
+            {
+                Root.SetActive(visible);
+            }
+        }
         /// <summary>告示板上的一块大类：标题标签 + 组内条目。</summary>
         private sealed class BoardGroup
         {
             internal string Name;
-            internal CustomUIElement Label;
+            internal BoardRow Row;
+            internal GameObject Grid;
             internal readonly List<BoardItem> Items = new List<BoardItem>();
             internal bool High;
         }
@@ -27,13 +49,14 @@ namespace DumpingGroundMap
         {
             internal string Id;
             internal int Slot;
-            internal CustomUIElement Label;
+            internal BoardRow Row;
         }
 
         private static Region boardRegion;
         private static readonly List<BoardGroup> boardGroups = new List<BoardGroup>();
         private static CustomUIElement boardBonusHeader;
-        private static readonly CustomUIElement[] boardSpecial = new CustomUIElement[4];
+        private static readonly BoardRow[] boardSpecial = new BoardRow[4];
+        private static GameObject boardBonusGrid;
         private static CustomUIElement boardEv;
 
         internal static void Open(Region region)
@@ -54,11 +77,14 @@ namespace DumpingGroundMap
             b.AddLabel(Copy.Text("—— 本区掉落公示 ——", "— Area Loot Notice —"), "board_header");
             b.Last.SetTextColor(Picker.Accent);
             Picker.Size(b.Last, -1, 28);
+            ConfigureText(b.Last, 20, false);
             b.AddLabel(region.Detail, "board_detail");
             Picker.Size(b.Last, -1, 42);
+            ConfigureText(b.Last, 18, true);
             b.AddLabel(Copy.Text("按大类分组，概率是当前生效值，跟着设置实时变化：",
                 "Grouped by category; chances are live and follow the settings:"), "board_caption");
             Picker.Size(b.Last, -1, 26);
+            ConfigureText(b.Last, 18, false);
             b.AddSpace(4);
 
             b.BeginScroll(300);
@@ -85,15 +111,14 @@ namespace DumpingGroundMap
             for (int g = 0; g < boardGroups.Count; ++g)
             {
                 BoardGroup group = boardGroups[g];
-                b.AddLabel(group.Name, "board_group_" + g);
-                group.Label = b.Last;
-                group.Label.SetTextColor(Picker.Accent);
-                Picker.Size(b.Last, -1, 22);
-                b.BeginGrid(2, 286, 22, 4);
+                group.Row = AddRow(b, "board_group_" + g);
+                group.Row.Name.SetTextColor(Picker.Accent);
+                group.Row.Chance.SetTextColor(Picker.Accent);
+                b.BeginGrid(2, 270, RowHeight, 8);
+                group.Grid = b.CurrentContainer.gameObject;
                 for (int i = 0; i < group.Items.Count; ++i)
                 {
-                    b.AddLabel(" ", "board_gi_" + g + "_" + i);
-                    group.Items[i].Label = b.Last;
+                    group.Items[i].Row = AddRow(b, "board_gi_" + g + "_" + i);
                 }
                 b.End();
                 b.AddSpace(2);
@@ -103,27 +128,68 @@ namespace DumpingGroundMap
             b.AddLabel(Copy.Text("档位加成", "Tier bonuses"), "board_bonus_header");
             boardBonusHeader = b.Last;
             boardBonusHeader.SetTextColor(Picker.Accent);
-            Picker.Size(b.Last, -1, 22);
-            b.BeginGrid(2, 286, 22, 4);
+            Picker.Size(b.Last, -1, RowHeight);
+            ConfigureText(b.Last, 18, false);
+            b.BeginGrid(2, 270, RowHeight, 8);
+            boardBonusGrid = b.CurrentContainer.gameObject;
             for (int i = 0; i < boardSpecial.Length; ++i)
             {
-                b.AddLabel(" ", "board_special_" + i);
-                boardSpecial[i] = b.Last;
+                boardSpecial[i] = AddRow(b, "board_special_" + i);
             }
             b.End();
+            b.AddSpace(6);
+            b.AddLabel(Copy.Text("垃圾事件只抬高“垃圾”，其余物品按比例让位；显示 0.0% 表示当前档位下这件物品不出现。",
+                "Junk events only raise \"junk\"; other items yield proportionally. 0.0% means the item cannot appear at the current tier."),
+                "board_footer");
+            Picker.Size(b.Last, -1, 42);
+            ConfigureText(b.Last, 16, true);
+            b.Last.SetTooltip(b.Last.GetText());
             b.End();
 
             b.AddSpace(6);
             b.AddLabel(" ", "board_ev");
             boardEv = b.Last;
             Picker.Size(b.Last, -1, 24);
-            b.AddLabel(Copy.Text("垃圾事件只抬高“垃圾”，其余物品按比例让位；显示 0.0% 表示当前档位下这件物品不出现。",
-                "Junk events only raise \"junk\"; other items yield proportionally. 0.0% means the item cannot appear at the current tier."),
-                "board_footer");
-            Picker.Size(b.Last, -1, 42);
+            ConfigureText(b.Last, 18, false);
             b.Show();
 
             RefreshBoard();
+        }
+
+        private static BoardRow AddRow(CustomUIBuilder b, string id)
+        {
+            b.BeginRow(6, TextAnchor.MiddleLeft);
+            BoardRow row = new BoardRow();
+            row.Root = b.CurrentContainer.gameObject;
+            LayoutElement rowLayout = row.Root.AddComponent<LayoutElement>();
+            rowLayout.minHeight = rowLayout.preferredHeight = RowHeight;
+            rowLayout.flexibleWidth = 1;
+            rowLayout.flexibleHeight = 0;
+            b.AddLabel(" ", id + "_name");
+            row.Name = b.Last;
+            ConfigureText(row.Name, 18, false);
+            Picker.Size(row.Name, -1, RowHeight);
+            LayoutElement nameLayout = row.Name.root.GetComponent<LayoutElement>();
+            nameLayout.minWidth = nameLayout.preferredWidth = 0;
+            nameLayout.flexibleWidth = 1;
+            b.AddLabel(" ", id + "_chance");
+            row.Chance = b.Last;
+            ConfigureText(row.Chance, 18, false);
+            if (row.Chance.text != null) row.Chance.text.alignment = TextAlignmentOptions.MidlineRight;
+            Picker.Size(row.Chance, 72, RowHeight);
+            row.Chance.root.GetComponent<LayoutElement>().flexibleWidth = 0;
+            b.End();
+            return row;
+        }
+
+        private static void ConfigureText(CustomUIElement label, float fontSize, bool wrap)
+        {
+            if (label.text == null) return;
+            label.text.enableAutoSizing = false;
+            label.text.fontSize = fontSize;
+            label.text.enableWordWrapping = wrap;
+            label.text.overflowMode = wrap ? TextOverflowModes.Truncate : TextOverflowModes.Ellipsis;
+            label.text.alignment = TextAlignmentOptions.MidlineLeft;
         }
 
         /// <summary>
@@ -151,12 +217,12 @@ namespace DumpingGroundMap
                     BoardItem item = group.Items[i];
                     float probability = table.Probs[item.Slot];
                     sum += probability;
-                    if (item.Label != null)
-                        item.Label.SetText(BoardItemName(item.Id) + "  ·  " + BoardPercent(probability));
+                    if (item.Row != null)
+                        item.Row.SetText(BoardItemName(item.Id), BoardPercent(probability));
                 }
-                if (group.Label != null)
+                if (group.Row != null)
                 {
-                    group.Label.SetText(group.Name + "  ·  " + BoardPercent(sum));
+                    group.Row.SetText(group.Name, BoardPercent(sum));
                     if (group.High) SetBoardGroupVisible(group, sum > 0f);
                 }
             }
@@ -182,6 +248,8 @@ namespace DumpingGroundMap
             SetBoardSpecial(3, showCard, Copy.Text("钥匙卡", "Keycard"), card * 100f);
             if (boardBonusHeader != null)
                 boardBonusHeader.SetVisible(showJackpot || showMinor || showCrate || showCard);
+            if (boardBonusGrid != null)
+                boardBonusGrid.SetActive(showJackpot || showMinor || showCrate || showCard);
 
             if (boardEv != null)
                 boardEv.SetText(Copy.Text("本区期望价值：", "Expected value: ")
@@ -190,17 +258,16 @@ namespace DumpingGroundMap
 
         private static void SetBoardGroupVisible(BoardGroup group, bool visible)
         {
-            if (group.Label != null) group.Label.SetVisible(visible);
-            for (int i = 0; i < group.Items.Count; ++i)
-                if (group.Items[i].Label != null) group.Items[i].Label.SetVisible(visible);
+            if (group.Row != null) group.Row.SetVisible(visible);
+            if (group.Grid != null) group.Grid.SetActive(visible);
         }
 
         private static void SetBoardSpecial(int index, bool visible, string name, float percent)
         {
-            CustomUIElement label = boardSpecial[index];
-            if (label == null) return;
-            label.SetVisible(visible);
-            if (visible) label.SetText(name + "  ·  " + BoardPercentValue(percent));
+            BoardRow row = boardSpecial[index];
+            if (row == null) return;
+            row.SetVisible(visible);
+            if (visible) row.SetText(name, BoardPercentValue(percent));
         }
 
         /// <summary>告示板上的概率：常规值走 Percent；低于 0.1% 时多给两位，避免整池都显示 &lt;0.1%。</summary>
@@ -219,7 +286,7 @@ namespace DumpingGroundMap
             return percent.ToString("0.00", CultureInfo.InvariantCulture) + "%";
         }
 
-        /// <summary>芯片全名太长，截成「打印芯片（…）」以便在 286px 的格子里放下。</summary>
+        /// <summary>变体补充说明；显示名称和悬停说明都使用完整名称。</summary>
         private static string BoardItemName(string id)
         {
             if (id == LootCatalog.InjectorBadId)
@@ -230,14 +297,7 @@ namespace DumpingGroundMap
             if (id == LootCatalog.StampFakeId)
                 return Copy.Text("食品券（仿品）", "Food stamp (counterfeit)");
 
-            string name = Picker.ItemName(id);
-            if (id.StartsWith("printer_chip_", StringComparison.Ordinal))
-            {
-                int open = name.IndexOf('（');
-                if (open > 0)
-                    return Copy.Text("打印芯片", "Printer chip") + " " + name.Substring(open);
-            }
-            return name;
+            return Picker.ItemName(id);
         }
 
         internal static void Close()
@@ -255,6 +315,7 @@ namespace DumpingGroundMap
             boardGroups.Clear();
             boardEv = null;
             boardBonusHeader = null;
+            boardBonusGrid = null;
             for (int i = 0; i < boardSpecial.Length; ++i) boardSpecial[i] = null;
         }
 
