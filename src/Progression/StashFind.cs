@@ -12,6 +12,7 @@ namespace DumpingGroundMap
     /// 大奖概率用 AIMD：起点 0.05%，未中且没到上限一半时翻倍（慢启动），
     /// 过半或中过奖后改为每次 +0.05% 线性爬升；中奖后窗口砍半再继续。
     /// 上限来自设置项 stash_cap（0.1–5.0，步进 0.1）；
+    /// stash_window_enabled 关闭时固定使用实际生效上限，暂停窗口更新；
     /// 声望不到 60 时上限硬顶 0.1%，但不完全排除。
     ///
     /// 小奖是独立设置项 minor_percent（0–10%，默认 3%），平常概率单独掷：
@@ -36,8 +37,8 @@ namespace DumpingGroundMap
         internal const string NewsFiredKey = "stash_news_fired";
 
         /// <summary>窗口起点与线性步长，单位是百分数（0.05 = 0.05%）。</summary>
-        internal const float StartChance = 0.05f;
-        internal const float LinearStep = 0.05f;
+        internal const float StartChance = JackpotChanceRules.Start;
+        internal const float LinearStep = JackpotChanceRules.Step;
 
         /// <summary>声望不到 60 时的硬上限，单位是百分数。</summary>
         internal const float HardCapLowRep = 0.1f;
@@ -94,13 +95,13 @@ namespace DumpingGroundMap
             return cap;
         }
 
-        /// <summary>当前 AIMD 窗口的爆大奖概率（%），告示板用；与实际掷骰取同一个值。</summary>
+        /// <summary>当前模式的大奖概率（%），告示板与实际掷骰使用同一个计算入口。</summary>
         internal static float CurrentChancePercent
         {
             get
             {
                 EnsureLoaded();
-                return ClampChance(chance, EffectiveCap());
+                return JackpotChanceRules.Current(chance, EffectiveCap(), Tuning.StashWindowEnabled);
             }
         }
 
@@ -142,22 +143,22 @@ namespace DumpingGroundMap
 
             StashTemplate template = StashTemplate.For(region.Id);
             float cap = EffectiveCap();
-            chance = ClampChance(chance, cap);
+            bool useWindow = Tuning.StashWindowEnabled;
+            float rollChance = JackpotChanceRules.Current(chance, cap, useWindow);
+            if (useWindow) chance = rollChance;
             bool bonusActive = hitDay == today && hitRegion == region.Id;
             bool jackpotHit = false;
 
             if (template != null)
             {
                 float roll = UnityEngine.Random.value * 100f;
-                bool hit = !tripHit && roll < chance;
-                float before = chance;
+                bool hit = !tripHit && roll < rollChance;
+                float before = rollChance;
 
                 if (hit)
                 {
                     int spawned = AddJackpot(items, template);
-                    chance = Mathf.Max(StartChance, chance * 0.5f);
-                    chance = ClampChance(chance, cap);
-                    phase = 1;
+                    JackpotChanceRules.AfterHit(ref chance, ref phase, cap, useWindow);
                     tripHit = true;
                     hitDay = today;
                     hitRegion = region.Id;
@@ -168,30 +169,20 @@ namespace DumpingGroundMap
                     Debug.Log("[DumpingGroundMap] stash: jackpot region=" + region.Id
                         + " day=" + today + " roll=" + roll.ToString("F3")
                         + " items=" + spawned + " chance " + before.ToString("F3")
-                        + " -> " + chance.ToString("F3") + " phase=" + phase
+                        + " -> " + JackpotChanceRules.Current(chance, cap, useWindow).ToString("F3")
+                        + " window=" + useWindow + " phase=" + phase
                         + " news_day=" + newsDay);
                 }
                 else
                 {
-                    float next;
-                    if (phase == 0 && chance < cap * 0.5f)
-                    {
-                        next = chance * 2f;
-                        if (next >= cap * 0.5f) phase = 1;
-                    }
-                    else
-                    {
-                        next = chance + LinearStep;
-                        phase = 1;
-                    }
-                    if (next > cap) next = cap;
-                    chance = next;
-                    SaveState();
+                    JackpotChanceRules.AfterMiss(ref chance, ref phase, cap, useWindow);
+                    if (useWindow) SaveState();
                     Debug.Log("[DumpingGroundMap] stash: miss region=" + region.Id
                         + " day=" + today + " roll=" + roll.ToString("F3")
-                        + " chance " + before.ToString("F3") + " -> " + chance.ToString("F3")
+                        + " chance " + before.ToString("F3") + " -> "
+                        + JackpotChanceRules.Current(chance, cap, useWindow).ToString("F3")
                         + " cap=" + cap.ToString("F2") + " phase=" + phase
-                        + " trip_hit=" + (tripHit ? 1 : 0));
+                        + " trip_hit=" + (tripHit ? 1 : 0) + " window=" + useWindow);
                 }
             }
 

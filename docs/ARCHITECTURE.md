@@ -61,3 +61,10 @@ ScavengerOuting.Sync 将一个原生 StoreService 行放进 PlayerStore.storeSer
 受益日期只存 scav_outing_day，不用静态缓存。在此日期内 GetMaxScavAttempts +2，两个受伤概率显示为零，两个实际受伤掷骰入口也跳过。没有改写原生伤势或永久免疫字段。禁用时移除本服务行，避免原生继续收费；重启用或读档时恢复行定义。
 
 MilestoneNotes 集中维护三个阈值、收据键和便签文案；ScavengerMilestones 在开张前发放。MilestoneDelivery 负责「全部放下才记收据，失败回滚」。旧 scav_medal_given 只代表已收过信物，不代表已收到三个新节点的说明，所以升级后独立补发便签而不重复信物。
+
+
+## 大奖概率模式（0.3.86）
+
+Tuning 的 stash_window_enabled 是全局设置，默认 true，不迁移或重置存档内的 stash_chance / stash_phase。StashFind 的抽奖与告示板统一通过 JackpotChanceRules.Current 读取当前概率；关闭时直接返回当前生效上限，AfterHit / AfterMiss 不改变窗口或阶段。中奖的日期、新闻、每趟一次和后续奖励仍按原流程记入存档。
+
+固定模式不额外抬高声望不足60时的上限；重新开启时继续原窗口，必要时按当前生效上限夹取。

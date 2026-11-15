@@ -48,6 +48,8 @@ namespace DumpingGroundMap
         internal const float DefaultStashCap = 1.0f;
         internal const float StashCapMin = 0.1f;
         internal const float StashCapMax = 5.0f;
+        internal const string StashWindowKey = "stash_window_enabled";
+        internal const bool DefaultStashWindow = true;
 
         private const string SectionName = "拾荒掉落 / Loot";
         private const string IntegrationSection = "声望飘字 / Reputation Pop";
@@ -109,6 +111,7 @@ namespace DumpingGroundMap
         private static ConfigEntry<float> minorEntry;
         private static ConfigEntry<float> minorValueEntry;
         private static ConfigEntry<float> stashCapEntry;
+        private static ConfigEntry<bool> stashWindowEntry;
         private static ConfigEntry<string> specialtyEntry;
         private static ConfigEntry<bool> reputationPopEntry;
         private static ConfigEntry<bool> debugEnabledEntry;
@@ -431,6 +434,11 @@ namespace DumpingGroundMap
             }
         }
 
+        internal static bool StashWindowEnabled
+        {
+            get { return stashWindowEntry == null ? DefaultStashWindow : stashWindowEntry.Value; }
+        }
+
         /// <summary>
         /// Vanilla reference: the untouched weight tables (junk at 100%, no
         /// specialty, no valuable share), i.e. 12.26 in every area. This is a
@@ -519,14 +527,23 @@ namespace DumpingGroundMap
                     },
                     false);
 
+                stashWindowEntry = config.Define(StashWindowKey, DefaultStashWindow, SectionName,
+                    delegate { return Copy.Text("启用大奖概率拥塞窗口", "Use an adaptive jackpot window"); },
+                    delegate
+                    {
+                        return Copy.Text(
+                            "开启：大奖概率从 0.05% 逐步增长，未中时先翻倍、再每次增加 0.05%，中奖后减半。\n关闭：每次直接按下方「爆大奖概率上限」抽奖，不增长也不减半。\n声望不到 60 时，两种模式都仍受 0.1% 上限限制。\n关闭时暂停已有窗口进度，重新开启后继续。每趟最多一次大奖。",
+                            "On: start at 0.05%, grow by doubling and then +0.05% per miss, and halve after a win.\nOff: every roll uses the jackpot chance cap below, without growth or halving.\nBoth modes remain capped at 0.1% below 60 reputation.\nDisabling pauses saved window progress; enabling resumes it. At most one jackpot per visit.");
+                    }, false);
+
                 stashCapEntry = config.Define(StashCapKey, DefaultStashCap, SectionName,
                     delegate { return Copy.Text("爆大奖概率上限（%，0.1–5.0）", "Jackpot chance cap (%, 0.1-5.0)"); },
                     StashCapMin, StashCapMax,
                     delegate
                     {
                         return Copy.Text(
-                            "60 档「眼力毒辣」的爆大奖概率上限。\n每次拾荒未中：没到上限一半就翻倍，过半后每次 +0.05%。\n中奖后窗口砍半，再线性往上爬。\n声望不到 60 时，上限固定压到 0.1%（不是完全不中）。\n只影响已配置储藏样板的区域（目前是生活废料带）。",
-                            "Cap for the 60-point Keen Eye jackpot.\nEach miss doubles the chance until half the cap, then adds 0.05% per miss.\nA win halves the window; it then climbs linearly again.\nBelow 60 reputation the cap is hard-limited to 0.1% (not excluded).\nOnly applies to regions with a stash template (currently Refuse Lane).");
+                            "大奖概率的上限。\n启用拥塞窗口时，概率动态增长到这个上限；关闭时，每次直接使用这个概率。\n声望不到 60 时，实际生效的上限仍压到 0.1%。\n适用于配置了储藏样板的全部五个区域。每趟最多中一次大奖。",
+                            "Jackpot chance cap.\nWith the adaptive window enabled, the chance grows toward this cap; when disabled, every roll uses it directly.\nThe effective cap is still limited to 0.1% below 60 reputation.\nApplies to all five areas with stash templates. At most one jackpot per visit.");
                     },
                     false);
 
@@ -662,6 +679,7 @@ namespace DumpingGroundMap
                     if (snapped != value) highEntry.Set(snapped);
                     Invalidated();
                 };
+                stashWindowEntry.OnChanged += delegate(bool value) { Invalidated(); };
                 stashCapEntry.OnChanged += delegate(float value)
                 {
                     float snapped = ClampStashCap(value);

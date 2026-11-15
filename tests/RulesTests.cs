@@ -31,7 +31,8 @@ internal static class RulesTests
         EventRules();
         StateRules();
         OutingAndMilestoneRules();
-        Console.WriteLine("PASS: " + assertions + " assertions (loot, state, next-day outing, milestone delivery)");
+        JackpotWindowRules();
+        Console.WriteLine("PASS: " + assertions + " assertions (loot, state, outings, milestones, jackpot modes)");
     }
 
     private static void Check(bool condition, string message)
@@ -248,5 +249,43 @@ internal static class RulesTests
         try { MilestoneDelivery.Give(true, () => "token", () => "note", place, rollback, () => { throw new Exception("save receipt failed"); }); }
         catch (Exception) { failed = true; }
         Check(failed && onCounter.Count == 0, "Receipt failure also rolls the whole bundle back");
+    }
+
+    private static void JackpotWindowRules()
+    {
+        Check(Tuning.DefaultStashWindow, "Existing saves keep adaptive mode by default");
+        float window = JackpotChanceRules.Start;
+        int phase = 0;
+        foreach (float expected in new[] { 0.1f, 0.2f, 0.4f, 0.8f, 0.85f })
+        {
+            JackpotChanceRules.AfterMiss(ref window, ref phase, 1f, true);
+            Near(window, expected, "Adaptive slow-start then linear growth");
+        }
+        JackpotChanceRules.AfterHit(ref window, ref phase, 1f, true);
+        Near(window, 0.425f, "Adaptive win halves chance");
+        JackpotChanceRules.AfterMiss(ref window, ref phase, 1f, true);
+        Near(window, 0.475f, "After a win growth stays linear");
+        for (int i = 0; i < 100; ++i) JackpotChanceRules.AfterMiss(ref window, ref phase, 1f, true);
+        Near(window, 1f, "Adaptive window stops at cap");
+
+        foreach (float cap in new[] { 0.1f, 1f, 5f })
+        {
+            window = 0.075f; phase = 0;
+            Near(JackpotChanceRules.Current(window, cap, false), cap, "Fixed mode starts at the effective cap");
+            for (int i = 0; i < 20; ++i)
+            {
+                JackpotChanceRules.AfterMiss(ref window, ref phase, cap, false);
+                JackpotChanceRules.AfterHit(ref window, ref phase, cap, false);
+                Near(JackpotChanceRules.Current(window, cap, false), cap, "Fixed mode never grows or halves");
+            }
+            Near(window, 0.075f, "Fixed mode freezes saved window progress");
+            Check(phase == 0, "Fixed mode freezes the adaptive phase");
+            Near(JackpotChanceRules.Current(window, cap, true), 0.075f, "Re-enable resumes paused progress");
+        }
+        Near(JackpotChanceRules.Current(0.8f, 0.1f, true), 0.1f, "Low-reputation effective cap applies in adaptive mode");
+        Near(JackpotChanceRules.Current(0.8f, 0.1f, false), 0.1f, "Low-reputation effective cap applies in fixed mode");
+        window = 0.05f; phase = 0;
+        JackpotChanceRules.AfterHit(ref window, ref phase, 1f, true);
+        Near(window, 0.05f, "Adaptive win retains minimum chance");
     }
 }
