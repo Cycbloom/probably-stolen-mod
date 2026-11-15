@@ -53,12 +53,6 @@ namespace DumpingGroundMap
             PerkCatalog.Perk100Threshold
         };
 
-        /// <summary>
-        /// 图标的相对缩放，与 PerkThresholds 一一对应：20–80 逐级放大，100 回到基准大小。
-        /// 20 微笑 0.65 → 40 微笑 0.78 → 60 笑脸 0.90 → 80 笑脸 1.00 → 100 五角星 1.00。
-        /// 放大围绕图标中心，锚点位置不变；80 以上不再大于基准，避免和相邻图标叠在一起。
-        /// </summary>
-        private static readonly float[] PerkScales = { 0.65f, 0.78f, 0.90f, 1f, 1f };
         private static readonly string[] TierZh =
         {
             "生手", PerkCatalog.Perk20NameZh, PerkCatalog.Perk40NameZh,
@@ -226,7 +220,7 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// 图标：按 y 坐标（= GetBarHeight(阈值)）排序后依次对应 20 / 40 / 60 / 80 / 100。
-        /// 20–80 用笑脸一族并逐级放大（20 微笑最小 → 40 微笑 → 60 笑脸 → 80 笑脸最大），
+        /// 20–80 用笑脸一族，所有奖励图标统一使用原版预制体的尺寸，
         /// 100 才用五角星作为最高档标记；未解锁 alpha 0.35。
         /// 预制体自带的 PerkElement 在 Init 前记进 before，Init 后移除，
         /// 这样五个图标的归属不依赖子物体索引（0.3.24 曾因此错位）。
@@ -267,8 +261,7 @@ namespace DumpingGroundMap
                 else if (index == 3) perk.image.sprite = manager.spriteHappy;
                 else perk.image.sprite = manager.spriteStar;
 
-                float scale = PerkScales[index];
-                perk.image.rectTransform.localScale = new Vector3(scale, scale, 1f);
+                perk.image.rectTransform.localScale = Vector3.one;
 
                 Color color = perk.image.color;
                 color.a = points >= threshold ? 1f : 0.35f;
@@ -281,7 +274,7 @@ namespace DumpingGroundMap
                 tip.Setup(manager, threshold, points >= threshold);
 
                 layout += (i == 0 ? "" : " ") + threshold + "@" + Y(perk).ToString("F1")
-                    + "/s" + scale.ToString("F2");
+                    + "/s1.00";
             }
             Debug.Log("[DumpingGroundMap] reputation row: perks total=" + all.Count
                 + " used=" + fresh.Count + " stale=" + (all.Count - fresh.Count)
