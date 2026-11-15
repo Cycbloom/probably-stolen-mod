@@ -431,8 +431,8 @@ namespace DumpingGroundMap
                         "system_module_performance", "system_module_eco", "system_module_fineness" },
                     new[] { 20, 13, 10, 9, 9, 9, 9, 6, 6 }),
                 Cat(191,
-                    new[] { "glass_shard", "crowbar" },
-                    new[] { 300, 8 }));
+                    new[] { "glass_shard", "crowbar", "food_stamp_fake" },
+                    new[] { 300, 8, 3 }));
 
             // 生活废料带：食品 / 日用品 / 便宜药品，垃圾 47.67%。
             result["refuse"] = BuildCategories(
@@ -442,18 +442,20 @@ namespace DumpingGroundMap
                 Cat(2600,
                     new[] { "zerochew", "processed_juice", "soda_red", "cat_bar", "processed_milk",
                         "li_eat_snackbar", "energy_drink", "red_beer", "cup_noodle", "galaxy_blend",
-                        "processed_meat", "beis_icecream", "nudka" },
-                    new[] { 75, 43, 40, 40, 38, 35, 33, 33, 30, 24, 24, 15, 7 }),
+                        "processed_meat", "beis_icecream", "nudka", "mini_alcohol_bottle" },
+                    new[] { 75, 43, 40, 40, 38, 35, 33, 33, 30, 24, 24, 15, 7, 3 }),
                 Cat(1800,
                     new[] { "caffeine_pill", "toothpaste", "water_filter", "toilet_paper", "shampoo",
-                        "full_water_test_strip_box", "paper_towel", "full_water_purification_tablet_box" },
-                    new[] { 60, 40, 24, 24, 20, 19, 17, 11 }),
+                        "full_water_test_strip_box", "paper_towel", "full_water_purification_tablet_box",
+                        "wine_berry", "wine_yeast", "wine_yeast_red", "wine_superyeast",
+                        "packet_red_cigarette_fake" },
+                    new[] { 60, 40, 24, 24, 20, 19, 17, 11, 10, 12, 15, 5, 8 }),
                 Cat(500,
                     new[] { "bandage_item", "fanta_pill", "birth_control_pill", "smelling_salt",
                         "hemostatic_bandage_item", "topical_bandage_item", "dream_dust",
                         "large_purple_injector_bad" },
                     new[] { 75, 50, 40, 40, 38, 38, 33, 8 }),
-                Cat(333, new[] { "empty_beer_bottle" }, new[] { 1 }));
+                Cat(333, new[] { "empty_beer_bottle", "wine_bottle" }, new[] { 3, 1 }));
 
             // 医疗废弃点：医疗耗材 / 药品 / 器械，垃圾 46.47%。
             result["med"] = BuildCategories(
@@ -532,7 +534,9 @@ namespace DumpingGroundMap
                 "screwdriver", "wire_cutter", "module_extractor", "welder", "turbo_booster", "crowbar");
             AddAll(result, "householdTable",
                 "caffeine_pill", "toothpaste", "water_filter", "shampoo", "paper_towel", "toilet_paper",
-                "full_water_test_strip_box", "full_water_purification_tablet_box");
+                "full_water_test_strip_box", "full_water_purification_tablet_box",
+                "packet_red_cigarette", "food_stamp", "mini_bottle", "wine_bottle",
+                "wine_berry", "wine_yeast", "wine_yeast_red", "wine_superyeast", "wine_yeast_infinite");
             AddAll(result, "makeshiftWeaponTable",
                 "glass_shard_shiv", "box_cutter", "kitchen_knife",
                 "combat_knife", "kitchen_cleaver", "hatchet", "skinning_knife", "stun_baton", "combat_machete");
@@ -675,6 +679,71 @@ namespace DumpingGroundMap
                 ItemFeatureList.InjectorConditionType.Genuine,
                 ItemFeatureList.InjectorConditionType.Genuine));
             item.unitValue = GenuineValue;
+        }
+    }
+
+    /// <summary>
+    /// 表里那些「虚拟 id」到真实物品的映射与状态补写：
+    /// 免疫宁次品、假海明威香烟、仿品食品券、小瓶酒精。
+    /// 虚拟 id 只活在掉落表与告示板里，真正生成时换成游戏自己的 id。
+    /// </summary>
+    internal static class LootVariants
+    {
+        internal static string RealId(string itemId)
+        {
+            if (itemId == Tuning.InjectorBadId) return Tuning.InjectorId;
+            if (itemId == Tuning.CigaretteFakeId) return Tuning.CigaretteId;
+            if (itemId == Tuning.StampFakeId) return "food_stamp";
+            if (itemId == Tuning.MiniAlcoholId) return "mini_bottle";
+            return itemId;
+        }
+
+        /// <summary>小瓶酒精要现灌液体，不能走目录 id；其余直接生成。</summary>
+        internal static GameItem Create(string itemId)
+        {
+            if (itemId == Tuning.MiniAlcoholId)
+                return PreBuildChemHelper.CreateMiniAlcoholBottle();
+            return ItemSpawner.Spawn(RealId(itemId));
+        }
+
+        internal static void Apply(string itemId, GameItem item)
+        {
+            if (item == null) return;
+            if (itemId == Tuning.InjectorBadId) { InjectorQuality.ApplyBad(item); return; }
+            if (itemId == Tuning.InjectorId) { InjectorQuality.ApplyGenuine(item); return; }
+            if (itemId == Tuning.CigaretteId) { Cigarette(item, 80L, true); return; }
+            if (itemId == Tuning.CigaretteFakeId) { Cigarette(item, 40L, false); return; }
+            if (itemId == Tuning.StampFakeId) { FakeStamp(item); return; }
+        }
+
+        /// <summary>
+        /// 香烟的真伪条件 modValue 也是 0（游戏不按真伪改价），所以这里补条件并写 unitValue：
+        /// 正品 80、仿品 40，和免疫宁同一套做法。
+        /// </summary>
+        private static void Cigarette(GameItem item, long value, bool genuine)
+        {
+            item.RemoveFeatureByCategory("CATEGORY_GENUINE_CIGARETTE");
+            if (genuine)
+            {
+                InsCigaretteHelper.SetGenuine(item);
+                item.AddItemFeature(ItemFeatureList.CigaretteAuthenticity());
+            }
+            else
+            {
+                InsCigaretteHelper.SetConterfeit(item);
+                item.AddItemFeature(ItemFeatureList.CigaretteCounterfeit());
+            }
+            item.unitValue = value;
+        }
+
+        /// <summary>仿品食品券：外观像真的（fake authenticity），实际兑不了，只值废纸价。</summary>
+        private static void FakeStamp(GameItem item)
+        {
+            item.RemoveFeatureByCategory("CATEGORY_GENUINE_STAMP");
+            InsStampHelper.Init(item);
+            InsStampHelper.SetCounterfeit(item, 40);
+            item.AddItemFeature(ItemFeatureList.StampFakeAuthenticity());
+            item.unitValue = 3L;
         }
     }
 
@@ -1202,6 +1271,10 @@ namespace DumpingGroundMap
             if (id == Tuning.InjectorBadId)
                 return Copy.Text("免疫宁注射器（过期/仿品/不能用）",
                     "Immunivax injector (expired/counterfeit/unusable)");
+            if (id == Tuning.CigaretteFakeId)
+                return Copy.Text("一包海明威香烟（仿品）", "Hemingway cigarettes (counterfeit)");
+            if (id == Tuning.StampFakeId)
+                return Copy.Text("食品券（仿品）", "Food stamp (counterfeit)");
 
             string name = ItemName(id);
             if (id.StartsWith("printer_chip_", StringComparison.Ordinal))
@@ -2161,20 +2234,17 @@ namespace DumpingGroundMap
             string itemId = Tuning.Pick(region, scale);
             if (string.IsNullOrEmpty(itemId)) return true;
 
-            // 次品免疫宁是表里的虚拟 id：生成真物品后补状态，其余 id 原样生成。
-            string spawnId = itemId == Tuning.InjectorBadId ? Tuning.InjectorId : itemId;
-            GameItem item = ItemSpawner.Spawn(spawnId);
+            // 表里的虚拟 id（次品免疫宁 / 假烟 / 仿券 / 小瓶酒精）在这里换成真物品并补状态。
+            string realId = LootVariants.RealId(itemId);
+            GameItem item = LootVariants.Create(itemId);
             if (item == null) return true;
-            if (itemId == Tuning.InjectorBadId)
-                InjectorQuality.ApplyBad(item);
-            else if (itemId == Tuning.InjectorId)
-                InjectorQuality.ApplyGenuine(item);
-            WeaponWear.Apply(spawnId, item);
+            LootVariants.Apply(itemId, item);
+            WeaponWear.Apply(realId, item);
 
             LootRollContext context = new LootRollContext();
             context.groupId = "dumpingGroundTG";
-            context.tableId = ScavLoot.SourceTable(spawnId);
-            context.itemId = spawnId;
+            context.tableId = ScavLoot.SourceTable(realId);
+            context.itemId = realId;
             if (fireLootRolled != null)
                 fireLootRolled.Invoke(null, new object[] { context });
 

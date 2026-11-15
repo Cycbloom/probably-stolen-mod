@@ -968,14 +968,28 @@ namespace DumpingGroundMap
             // 0.3.65 起：正品免疫宁（160）与几件 100–200 的「普货」。
             // 同一 id 仍留在普通表里当「大货」，贵重品这边是另一条独立槽位。
             "large_purple_injector", "glock_receiver", "heavy_handmade_pistol",
-            "surgery_tool", "module_extractor"
+            "surgery_tool", "module_extractor",
+            // 0.3.66 起：正品海明威香烟、酵母生物反应器（酿酒线的高价件）。
+            "packet_red_cigarette", "wine_yeast_infinite"
         };
 
-        /// <summary>正品免疫宁：贵重品槽位固定给这一件，次品走 LargeInjectorBadId。</summary>
+        /// <summary>正品免疫宁：贵重品槽位固定给这一件，次品走 InjectorBadId。</summary>
         internal const string InjectorId = "large_purple_injector";
 
         /// <summary>普通表里的免疫宁次品（过期 / 仿品 / 不能用），生成时再掷具体状态。</summary>
         internal const string InjectorBadId = "large_purple_injector_bad";
+
+        /// <summary>正品海明威香烟（贵重品槽位）。</summary>
+        internal const string CigaretteId = "packet_red_cigarette";
+
+        /// <summary>普通表里的假海明威香烟。</summary>
+        internal const string CigaretteFakeId = "packet_red_cigarette_fake";
+
+        /// <summary>普通表里的仿品食品券。</summary>
+        internal const string StampFakeId = "food_stamp_fake";
+
+        /// <summary>小瓶酒精：不是目录 id，要调 PreBuildChemHelper 现做。</summary>
+        internal const string MiniAlcoholId = "mini_alcohol_bottle";
 
         /// <summary>贵重品池（按展示顺序）；告示牌用它拼「贵重品」分组。</summary>
         internal static string[] HighValueIds { get { return HighValue; } }
@@ -991,11 +1005,11 @@ namespace DumpingGroundMap
         /// </summary>
         private static readonly int[][] HighWeights =
         {
-            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1 }, // Main Gate
-            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 2, 1, 1, 1, 1, 3 }, // Scrap Pile
-            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1 }, // Refuse Lane
-            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 1, 4, 1, 1, 4, 1 }, // Medical Waste
-            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1, 1, 3, 3, 1, 1 }  // Weapon Dump
+            new[] { 2, 2, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1 }, // Main Gate
+            new[] { 1, 1, 1, 1, 1, 3, 4, 2, 2, 2, 3, 2, 1, 1, 1, 1, 3, 3, 2, 2, 1, 1, 1, 1, 3, 1, 2 }, // Scrap Pile
+            new[] { 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1, 1, 3, 1 }, // Refuse Lane
+            new[] { 4, 1, 1, 1, 5, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 3, 2, 1, 1, 4, 1, 1, 4, 1, 1, 1 }, // Medical Waste
+            new[] { 1, 2, 2, 2, 3, 1, 3, 2, 2, 3, 2, 3, 3, 3, 2, 2, 4, 3, 2, 1, 1, 3, 3, 1, 1, 1, 1 }  // Weapon Dump
         };
 
         /// <summary>
@@ -1143,6 +1157,17 @@ namespace DumpingGroundMap
                 // 0.3.65：正品免疫宁 160；次品掷过期 80 / 仿品 40 / 不能用 16，按 40/35/25 取均值。
                 { "large_purple_injector", 160f },
                 { "large_purple_injector_bad", 50f },
+                // 0.3.66：烟、酒瓶与酿酒原料；小瓶酒精按瓶 + 酒精液体估 25。
+                { "packet_red_cigarette", 80f },
+                { "packet_red_cigarette_fake", 40f },
+                { "food_stamp_fake", 3f },
+                { "mini_alcohol_bottle", 25f },
+                { "wine_bottle", 12f },
+                { "wine_berry", 14f },
+                { "wine_yeast", 10f },
+                { "wine_yeast_red", 8f },
+                { "wine_superyeast", 20f },
+                { "wine_yeast_infinite", 250f },
                 // 80 档补给箱按满箱内容估的均价，只用于界面的期望价值。
                 { "loot_crate_engineering", 450f },
                 { "loot_crate_service", 350f },
