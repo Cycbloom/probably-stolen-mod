@@ -199,8 +199,8 @@ namespace DumpingGroundMap
         /// <summary>
         /// 四类拾获提示共用原生普通消息通知条（default 黑色背景），不另做 UI。
         /// 与原生拾荒成功、彩票兑奖保持一致；受伤的 sec 红色提示仍由原版处理。
-        /// 每句都按「谁在哪里翻到什么」拼：地点来自该区的措辞池，随机取一条，
-        /// 整句只出现一个地点。
+        /// 提示用两行短句：第一行交代发现，第二行给物品名称或当天加成。
+        /// 地点来自该区的措辞池，随机取一条，整条提示只出现一个地点。
         /// </summary>
         internal static void ShowNotice(string text, string tag)
         {
@@ -250,21 +250,12 @@ namespace DumpingGroundMap
             string name = Picker.ItemName(itemId);
 
             string text = crate
-                ? Copy.Text("你在" + talk.Zh[pick] + "翻出一个上锁的" + name + "。",
-                    "You found a locked " + name.ToLowerInvariant() + " " + talk.En[pick] + ".")
-                : Copy.Text("你在" + talk.Zh[pick] + "摸到一张" + name + "。",
-                    "You picked up " + WithArticle(name) + " " + talk.En[pick] + ".");
+                ? Copy.Text("你在" + talk.Zh[pick] + "翻出一个上锁的箱子。\n" + name,
+                    "A locked crate " + talk.En[pick] + ".\n" + name)
+                : Copy.Text("你在" + talk.Zh[pick] + "摸到一张钥匙卡。\n" + name,
+                    "A keycard " + talk.En[pick] + ".\n" + name);
 
             ShowNotice(text, crate ? "crate" : "keycard");
-        }
-
-        /// <summary>英文冠词：engineering 这类元音开头的名词前用 an。</summary>
-        private static string WithArticle(string name)
-        {
-            string lower = name == null ? string.Empty : name.ToLowerInvariant();
-            char first = lower.Length > 0 ? lower[0] : 'x';
-            bool vowel = first == 'a' || first == 'e' || first == 'i' || first == 'o' || first == 'u';
-            return (vowel ? "an " : "a ") + lower;
         }
 
         /// <summary>
@@ -412,8 +403,8 @@ namespace DumpingGroundMap
             int pick = talk.Roll();
             string name = box.ItemName();
             ShowNotice(Copy.Text(
-                "你惊喜地发现，" + talk.Zh[pick] + "压着一整箱" + name + "。",
-                "To your surprise, a whole crate of " + name + " was tucked " + talk.En[pick] + "."), "minor");
+                "你在" + talk.Zh[pick] + "惊喜地发现：\n一整箱" + name + "！",
+                "A whole crate " + talk.En[pick] + "!\n" + name), "minor");
         }
 
         /// <summary>
