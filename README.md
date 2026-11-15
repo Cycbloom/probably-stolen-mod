@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.74
+# 垃圾场拾荒地图 · 0.3.75
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -605,7 +605,7 @@ NullReferenceException
 - 概率格式：≥0.1% 走常规百分比；不足 0.1% 给两位小数；恰好 0 显示 `0.0%`（表示当前档位下这件物品不出现）。
 - 夜间事件（垃圾事件）在运行时临时抬高「垃圾」，其余物品按比例让位；告示板读的是同一张生效表，所以也会跟着变。
 
-## 拾荒地面扩展（0.3.73）
+## 拾荒地面扩展（0.3.73；0.3.75 修商店界面被破坏）
 
 拾荒时整理战利品的那块「地面」（`EmporiumEntry.afterhourInventory`，原版 12×9）可以原地放大。只放大这一块地面，不整合也不调用任何第三方 mod。
 
@@ -624,10 +624,16 @@ NullReferenceException
 
 | 补丁 | 作用 |
 |---|---|
-| `EmporiumEntry.SetupAfterhourInv` Postfix | 地面重建完成、窗口 12×9 尺寸已算好之后，改形状并对齐窗口 |
-| `EmporiumEntry.Validate` Postfix | 画布尺寸变化时原生会把窗口放回右下；这里按放大后的尺寸重新摆位 |
+| `EmporiumEntry.SetupAfterhourInv` Postfix | 地面重建完成、窗口 12×9 尺寸已算好之后，改形状；**不调 `entry.Validate`**，位置交给下面两条 |
+| `EmporiumEntry.ShowAfterhourInv` Postfix | 真正进入拾荒场景、地面窗口显示时才补一次接管与摆位 |
+| `EmporiumEntry.HideAfterhourInv` Postfix | 离开拾荒场景时把「显示中」标记关掉 |
+| `EmporiumEntry.Validate` Postfix | 画布尺寸变化时原生会把窗口放回右下；仅在地面窗口显示中（拾荒场景）按放大后的尺寸重新摆位，商店里的 Validate 完全不碰 |
 | `ScavHelper.ScavengeDumpingGrounds` Prefix/Postfix | 圈定「一次拾荒」，配合下一条做溢出提示 |
-| `GraphUtils.TryAcceptAll` Postfix | `__result > 0` 表示有物品没放下（原生直接丢弃返回值），地面满时提示一次 |
+| `GraphUtils.TryAcceptAll` Postfix | `__result > 0` 表示有物品没放下（原生直接丢弃返回值），地面满时提示一次；只在本次拾荒且来源是地面容器时生效 |
+
+**0.3.75 修复：商店界面只建了一半**
+
+0.3.73/0.3.74 的 `SetupAfterhourInv` Postfix 里调用了 `entry.Validate(true)`。这个 Postfix 是在 `EmporiumEntry.Start` 中途执行的，那时 `RenderHandler.current` 还没就绪，`Validate` 空引用抛出，把 `Start` 后续的窗口尺寸、定位、事件挂钩全部打断，商店里的后场 / 柜台等窗口就停在未初始化状态（截图里的横条纹块与空白格子窗）。现在改成：`Apply` 不主动 `Validate`，异常一律 try/catch 只记日志；摆位只在 `ShowAfterhourInv` 之后（`visible == true`）发生。商店场景不再有任何副作用。
 
 **兼容跳过（完全不动手，只写日志）**
 

@@ -18,12 +18,14 @@ namespace DumpingGroundMap
 
         private static EmporiumEntry appliedOwner;
         private static bool applied;
+        private static bool visible;
         private static bool scavenging;
         private static bool overflowNoticed;
 
         internal static void Apply(EmporiumEntry entry)
         {
             if (entry == null) return;
+            if (applied && ReferenceEquals(entry, appliedOwner)) return;
             GameGridInventory ground = entry.afterhourInventory;
             PixelWindow window = entry.afterhourWindow;
             if (ground == null || window == null) return;
@@ -98,10 +100,12 @@ namespace DumpingGroundMap
 
             ground.SetShape(width, height);
             window.Validate();
-            // 先记下接管状态，随后 Validate(true) 的 postfix 才会做重排。
+            // 先记下接管状态，之后的 Show / Validate 才会做重排。
             appliedOwner = entry;
             applied = true;
-            entry.Validate(true);
+            // 这里绝对不能调 entry.Validate(true)：SetupAfterhourInv 是在 EmporiumEntry.Start
+            // 中间被调的，那时 RenderHandler 还没准备好，Validate 会空引用并把 Start 打断，
+            // 商店界面就只建了一半。位置留给 ShowAfterhourInv / Validate 的 postfix。
 
             Debug.Log("[DGM-GROUND] 地面 " + VanillaWidth + "x" + VanillaHeight
                 + " → " + width + "x" + height
@@ -121,7 +125,10 @@ namespace DumpingGroundMap
 
             int canvasWidth = entry.canvasWidth;
             int canvasHeight = entry.canvasHeight;
-            if (canvasWidth <= 0 || canvasHeight <= 0) return;
+            if (canvasWidth <= 0 || canvasHeight <= 0)
+            {
+                if (!CanvasSize(out canvasWidth, out canvasHeight)) return;
+            }
 
             int width = window.widthPixels;
             int height = window.heightPixels;
@@ -220,6 +227,25 @@ namespace DumpingGroundMap
             scavenging = false;
         }
 
+        /// <summary>地面窗口当前是否显示（ShowAfterhourInv / HideAfterhourInv 维护）。</summary>
+        internal static bool Visible
+        {
+            get { return visible; }
+        }
+
+        internal static void SetVisible(bool value)
+        {
+            visible = value;
+        }
+
+        /// <summary>SetupAfterhourInv 每次都会重建一块新的地面，接管状态要跟着重置。</summary>
+        internal static void ResetForSetup()
+        {
+            applied = false;
+            appliedOwner = null;
+            visible = false;
+        }
+
         /// <summary>
         /// 地面放不下时 TryAcceptAll 会把剩下的件数返回给调用方，而拾荒那边直接丢掉。
         /// 这里只在「这次拾荒」里第一次发生时提示一次，避免满地面时刷屏。
@@ -255,7 +281,17 @@ namespace DumpingGroundMap
         private static void Postfix(EmporiumEntry __instance)
         {
             if (!Core.Enabled) return;
-            GroundExpand.Apply(__instance);
+            try
+            {
+                GroundExpand.ResetForSetup();
+                GroundExpand.Apply(__instance);
+            }
+            catch (System.Exception error)
+            {
+                // 这里在 EmporiumEntry.Start 中间执行，抛出去会把整个商店界面建一半就断掉，
+                // 所以只记日志、放弃扩展，宁可地面保持原版尺寸。
+                Debug.LogWarning("[DGM-GROUND] 跳过：初始化地面时出错 " + error);
+            }
         }
     }
 
@@ -265,8 +301,31 @@ namespace DumpingGroundMap
     {
         private static void Postfix(EmporiumEntry __instance)
         {
-            if (!Core.Enabled) return;
+            // 只在拾荒场景、地面窗口真正显示时才重排；商店里的 Validate 一律不碰。
+            if (!Core.Enabled || !GroundExpand.Visible) return;
             GroundExpand.Relayout(__instance);
+        }
+    }
+
+    /// <summary>进入拾荒场景、地面窗口显示时才补一次接管与摆位。</summary>
+    [HarmonyPatch(typeof(EmporiumEntry), "ShowAfterhourInv")]
+    internal static class AfterhourGroundShowPatch
+    {
+        private static void Postfix(EmporiumEntry __instance)
+        {
+            if (!Core.Enabled) return;
+            GroundExpand.SetVisible(true);
+            GroundExpand.Apply(__instance);
+            GroundExpand.Relayout(__instance);
+        }
+    }
+
+    [HarmonyPatch(typeof(EmporiumEntry), "HideAfterhourInv")]
+    internal static class AfterhourGroundHidePatch
+    {
+        private static void Postfix()
+        {
+            GroundExpand.SetVisible(false);
         }
     }
 
