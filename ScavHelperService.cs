@@ -56,7 +56,7 @@ namespace DumpingGroundMap
                     "地面上还有 " + count + " 件东西。花 50 信用点请拾荒者帮手，他们会按价值从高到低把能放下的搬回店里；店里装不下的仍然会被丢掉。",
                     "There are " + count + " item(s) left on the ground. Pay 50 credits to hire a scavenger helper, who carries them into the store, most valuable first; anything the store cannot hold is still lost."),
                 Copy.Text("请拾荒者帮手（50 信用点）", "Hire a scavenger helper (50 credits)"),
-                Copy.Text("直接离开", "Leave it"),
+                Copy.Text("再想想", "Not now"),
                 OnHired,
                 OnDeclined);
             return true;
@@ -68,11 +68,11 @@ namespace DumpingGroundMap
             if (store == null || !store.HasCredit(Fee))
             {
                 // 原版对「付不起」的付费服务就是静默不执行（如 Georgio 送餐），
-                // 这里补一条提示，然后照常离场，不做额外惩罚。
+                // 这里补一条提示，然后留在原地让玩家自己收拾，不扣款也不搬运。
                 StashFind.ShowNotice(Copy.Text(
                     "信用点不够，请不了拾荒者帮手。",
                     "Not enough credits to hire a scavenger helper."), "helper-poor");
-                Finish();
+                Stay();
                 return;
             }
 
@@ -83,9 +83,17 @@ namespace DumpingGroundMap
             Finish();
         }
 
+        /// <summary>拒绝帮手 / 付不起：只关面板，留在垃圾场，原版确认仍留给下一次离场。</summary>
         private static void OnDeclined()
         {
-            Finish();
+            Stay();
+        }
+
+        private static void Stay()
+        {
+            resume = null;
+            GenericConfirmationUIManager ui = GenericConfirmationUIManager.Instance;
+            if (ui != null) ui.ClosePanel();
         }
 
         private static void Finish()
