@@ -7,7 +7,7 @@
 | src/Configuration | 读取与迁移 ModConfig、滑条预览值、配置变更通知、概率缓存接入 |
 | src/Progression | 声望、奖励门槛、大奖状态、存档归属与临时状态恢复 |
 | src/UI | 地图选择、掉落告示板、设置控件、声望行与 tooltip |
-| src/Services | 开局物资、地面尺寸/布局、付费搬运 |
+| src/Services | 开局物资、地面尺寸/布局、付费搬运、同行夜间服务 |
 | src/Compatibility | 原生掉落事件适配、可选 Reputation Pop 联动 |
 | src/Patches | Harmony 接入点，调用具体服务 |
 | tests、tools | 进程内规则检查、游戏扫描器检查；不打进发布包 |
@@ -52,3 +52,12 @@ flowchart LR
 新增区域时从 Region/ScavLoot 开始，补充贵重品区域权重、箱卡映射与奖品模板，并运行规则检查。新增奖品/变体时同步 LootCatalog 估值与 LootFactory 生成路径。新增门槛与文案写在 PerkCatalog；业务用其常量，界面用其定义。
 
 类型命名空间仍是 DumpingGroundMap；源码目录变动不改变 Harmony 类的类型名。模组 ID、开局 ID、旧存档键和配置键保留。
+
+
+## 夜间同行与节点便签（0.3.83）
+
+ScavengerOuting.Sync 将一个原生 StoreService 行放进 PlayerStore.storeService。关店面板 InitUI 前、服务费用刷新后和 OnGoingSleepEarly 都重新校正门槛与价格；不足 100 点时清掉选择，防止存档里的旧勾选绕过门槛。原版 EndNight 负责扣费；OnHandlingNightlyServicesEarly 此时位于支付循环之后，记录当天 +1 的受益日期、写晨报并取消勾选，不再自行扣款。
+
+受益日期只存 scav_outing_day，不用静态缓存。在此日期内 GetMaxScavAttempts +2，两个受伤概率显示为零，两个实际受伤掷骰入口也跳过。没有改写原生伤势或永久免疫字段。禁用时移除本服务行，避免原生继续收费；重启用或读档时恢复行定义。
+
+MilestoneNotes 集中维护三个阈值、收据键和便签文案；ScavengerMilestones 在开张前发放。MilestoneDelivery 负责「全部放下才记收据，失败回滚」。旧 scav_medal_given 只代表已收过信物，不代表已收到三个新节点的说明，所以升级后独立补发便签而不重复信物。

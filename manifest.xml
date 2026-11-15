@@ -3,8 +3,8 @@
   <ID>local.dumping_ground_map</ID>
   <Name>垃圾场拾荒地图 / Dumping Ground Map</Name>
   <Author>Local</Author>
-  <ModVersion>0.3.82</ModVersion>
-  <Description>进入垃圾场前在作业地图选择区域。包含区域掉落、拾荒客声望与解锁、储藏事件、搬运帮手、地面扩展及拾荒客开局。0.3.82 整理模块并修复掉落事件兼容、告示板和状态清理。 / Choose a region before entering the dump. Includes themed loot, scavenger reputation, stash events, hauling help, a larger sorting ground and a Scavenger start. 0.3.82 reorganizes modules and fixes event compatibility, loot notices and state cleanup.</Description>
+  <ModVersion>0.3.83</ModVersion>
+  <Description>垃圾场分区拾荒、声望成长与拾荒客开局。20/40/100 声望以拾荒客便签介绍客流、搬运及同行服务；100 声望赠信物，解锁 20 信用点的次日同行：多 2 次拾荒，拾荒免受轻伤和重伤。 / Regional scavenging and reputation progression. Scavenger letters introduce rewards at 20/40/100 reputation. At 100, receive a token and unlock a 20-credit next-day outing: 2 extra searches and no scavenging wounds.</Description>
   <GameVersions>
     <Version>0.46D</Version>
   </GameVersions>

@@ -25,3 +25,6 @@ Windows 环境需要游戏 Managed DLL、.NET Framework 4.7.2 引用程序集及
 Core.Id 和 ScenarioId 是持久标识，移动文件时不改。声望仍使用 rep_total_value；大奖仍使用原有六个键。0.3.82 只给全局调试待办索引增加 dgm_debug_pending_run 和 dgm_debug_pending_slot，用来限定保存失败的重试归属。
 
 主菜单明确设置的调试值仍表示「下一次加载/新开一局应用一次」。游戏内保存失败的待办只匹配原 runID 与槽位；加载其它档时保留该待办而不应用。禁用或换档会取消内存里的延迟保存对象。
+
+
+0.3.83 新增当前存档键 scav_outing_day（受益日期），以及 scav_note_20_given / scav_note_40_given / scav_note_100_given（三张便签的独立收据）。原 scav_medal_given 保留作信物收据；已有信物不回收、不补发。原生服务行 ID 为 local.dumping_ground_map.scavenger_outing，只包含游戏自带 StoreService 字段，保存选择用原生存档机制。
