@@ -88,7 +88,9 @@ namespace DumpingGroundMap
         internal static bool InterceptTravel(MapUIManager map, DumpingGroundLocation destination)
         {
             if (!Core.Enabled || map == null || destination == null) return false;
-            if (map.IsInTransit || !destination.IsAvailable() || !ScavHelper.CanScavenge())
+            // 上一趟可能已耗尽次数；原版到达后才 ResetScavenging，不能用旧次数
+            // 决定是否弹进场选区。这里只校验原版 Travel 本身的前置条件。
+            if (map.IsInTransit || !destination.IsAvailable())
                 return false;
             // 已经在本次行程里选过这块区域（确认后重新调 Travel 的那一次）。
             if (ChosenRegion != null && chosenAt == destination)
@@ -363,7 +365,7 @@ namespace DumpingGroundMap
                 // 锁定区：不选中，只解释门槛，避免“点了没反应”。
                 selected = null;
                 PaintPins();
-                int left = Math.Max(0, ScavHelper.GetScavTimeLeft());
+                int left = RemainingSearches();
                 string need = Copy.Text("需要声望 ", "Needs ") + region.RequiredReputation
                     + Copy.Text(" 才能进入「", " reputation to enter ") + region.Name
                     + Copy.Text("」；当前声望 ", "\"; you have ") + Reputation.Points + "。";
@@ -375,7 +377,7 @@ namespace DumpingGroundMap
             selected = region;
             PaintPins();
 
-            int remainingSearches = Math.Max(0, ScavHelper.GetScavTimeLeft());
+            int remainingSearches = RemainingSearches();
             string remaining = Copy.Text("剩余拾荒次数：", "Searches left: ") + remainingSearches;
             if (selected == null)
             {
@@ -389,6 +391,12 @@ namespace DumpingGroundMap
                 description.SetText(selected.Detail + "\n" + remaining);
             }
             confirm.SetInteractable(selected != null && (target != null || ScavHelper.CanScavenge()));
+        }
+
+        private int RemainingSearches()
+        {
+            // 进场地图预览新一趟上限；场内兜底地图才显示当前剩余次数。
+            return Math.Max(0, target != null ? ScavHelper.GetMaxScavAttempts() : ScavHelper.GetScavTimeLeft());
         }
 
         private void StartSearch()
