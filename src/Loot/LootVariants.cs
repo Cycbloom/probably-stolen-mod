@@ -38,16 +38,16 @@ namespace DumpingGroundMap
             if (item == null) return;
             if (itemId == LootCatalog.InjectorBadId) { InjectorQuality.ApplyBad(item); return; }
             if (itemId == LootCatalog.InjectorId) { InjectorQuality.ApplyGenuine(item); return; }
-            if (itemId == LootCatalog.CigaretteId) { Cigarette(item, 80L, true); return; }
-            if (itemId == LootCatalog.CigaretteFakeId) { Cigarette(item, 40L, false); return; }
+            if (itemId == LootCatalog.CigaretteId) { Cigarette(item, true); return; }
+            if (itemId == LootCatalog.CigaretteFakeId) { Cigarette(item, false); return; }
             if (itemId == LootCatalog.StampFakeId) { FakeStamp(item); return; }
         }
 
         /// <summary>
-        /// 香烟的真伪条件 modValue 也是 0（游戏不按真伪改价），所以这里补条件并写 unitValue：
-        /// 正品 80、仿品 40，和免疫宁同一套做法。
+        /// 香烟的单价由游戏的 ItemCondition onActivateAction 写入：正品 100、赝品 50。
+        /// 这里只补条件，不再写 unitValue，避免覆盖游戏定价。
         /// </summary>
-        private static void Cigarette(GameItem item, long value, bool genuine)
+        private static void Cigarette(GameItem item, bool genuine)
         {
             item.RemoveFeatureByCategory("CATEGORY_GENUINE_CIGARETTE");
             if (genuine)
@@ -60,7 +60,6 @@ namespace DumpingGroundMap
                 InsCigaretteHelper.SetConterfeit(item);
                 item.AddItemFeature(ItemFeatureList.CigaretteCounterfeit());
             }
-            item.unitValue = value;
         }
 
         /// <summary>仿品食品券：外观像真的（fake authenticity），实际兑不了，只值废纸价。</summary>

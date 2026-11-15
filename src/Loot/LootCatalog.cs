@@ -258,8 +258,9 @@ namespace DumpingGroundMap
                 { "large_purple_injector", 160f },
                 { "large_purple_injector_bad", 50f },
                 // 0.3.66：烟、酒瓶与酿酒原料；小瓶酒精按瓶 + 酒精液体估 25。
-                { "packet_red_cigarette", 80f },
-                { "packet_red_cigarette_fake", 40f },
+                // 0.3.89：香烟改由游戏真伪条件定价，正品 100、赝品 50。
+                { "packet_red_cigarette", 100f },
+                { "packet_red_cigarette_fake", 50f },
                 { "food_stamp_fake", 3f },
                 { "mini_alcohol_bottle", 25f },
                 { "wine_bottle", 12f },
