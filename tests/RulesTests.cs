@@ -191,6 +191,13 @@ internal static class RulesTests
         StoreService service = new StoreService();
         service.isUsing = true;
         OutingRules.Configure(service, 99);
+        Check(service.tooltip == ScavengerOuting.TooltipKey, "Native tooltip field must hold a translation key, not literal prose");
+        string tooltip = null;
+        Check(!OutingTooltipPatch.Resolve(service.tooltip, () => "花 20 信用点", ref tooltip)
+            && tooltip == "花 20 信用点", "Our tooltip key resolves before the native translation lookup");
+        tooltip = "native result";
+        Check(OutingTooltipPatch.Resolve("another_service_tooltip", () => { throw new Exception("unrelated lookup intercepted"); }, ref tooltip)
+            && tooltip == "native result", "Other UI translations stay on the native path");
         Check(!service.unlocked && !service.isUsing && service.cost == 20, "Locked service cannot remain selected");
         OutingRules.Configure(service, 100);
         Check(service.unlocked && service.cost == 20 && !service.isMandatory, "100 reputation unlocks optional 20-credit service");

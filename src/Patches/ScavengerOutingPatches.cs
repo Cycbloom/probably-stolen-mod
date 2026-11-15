@@ -1,7 +1,25 @@
+using System;
 using HarmonyLib;
 
 namespace DumpingGroundMap
 {
+    [HarmonyPatch(typeof(LocHelper), "GetLocalizedUI", new Type[] { typeof(string), typeof(object[]) })]
+    internal static class OutingTooltipPatch
+    {
+        private static bool Prefix(string __0, ref string __result)
+        {
+            if (!Core.Enabled) return true;
+            return Resolve(__0, () => ScavengerOuting.Description, ref __result);
+        }
+
+        internal static bool Resolve(string key, Func<string> description, ref string result)
+        {
+            if (key != ScavengerOuting.TooltipKey) return true;
+            result = description();
+            return false;
+        }
+    }
+
     [HarmonyPatch(typeof(EndOfDayUIManager), "InitUI")]
     internal static class OutingServicePanelPatch
     {

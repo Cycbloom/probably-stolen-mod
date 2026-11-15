@@ -20,6 +20,7 @@ namespace DumpingGroundMap
         internal static void Configure(StoreService service, int reputation)
         {
             service.cost = Fee;
+            service.tooltip = ScavengerOuting.TooltipKey;
             service.unlocked = Unlocked(reputation);
             service.introduced = service.unlocked;
             service.isMandatory = false;
@@ -33,6 +34,17 @@ namespace DumpingGroundMap
     {
         internal const string ServiceId = Core.Id + ".scavenger_outing";
         internal const string BenefitDayKey = "scav_outing_day";
+        internal const string TooltipKey = Core.Id + ".scavenger_outing_tooltip";
+
+        internal static string Description
+        {
+            get
+            {
+                return Copy.Text(
+                    "花 20 信用点，约拾荒客明天一起探险。次日当天拾荒次数 +2，拾荒时不会受轻伤或重伤。每次预约只管一天，结算后自动取消勾选；想再同行，头晚重新预约。",
+                    "Pay 20 credits to explore with scavengers tomorrow. Gain 2 extra scavenging attempts and no minor or major scavenging wounds that day. Each booking lasts one day and unticks after settlement; book again the night before another outing.");
+            }
+        }
 
         internal static bool Active
         {
@@ -64,9 +76,8 @@ namespace DumpingGroundMap
             }
             OutingRules.Configure(service, Reputation.Points);
             service.displayName = Copy.Text("与拾荒客同行", "Scavenger Outing");
-            service.description = service.tooltip = Copy.Text(
-                "花 20 信用点，约拾荒客明天一起探险。次日当天拾荒次数 +2，拾荒时不会受轻伤或重伤。每次预约只管一天，结算后自动取消勾选；想再同行，头晚重新预约。",
-                "Pay 20 credits to explore with scavengers tomorrow. Gain 2 extra scavenging attempts and no minor or major scavenging wounds that day. Each booking lasts one day and unticks after settlement; book again the night before another outing.");
+            // Native BuildServiceRow resolves tooltip through LocHelper.GetLocalizedUI.
+            service.description = Description;
             return service;
         }
 
