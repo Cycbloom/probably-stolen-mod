@@ -117,12 +117,13 @@ namespace DumpingGroundMap
             scenario.descriptionProvider = delegate
             {
                 return Copy.Text(
-                    "在导师找到你之前，你就在垃圾场里讨生活，虽一贫如洗但口碑可靠。"
-                    + "如今你盘下了一家店铺，全部家当就是一间简易储藏区、一只儿童背包和一套用旧了的工具。"
+                    "在导师找到你之前，你是一名拾荒客，虽一贫如洗但口碑可靠。"
+                    + "纵然学了新本事，你依旧不忘老本行——盘下一家店铺后，全部家当只有一间简易储藏区、"
+                    + "一只儿童背包和一套用旧了的工具，都是当年的旧行头。"
                     + "你清楚哪堆废料底下压着值钱货，也明白在这一行里，名声比什么都重要。",
-                    "Before The Mentor found you, you made a living in the dump, poor but with a solid reputation. "
-                    + "Now you have a store of your own, and all you own is a makeshift storage bay, "
-                    + "a kid's backpack and a set of worn tools. "
+                    "Before The Mentor found you, you were a scavenger, poor but with a solid reputation. "
+                    + "Despite your training, you never forgot your past: your store now holds nothing but "
+                    + "a makeshift storage bay, a kid's backpack and a set of worn tools, all of it your old gear. "
                     + "You know which piles hide something worth carrying home, and you know a scavenger's name "
                     + "is earned one haul at a time.");
             };
@@ -145,15 +146,15 @@ namespace DumpingGroundMap
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("减少初始信用点", "Decreased starting Credit count");
+                return Copy.Text("降低初始信用点", "Decreased starting Credit count");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("每趟拾荒能多翻找两次", "Two extra scavenging attempts per trip");
+                return Copy.Text("增加每趟拾荒次数（+2）", "Increased scavenging attempts per trip (+2)");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("夜里去垃圾场拾荒不会影响第二天的客流",
+                return Copy.Text("夜间去垃圾场拾荒不影响次日客流",
                     "Night trips to the dump don't cost you customers the next day");
             });
 
