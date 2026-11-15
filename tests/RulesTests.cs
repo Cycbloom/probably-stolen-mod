@@ -34,7 +34,8 @@ internal static class RulesTests
         OutingAndMilestoneRules();
         JackpotWindowRules();
         JackpotNewsRules();
-        Console.WriteLine("PASS: " + assertions + " assertions (loot/events, state, outings, milestones, jackpot modes/news)");
+        ScavengerTrafficRulesTests();
+        Console.WriteLine("PASS: " + assertions + " assertions (loot/events, state, outings, milestones, jackpot modes/news, traffic)");
     }
 
     private static void Check(bool condition, string message)
@@ -314,6 +315,78 @@ internal static class RulesTests
         try { MilestoneDelivery.Give(true, () => "token", () => "note", place, rollback, () => { throw new Exception("save receipt failed"); }); }
         catch (Exception) { failed = true; }
         Check(failed && onCounter.Count == 0, "Receipt failure also rolls the whole bundle back");
+    }
+
+    private static PlayerStore TrafficSave(int nightDay)
+    {
+        PlayerStore store = (PlayerStore)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PlayerStore));
+        store.startScenarioId = ScavengerStart.ScenarioId;
+        store.healthData = new HealthData();
+        store.healthData.wentToAfterhoursLastNight = true;
+        store.afterhourState = new Dictionary<string, AfterhourLocationState>();
+        store.afterhourState.Add(ScavengerStart.DumpingGroundId,
+            new AfterhourLocationState { visits = 1, lastVisitDay = nightDay });
+        store.nightLogs = new List<string>();
+        return store;
+    }
+
+    private static void ScavengerTrafficRulesTests()
+    {
+        foreach (int night in new[] { 1, 2, 12, 99 })
+        {
+            PlayerStore store = TrafficSave(night);
+            Check(ScavengerTrafficRules.ProtectsNightReport(store, night), "Dump visit suppresses the false penalty report that night");
+            Check(ScavengerTrafficRules.ProtectsMorning(store, night + 1), "The same saved visit protects tomorrow's traffic");
+            Check(!ScavengerTrafficRules.ProtectsMorning(store, night)
+                && !ScavengerTrafficRules.ProtectsMorning(store, night + 2), "Protection belongs only to the following morning");
+            Check(!ScavengerTrafficRules.ProtectsNightReport(store, night + 1), "Yesterday's visit cannot suppress tonight's unrelated report");
+
+            // Recreate only fields the native save persists, without any MapUI instance.
+            PlayerStore reloaded = TrafficSave(store.afterhourState[ScavengerStart.DumpingGroundId].lastVisitDay);
+            Check(ScavengerTrafficRules.ProtectsMorning(reloaded, night + 1), "Morning reload preserves the exemption without transient map history");
+            foreach (int unpenalizedCount in new[] { 0, 1, 6, 7 })
+            {
+                RestoreScope scope = ScavengerCustomerPatch.BeginProtectedCount(reloaded, night + 1);
+                Check(scope != null && !reloaded.healthData.wentToAfterhoursLastNight, "Native customer count sees the exempt state before its own clamp");
+                Check(ScavengerCustomerPatch.BeginProtectedCount(reloaded, night + 1) == null, "Nested counts do not overwrite the restoration state");
+                int count = Math.Max(0, Math.Min(6, unpenalizedCount - (reloaded.healthData.wentToAfterhoursLastNight ? 1 : 0)));
+                Check(count == Math.Max(0, Math.Min(6, unpenalizedCount)), "Exemption respects both native clamp boundaries");
+                scope.Restore(); scope.Restore();
+                Check(reloaded.healthData.wentToAfterhoursLastNight, "Counting restores real night activity even after repeated cleanup");
+            }
+
+            const string warning = "Missed one customer after going out last night.";
+            // Match the serialized output of native AddNightLog without its newer-runtime TrimStart(char) dependency.
+            reloaded.nightLogs.Add("<color=#9c3738>" + warning + "</color>");
+            reloaded.nightLogs.Add(warning);
+            reloaded.nightLogs.Add("<color=#9c3738>Other night activity report.</color>");
+            Check(ScavengerTrafficRules.RemoveMisleadingReport(reloaded, night + 1, warning) == 2,
+                "Old saved penalty reports are removed only when the matching night was exempt");
+            Check(reloaded.nightLogs.Count == 1 && reloaded.nightLogs[0].Contains("Other night activity"), "Unrelated night reports remain intact");
+            Check(ScavengerTrafficRules.RemoveMisleadingReport(reloaded, night + 1, warning) == 0, "Repeated report repair is idempotent");
+        }
+
+        PlayerStore ordinary = TrafficSave(1);
+        ordinary.startScenarioId = "another_start";
+        ordinary.nightLogs.Add("<color=#9c3738>Penalty</color>");
+        Check(!ScavengerTrafficRules.ProtectsMorning(ordinary, 2)
+            && !ScavengerTrafficRules.ProtectsNightReport(ordinary, 1), "Other starts retain native customer penalties and report");
+        Check(ScavengerTrafficRules.RemoveMisleadingReport(ordinary, 2, "Penalty") == 0, "No cleanup of another start's legitimate penalty");
+        PlayerStore elsewhere = TrafficSave(1);
+        elsewhere.afterhourState.Clear();
+        elsewhere.afterhourState.Add("commissary", new AfterhourLocationState { visits = 1, lastVisitDay = 1 });
+        Check(!ScavengerTrafficRules.ProtectsMorning(elsewhere, 2)
+            && !ScavengerTrafficRules.ProtectsNightReport(elsewhere, 1), "Other destinations do not gain the dump exemption");
+        Check(ScavengerCustomerPatch.BeginProtectedCount(elsewhere, 2) == null
+            && elsewhere.healthData.wentToAfterhoursLastNight, "Ineligible counting leaves night activity unchanged");
+        PlayerStore neverVisited = TrafficSave(0);
+        neverVisited.afterhourState[ScavengerStart.DumpingGroundId].visits = 0;
+        Check(!ScavengerTrafficRules.ProtectsMorning(neverVisited, 1), "Default native zero-day visit data never grants a free customer");
+        PlayerStore stayedHome = TrafficSave(1);
+        stayedHome.healthData.wentToAfterhoursLastNight = false;
+        Check(!ScavengerTrafficRules.ProtectsMorning(stayedHome, 2), "Staying home does not add a second exemption");
+        Check(!ScavengerTrafficRules.ProtectsMorning(null, 2)
+            && !ScavengerTrafficRules.ProtectsNightReport(null, 1), "No save means no exemption");
     }
 
     private static void JackpotNewsRules()

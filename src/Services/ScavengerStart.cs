@@ -16,7 +16,7 @@ namespace DumpingGroundMap
     /// 取 startScenarioId 对应的场景并调用它的 onStart。所以初始物资、
     /// 起始信用点都由我们自己的 onStart 负责，和原生各开局的写法一致。
     ///
-    /// 两个被动效果不写进存档，只在运行时按「当前存档的开局 id」判定：
+    /// 两个被动效果按当前存档的开局 id 判定，免扣客流复用原生持久化的地点访问日期：
     /// - 拾荒次数 +2：ScavHelper.GetMaxScavAttempts 的 Postfix。
     /// - 夜间去垃圾场拾荒后，次日客人不减少：见 ScavengerCustomerPatch。
     /// 没选这个开局（startScenarioId 不是我们的 id）时两条补丁都不生效。

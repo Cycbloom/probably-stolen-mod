@@ -26,6 +26,7 @@ namespace DumpingGroundMap
     /// 减完还会 Clamp(0, 6)。直接在返回值上加 1 会在「原生已夹到 0」时多出一名客人，
     /// 所以改成前缀里临时把 wentToAfterhoursLastNight 置 false，让原方法按
     /// 「没外出」的路径完整算一遍（含 Clamp），返回后再恢复，语义与短眠者一致。
+    /// 访问日期取自存档 afterhourState，读档后地图的 LastVisitedTonightId 会丢失。
     /// </summary>
     [HarmonyPatch(typeof(StoreClientManager), "GetNormalCustomerCount")]
     internal static class ScavengerCustomerPatch
@@ -33,19 +34,22 @@ namespace DumpingGroundMap
         private static void Prefix(out RestoreScope __state)
         {
             __state = null;
-            if (!Core.Enabled || !ScavengerStart.Active) return;
+            if (!Core.Enabled) return;
             PlayerStore store = PlayerStore.HasInstance ? PlayerStore.Instance : null;
-            if (store == null || store.healthData == null) return;
-            if (!store.healthData.wentToAfterhoursLastNight) return;
+            if (!ScavengerTrafficRules.ProtectsMorning(store, StoreStation.GetDayCounter())) return;
             // 原版短眠者本来就不扣，不要再加回来。
             if (StartingPerk.IsShortSleeper()) return;
-            MapUIManager map = MapUIManager.Instance;
-            if (map == null || map.LastVisitedTonightId != ScavengerStart.DumpingGroundId) return;
+            __state = BeginProtectedCount(store, StoreStation.GetDayCounter());
+        }
 
+        internal static RestoreScope BeginProtectedCount(PlayerStore store, int today)
+        {
+            if (!ScavengerTrafficRules.ProtectsMorning(store, today)) return null;
             HealthData health = store.healthData;
             bool original = health.wentToAfterhoursLastNight;
-            __state = new RestoreScope(() => health.wentToAfterhoursLastNight = original);
+            RestoreScope scope = new RestoreScope(() => health.wentToAfterhoursLastNight = original);
             health.wentToAfterhoursLastNight = false;
+            return scope;
         }
 
         private static void Postfix(RestoreScope __state)
@@ -57,6 +61,16 @@ namespace DumpingGroundMap
         {
             if (__state != null) __state.Restore();
             return __exception;
+        }
+    }
+
+    /// <summary>The exemption must also suppress the native "missed customer" night log.</summary>
+    [HarmonyPatch(typeof(PlayerStore), "HandleAfterhourDebuff")]
+    internal static class ScavengerNightReportPatch
+    {
+        private static bool Prefix(PlayerStore __instance)
+        {
+            return !Core.Enabled || !ScavengerTrafficRules.ProtectsNightReport(__instance, StoreStation.GetDayCounter());
         }
     }
 }

@@ -75,6 +75,7 @@ namespace DumpingGroundMap
             DeferredSave.Cancel();
             ResetVisit();
             Reputation.Reload();
+            ScavengerTrafficRules.RepairSavedReport();
             StashFind.Reload();
             ScavengerOuting.Sync();
             RefreshViews();

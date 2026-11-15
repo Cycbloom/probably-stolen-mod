@@ -36,6 +36,8 @@ flowchart LR
 
 ## 状态与生命周期
 
+拾荒客免扣客流由 ScavengerTrafficRules 统一判断：夜报结算查当天、次日客数查昨天的 afterhourState[dumping_ground].lastVisitDay，并核对开局、有效访问及真实外出标记。GetNormalCustomerCount 仍只在调用期间暂时隐藏 wentToAfterhoursLastNight，保持原生 Clamp 后恢复；夜报只跳过 HandleAfterhourDebuff。读档用同一判据清除原文或原生红色包装的旧误报，不改其它日志、不新增存档字段。clientStack 标有 ES3NonSerializable，读档不恢复顾客队列；20 声望奖励仍在 GenerateClient 的开门链路追加，原有读档 ResetCache 保留。
+
 | 范围 | 状态 | 初始化/清理 |
 |---|---|---|
 | 全局配置 | 概率、地面、调试开关 | Tuning 与原生 ModConfig |
