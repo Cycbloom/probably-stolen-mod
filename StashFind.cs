@@ -226,7 +226,7 @@ namespace DumpingGroundMap
         /// 每句都按「谁在哪里翻到什么」拼：地点来自该区的措辞池，随机取一条，
         /// 整句只出现一个地点。
         /// </summary>
-        private static void ShowNotice(string text, string tag)
+        internal static void ShowNotice(string text, string tag)
         {
             try
             {

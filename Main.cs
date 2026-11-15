@@ -1486,6 +1486,8 @@ namespace DumpingGroundMap
         private const string KeyCard = "keycard_percent";
         private const string KeyMinor = "minor_percent";
         private const string KeyMinorValue = "minor_value";
+        private const string KeyGroundWidth = Tuning.GroundWidthKey;
+        private const string KeyGroundHeight = Tuning.GroundHeightKey;
         private const string LogTag = "[DGM-SLIDER] ";
 
         private static CustomUIWindow window;
@@ -1495,6 +1497,7 @@ namespace DumpingGroundMap
         private static CustomUIElement minorValue;
         private static CustomUIElement minorCrateValue;
         private static CustomUIElement debugValue;
+        private static CustomUIElement groundWidthValue, groundHeightValue;
         private static CustomUIElement specialtyDropdown;
         private static CustomUIElement[] evLabels;
         private static CustomUIElement junkSlider, highSlider;
@@ -1502,6 +1505,7 @@ namespace DumpingGroundMap
         private static CustomUIElement minorSlider;
         private static CustomUIElement minorCrateSlider;
         private static CustomUIElement debugSlider;
+        private static CustomUIElement groundWidthSlider, groundHeightSlider;
         private static bool dragging;
         private static int dragKind;
         private static float lastSlideAt;
@@ -1545,6 +1549,7 @@ namespace DumpingGroundMap
             return key == KeyJunk || key == KeyHigh
                 || key == KeyCrate || key == KeyCard || key == KeyMinor
                 || key == KeyMinorValue
+                || key == KeyGroundWidth || key == KeyGroundHeight
                 || key == Tuning.SpecialtyKey
                 || key == Tuning.DebugEnabledKey || key == Tuning.DebugPointsKey;
         }
@@ -1562,6 +1567,7 @@ namespace DumpingGroundMap
                 if (buildingKey != KeyJunk && buildingKey != KeyHigh
                     && buildingKey != KeyCrate && buildingKey != KeyCard
                     && buildingKey != KeyMinor && buildingKey != KeyMinorValue
+                    && buildingKey != KeyGroundWidth && buildingKey != KeyGroundHeight
                     && buildingKey != Tuning.DebugPointsKey) return;
                 if (!ReferenceEquals(element, building.Last)) return;
                 if (element.slider == null) return;
@@ -1576,7 +1582,8 @@ namespace DumpingGroundMap
                 // the native layout put it and the number just sits to its right.
                 // The debug row only prints "19.5", so a narrower label is enough
                 // and leaves room next to the 224px slider.
-                label.SetFixedWidth(key == Tuning.DebugPointsKey ? 56f : 72f);
+                label.SetFixedWidth(key == Tuning.DebugPointsKey
+                    || key == KeyGroundWidth || key == KeyGroundHeight ? 56f : 72f);
                 if (label.text != null)
                 {
                     label.text.alignment = TextAlignmentOptions.MidlineLeft;
@@ -1588,6 +1595,8 @@ namespace DumpingGroundMap
                 else if (key == KeyCard) cardValue = label;
                 else if (key == KeyMinor) minorValue = label;
                 else if (key == KeyMinorValue) minorCrateValue = label;
+                else if (key == KeyGroundWidth) groundWidthValue = label;
+                else if (key == KeyGroundHeight) groundHeightValue = label;
                 else debugValue = label;
             }
             catch (Exception ex)
@@ -1637,6 +1646,17 @@ namespace DumpingGroundMap
                 {
                     minorCrateSlider = HookSlider(window, key, 6);
                     minorCrateValue = EnsureValueLine(b, key, minorCrateValue);
+                }
+                else if (key == KeyGroundWidth)
+                {
+                    groundWidthSlider = HookSlider(window, key, 7);
+                    groundWidthValue = EnsureValueLine(b, key, groundWidthValue);
+                }
+                else if (key == KeyGroundHeight)
+                {
+                    groundHeightSlider = HookSlider(window, key, 8);
+                    groundHeightValue = EnsureValueLine(b, key, groundHeightValue);
+                    AddGroundPresetBlock(b);
                 }
                 else if (key == Tuning.SpecialtyKey)
                 {
@@ -1761,6 +1781,37 @@ namespace DumpingGroundMap
         {
             b.AddButton(text, delegate { ApplyPreset(preset); });
             Picker.Size(b.Last, 140, 34);
+        }
+
+        /// <summary>「拾荒地面」分组末尾的三个常用尺寸，只写宽高两项。</summary>
+        private static void AddGroundPresetBlock(CustomUIBuilder b)
+        {
+            b.AddSpace(6);
+            b.AddLabel(Copy.Text("—— 常用尺寸（点一下同时设置宽和高） ——",
+                "— Common sizes (sets width and height together) —"), "dgm_ground_presets");
+            CustomUIElement header = b.Last;
+            if (header.text != null) header.text.color = Picker.Accent;
+            Picker.Size(header, -1, 26);
+
+            b.BeginRow(8f, TextAnchor.MiddleLeft);
+            GroundPresetButton(b, 16, 13);
+            GroundPresetButton(b, 19, 21);
+            GroundPresetButton(b, 19, 31);
+            b.End();
+            b.AddSpace(4);
+        }
+
+        private static void GroundPresetButton(CustomUIBuilder b, int width, int height)
+        {
+            b.AddButton(width + " × " + height, delegate { ApplyGroundPreset(width, height); });
+            Picker.Size(b.Last, 120, 34);
+        }
+
+        private static void ApplyGroundPreset(int width, int height)
+        {
+            EndDrag();
+            Tuning.ApplyGroundPreset(width, height);
+            Refresh();
         }
 
         internal static void RefreshIfOpen()
@@ -1895,6 +1946,10 @@ namespace DumpingGroundMap
                 minorCrateValue.SetText(Tuning.MinorValue.ToString("0", CultureInfo.InvariantCulture));
             if (debugValue != null)
                 debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
+            if (groundWidthValue != null)
+                groundWidthValue.SetText(Tuning.GroundWidth.ToString(CultureInfo.InvariantCulture));
+            if (groundHeightValue != null)
+                groundHeightValue.SetText(Tuning.GroundHeight.ToString(CultureInfo.InvariantCulture));
             if (evLabels == null) return;
 
             float baseSum = 0f;
@@ -1995,6 +2050,22 @@ namespace DumpingGroundMap
                 Tuning.SetMinorValueLive(snapped);
                 LogSlide(6, value, Tuning.MinorValue);
             }
+            else if (kind == 7)
+            {
+                BeginDrag(7, Tuning.GroundWidth);
+                float snapped = Mathf.Round(value);
+                SyncSlider(groundWidthSlider, snapped);
+                Tuning.SetGroundWidthLive((int)snapped);
+                LogSlide(7, value, Tuning.GroundWidth);
+            }
+            else if (kind == 8)
+            {
+                BeginDrag(8, Tuning.GroundHeight);
+                float snapped = Mathf.Round(value);
+                SyncSlider(groundHeightSlider, snapped);
+                Tuning.SetGroundHeightLive((int)snapped);
+                LogSlide(8, value, Tuning.GroundHeight);
+            }
         }
 
         private static void ApplyPreset(int preset)
@@ -2023,6 +2094,8 @@ namespace DumpingGroundMap
             SyncSlider(cardSlider, Tuning.KeycardPercent);
             SyncSlider(minorSlider, Tuning.MinorPercent);
             SyncSlider(minorCrateSlider, Tuning.MinorValue);
+            SyncSlider(groundWidthSlider, Tuning.GroundWidth);
+            SyncSlider(groundHeightSlider, Tuning.GroundHeight);
         }
 
         private static void BeginDrag(int kind, float from)
@@ -2089,6 +2162,8 @@ namespace DumpingGroundMap
             minorValue = null;
             minorCrateValue = null;
             debugValue = null;
+            groundWidthValue = null;
+            groundHeightValue = null;
             specialtyDropdown = null;
             evLabels = null;
             junkSlider = null;
@@ -2098,6 +2173,8 @@ namespace DumpingGroundMap
             minorSlider = null;
             minorCrateSlider = null;
             debugSlider = null;
+            groundWidthSlider = null;
+            groundHeightSlider = null;
             building = null;
             buildingKey = null;
             dragging = false;

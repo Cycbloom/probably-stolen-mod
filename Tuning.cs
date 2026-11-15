@@ -63,6 +63,21 @@ namespace DumpingGroundMap
         internal const float DebugPointsMax = 200f;
 
         /// <summary>
+        /// 拾荒地面：只放大拾荒时整理战利品的那块「地面」。
+        /// 12×9 是原版；默认 19×21，宽 12–19、高 9–31。
+        /// 尺寸不进存档，改完下次重建地面时生效。
+        /// </summary>
+        internal const string GroundSection = "拾荒地面 / Ground";
+        internal const string GroundWidthKey = "ground_width";
+        internal const string GroundHeightKey = "ground_height";
+        internal const int DefaultGroundWidth = 19;
+        internal const int DefaultGroundHeight = 21;
+        internal const int GroundWidthMin = 12;
+        internal const int GroundWidthMax = 19;
+        internal const int GroundHeightMin = 9;
+        internal const int GroundHeightMax = 31;
+
+        /// <summary>
         /// One shared tier for every area. Each area still applies it to its
         /// own signature pool, so the same tier yields different goods.
         /// </summary>
@@ -83,6 +98,10 @@ namespace DumpingGroundMap
         private static ConfigEntry<bool> reputationPopEntry;
         private static ConfigEntry<bool> debugEnabledEntry;
         private static ConfigEntry<float> debugPointsEntry;
+        private static ConfigEntry<int> groundWidthEntry;
+        private static ConfigEntry<int> groundHeightEntry;
+        private static int liveGroundWidth;
+        private static int liveGroundHeight;
         private static bool debugIgnoredLogged;
         private static readonly Dictionary<string, EffectiveTable> cache =
             new Dictionary<string, EffectiveTable>();
@@ -160,6 +179,18 @@ namespace DumpingGroundMap
             get { return EntrySpecialtyTier(); }
         }
 
+        private static int EntryGroundWidth()
+        {
+            if (groundWidthEntry == null) return DefaultGroundWidth;
+            return Mathf.Clamp(groundWidthEntry.Value, GroundWidthMin, GroundWidthMax);
+        }
+
+        private static int EntryGroundHeight()
+        {
+            if (groundHeightEntry == null) return DefaultGroundHeight;
+            return Mathf.Clamp(groundHeightEntry.Value, GroundHeightMin, GroundHeightMax);
+        }
+
         /// <summary>声望飘字开关；配置项没注册成功时按默认（开）处理。</summary>
         internal static bool ReputationPopEnabled
         {
@@ -200,6 +231,54 @@ namespace DumpingGroundMap
             if (snapped > DebugPointsMax) snapped = DebugPointsMax;
             if (Mathf.Abs(debugPointsEntry.Value - snapped) < 0.001f) return;
             debugPointsEntry.Set(snapped);
+        }
+
+        /// <summary>拾荒地面宽度（格）。</summary>
+        internal static int GroundWidth
+        {
+            get { return hasLive ? liveGroundWidth : EntryGroundWidth(); }
+        }
+
+        /// <summary>拾荒地面高度（格）。</summary>
+        internal static int GroundHeight
+        {
+            get { return hasLive ? liveGroundHeight : EntryGroundHeight(); }
+        }
+
+        /// <summary>地面宽度滑条拖动中的内存值；松手时才写配置。</summary>
+        internal static void SetGroundWidthLive(int value)
+        {
+            EnsureLive();
+            liveGroundWidth = Mathf.Clamp(value, GroundWidthMin, GroundWidthMax);
+            Invalidated();
+        }
+
+        /// <summary>地面高度滑条拖动中的内存值；松手时才写配置。</summary>
+        internal static void SetGroundHeightLive(int value)
+        {
+            EnsureLive();
+            liveGroundHeight = Mathf.Clamp(value, GroundHeightMin, GroundHeightMax);
+            Invalidated();
+        }
+
+        /// <summary>
+        /// 三个预设按钮共用：只改宽高两项，不动垃圾、贵重品、专精等其它设置。
+        /// </summary>
+        internal static void ApplyGroundPreset(int width, int height)
+        {
+            hasLive = false;
+            if (groundWidthEntry != null)
+            {
+                int w = Mathf.Clamp(width, GroundWidthMin, GroundWidthMax);
+                if (groundWidthEntry.Value != w) groundWidthEntry.Set(w);
+            }
+            if (groundHeightEntry != null)
+            {
+                int h = Mathf.Clamp(height, GroundHeightMin, GroundHeightMax);
+                if (groundHeightEntry.Value != h) groundHeightEntry.Set(h);
+            }
+            // 两项都写完后统一刷新一次，避免界面只更新一半。
+            Invalidated();
         }
 
         /// <summary>
@@ -413,6 +492,28 @@ namespace DumpingGroundMap
 
                 MigrateSpecialtyTier(config);
 
+                groundWidthEntry = config.Define(GroundWidthKey, DefaultGroundWidth, GroundSection,
+                    delegate { return Copy.Text("地面宽度（格，12–19）", "Ground width (cells, 12-19)"); },
+                    GroundWidthMin, GroundWidthMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "只影响拾荒时整理战利品的那块「地面」。\n12 是原版宽度；调小不会把已经放大的地面缩回去。\n尺寸不进存档，改完下次进拾荒场景、重建地面时生效。",
+                            "Only affects the ground where scavenging loot is sorted.\n12 is the vanilla width. Lowering it never shrinks a ground that is already larger.\nThe size is not stored in the save; it applies the next time the scavenging scene rebuilds the ground.");
+                    },
+                    false);
+
+                groundHeightEntry = config.Define(GroundHeightKey, DefaultGroundHeight, GroundSection,
+                    delegate { return Copy.Text("地面高度（格，9–31）", "Ground height (cells, 9-31)"); },
+                    GroundHeightMin, GroundHeightMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "只影响拾荒时整理战利品的那块「地面」。\n9 是原版高度；调小不会把已经放大的地面缩回去。\n尺寸不进存档，改完下次进拾荒场景、重建地面时生效。",
+                            "Only affects the ground where scavenging loot is sorted.\n9 is the vanilla height. Lowering it never shrinks a ground that is already larger.\nThe size is not stored in the save; it applies the next time the scavenging scene rebuilds the ground.");
+                    },
+                    false);
+
                 reputationPopEntry = config.Define(ReputationPopKey, DefaultReputationPop,
                     IntegrationSection,
                     delegate
@@ -529,6 +630,18 @@ namespace DumpingGroundMap
                 };
                 specialtyEntry.OnChanged += delegate(string value)
                 {
+                    Invalidated();
+                };
+                groundWidthEntry.OnChanged += delegate(int value)
+                {
+                    int snapped = Mathf.Clamp(value, GroundWidthMin, GroundWidthMax);
+                    if (snapped != value) groundWidthEntry.Set(snapped);
+                    Invalidated();
+                };
+                groundHeightEntry.OnChanged += delegate(int value)
+                {
+                    int snapped = Mathf.Clamp(value, GroundHeightMin, GroundHeightMax);
+                    if (snapped != value) groundHeightEntry.Set(snapped);
                     Invalidated();
                 };
             }
@@ -684,6 +797,8 @@ namespace DumpingGroundMap
             liveCard = EntryKeycardPercent();
             liveMinor = EntryMinorPercent();
             liveMinorValue = EntryMinorValue();
+            liveGroundWidth = EntryGroundWidth();
+            liveGroundHeight = EntryGroundHeight();
         }
 
         /// <summary>
@@ -699,6 +814,8 @@ namespace DumpingGroundMap
             float card = liveCard;
             float minor = liveMinor;
             float minorValue = liveMinorValue;
+            int groundWidth = liveGroundWidth;
+            int groundHeight = liveGroundHeight;
             hasLive = false;
             if (junkEntry != null && junkEntry.Value != junk) junkEntry.Set(junk);
             if (highEntry != null && highEntry.Value != high) highEntry.Set(high);
@@ -707,6 +824,10 @@ namespace DumpingGroundMap
             if (minorEntry != null && minorEntry.Value != minor) minorEntry.Set(minor);
             if (minorValueEntry != null && minorValueEntry.Value != minorValue)
                 minorValueEntry.Set(minorValue);
+            if (groundWidthEntry != null && groundWidthEntry.Value != groundWidth)
+                groundWidthEntry.Set(groundWidth);
+            if (groundHeightEntry != null && groundHeightEntry.Value != groundHeight)
+                groundHeightEntry.Set(groundHeight);
             Invalidated();
         }
 
