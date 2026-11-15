@@ -197,8 +197,8 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 四类当场提示共用同一条通知条：StoreUIManager.Instance.Notify(text, "sec")，
-        /// 与原生「受伤」提示同一个位置和样式，不另做 UI。
+        /// 四类拾获提示共用原生普通消息通知条（default 黑色背景），不另做 UI。
+        /// 与原生拾荒成功、彩票兑奖保持一致；受伤的 sec 红色提示仍由原版处理。
         /// 每句都按「谁在哪里翻到什么」拼：地点来自该区的措辞池，随机取一条，
         /// 整句只出现一个地点。
         /// </summary>
@@ -211,7 +211,7 @@ namespace DumpingGroundMap
                     Debug.LogWarning("[DumpingGroundMap] stash: " + tag + " notice skipped, no StoreUIManager");
                     return;
                 }
-                StoreUIManager.Instance.Notify(text, "sec");
+                StoreUIManager.Instance.Notify(text, "default");
                 Debug.Log("[DumpingGroundMap] stash: " + tag + " notice shown");
             }
             catch (Exception ex)
