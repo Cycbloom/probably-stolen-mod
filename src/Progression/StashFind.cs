@@ -23,9 +23,10 @@ namespace DumpingGroundMap
     /// 一趟（进入某处垃圾场后）最多中一次大奖，标记只在内存里，换区时清空。
     /// 中奖后当天、同一区域，后续每次搜索固定再给 1 件该区样板物品。
     ///
-    /// 中奖当晚把「第二天出新闻」写进存档（同声望的 modData 机制），
-    /// 第二天开日时由 StoreEventManager.OnDayStart 的 Prefix 调原生
-    /// QueueFuturEvent 预定并激活事件，报纸与降价都走原生链路。
+    /// 中奖当场就用原生 QueueFuturEvent 按「明天」把事件排进未来队列，
+    /// 当天打开日历就能在次日格看到；第二天开日由原版 HandleFuturEvent
+    /// 激活，报纸与降价都走原生链路。次日开日的 Prefix 只做兜底：
+    /// 事件已在激活列表或未来队列里就只清日期，旧存档或入队失败才补排。
     /// </summary>
     internal static class StashFind
     {
@@ -163,6 +164,10 @@ namespace DumpingGroundMap
                     hitDay = today;
                     hitRegion = region.Id;
                     newsDay = today + 1;
+                    newsFired = -1;
+                    // 当场按「明天」排进原生未来队列，日历当天即可看到；
+                    // 失败时保留 newsDay，由次日开日的兜底路径补排。
+                    bool newsQueued = QueueNewsForTomorrow(template);
                     jackpotHit = true;
                     SaveState();
                     NotifyFind(region.Id);
@@ -171,7 +176,7 @@ namespace DumpingGroundMap
                         + " items=" + spawned + " chance " + before.ToString("F3")
                         + " -> " + JackpotChanceRules.Current(chance, cap, useWindow).ToString("F3")
                         + " window=" + useWindow + " phase=" + phase
-                        + " news_day=" + newsDay);
+                        + " news_day=" + newsDay + " news_queued=" + (newsQueued ? 1 : 0));
                 }
                 else
                 {
@@ -569,9 +574,10 @@ namespace DumpingGroundMap
 
 
         /// <summary>
-        /// 每天开日的 Prefix：如果这次开日该出我们的事件，就先走原生
-        /// QueueFuturEvent 排进当天；同一次 OnDayStart 里的 HandleFuturEvent
-        /// 会立刻把它激活，报纸与价格效果都由原生逻辑接管。
+        /// 每天开日的 Prefix：只做兜底。中奖当场已经按「明天」排进未来队列，
+        /// 这里先看事件是否已在激活列表或未来队列里，是就只记录发报日；
+        /// 旧存档或入队失败（两者都没有）才按原逻辑用 0 偏移补排，
+        /// 并交给同一次 OnDayStart 的 HandleFuturEvent 激活。
         /// </summary>
         internal static void ApplyPendingNews(StoreEventManager manager)
         {
@@ -589,6 +595,17 @@ namespace DumpingGroundMap
                 SaveState();
                 return;
             }
+
+            string identifier = "dgm_stash_" + template.RegionId;
+            if (HasQueuedOrActive(manager, identifier))
+            {
+                newsFired = today;
+                newsDay = -1;
+                SaveState();
+                Debug.Log("[DumpingGroundMap] stash: news already queued day=" + today
+                    + " id=" + identifier + " region=" + template.RegionId);
+                return;
+            }
             if (newsFired == today)
             {
                 newsDay = -1;
@@ -604,7 +621,7 @@ namespace DumpingGroundMap
                 newsDay = -1;
                 SaveState();
                 Debug.Log("[DumpingGroundMap] stash: news queued day=" + today
-                    + " id=" + ev.identifier + " region=" + template.RegionId);
+                    + " id=" + ev.identifier + " region=" + template.RegionId + " fallback=1");
             }
             catch (Exception ex)
             {
@@ -612,10 +629,46 @@ namespace DumpingGroundMap
             }
         }
 
+        /// <summary>中奖当场按「明天」入队；同 id 事件已存在时不重复排。</summary>
+        private static bool QueueNewsForTomorrow(StashTemplate template)
+        {
+            try
+            {
+                StoreEventManager manager = StoreStation.Instance.storeEventManager;
+                if (manager == null) return false;
+                StoreEvent ev = BuildEvent(template);
+                if (HasQueuedOrActive(manager, ev.identifier)) return true;
+                manager.QueueFuturEvent(ev, 1, true);
+                Debug.Log("[DumpingGroundMap] stash: news queued for tomorrow id=" + ev.identifier
+                    + " today=" + Today());
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] stash: news queue at hit failed: " + ex.Message);
+                return false;
+            }
+        }
+
+        /// <summary>同 identifier 的事件是否已在激活列表或未来队列里。</summary>
+        private static bool HasQueuedOrActive(StoreEventManager manager, string identifier)
+        {
+            if (manager == null || string.IsNullOrEmpty(identifier)) return false;
+            if (manager.IsEventActive(identifier)) return true;
+            List<StoreEvent> future = manager.futurEvents;
+            if (future == null) return false;
+            for (int i = 0; i < future.Count; ++i)
+            {
+                StoreEvent ev = future[i];
+                if (ev != null && ev.identifier == identifier) return true;
+            }
+            return false;
+        }
+
         internal static void QueueNewsForToday(StoreEventManager manager, StoreEvent ev)
         {
-            // day 是剩余天数，不是绝对日期。此时已到次日开日，随后同一次
-            // OnDayStart 的 HandleFuturEvent 会激活它；startDay 也必须落在今天。
+            // day 是剩余天数，不是绝对日期。此路径只用于兜底：事件已经错过了
+            // 中奖当天的入队，随即由同一次 OnDayStart 的 HandleFuturEvent 激活。
             manager.QueueFuturEvent(ev, 0, true);
         }
 

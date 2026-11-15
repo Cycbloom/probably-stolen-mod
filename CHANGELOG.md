@@ -1,5 +1,11 @@
 # 版本记录
 
+## 0.3.90（待部署）
+
+- 大奖新闻改为中奖当场入队：用原生 `QueueFuturEvent` 以「明天」为偏移（`dayOffset=1`、`IsKnown=true`）排入未来队列，中奖当天打开日历即可在次日格看到事件名称。
+- 入队前按 `identifier` 查重，已在激活列表或未来队列时不重复排；次日开日的旧路径降级为兜底：已有事件只清日期并记 fired，旧存档或入队失败才按 0 偏移补排。
+- 旧存档修复逻辑保持不变；报纸、当天价格修正与激活时机仍由原版 `HandleFuturEvent` 接管。
+
 ## 0.3.89
 
 - 香烟不再由 mod 写死单价覆盖游戏定价：正品交给 `CigaretteAuthenticity`，游戏 `genuineCigarette` 条件动作写 100；赝品交给 `CigaretteCounterfeit`，游戏 `counterfeitCigarette` 动作写 50。修复正品显示 80、赝品显示 40 的偏差。
