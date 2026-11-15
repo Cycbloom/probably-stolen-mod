@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.77
+# 垃圾场拾荒地图 · 0.3.78
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -11,6 +11,45 @@
 | 拆解堆 | 高级 | 40 |
 | 医疗废弃点 | 高级 | 40 |
 | 废武器堆 | 高级 | 40 |
+
+## 拾荒客开局（0.3.78）
+
+新游戏选专精时多一个「拾荒客 / Scavenger」开局。它走的是游戏给 mod 留的公开入口，不是改存档或改原生开局：
+
+| 项 | 内容 |
+|---|---|
+| 场景 id | `local.dumping_ground_map.scavenger`（写进 `PlayerStore.startScenarioId`，随存档保存） |
+| 注册 | `StartingScenario.Register`，`startType = StartType.MODDED`、`source = local.dumping_ground_map`；`onStart` 里发家当 |
+| 图标 | 复用原生 `icons_junker`（未开放的拾荒者开局图标），不新增美术资源 |
+| 标签 | 「标准开局 / Standard start」，`TagTone.Positive` |
+
+**被动效果**
+
+| 效果 | 实现 |
+|---|---|
+| 每趟拾荒次数 +2 | `ScavHelper.GetMaxScavAttempts` Postfix：仅当本存档的开局 id 是本专精、且原值 > 0（非 Maimed）时 +2 |
+| 夜间去垃圾场，次日客人不减 | `StoreClientManager.GetNormalCustomerCount`：原生在 `wentToAfterhoursLastNight && !IsShortSleeper()` 时减 1；本专精且 `MapUIManager.LastVisitedTonightId == "dumping_ground"` 时，前缀临时把该标志置 false，让原方法按「没外出」的路径完整算一遍（含 `Clamp(0,6)`），Postfix / Finalizer 再恢复。这样不会在原生已夹到 0 时凭空多出一名客人 |
+| 短眠者已在时 | 原生本来就不扣，补丁直接跳过，不会加回来 |
+
+判据只有 `PlayerStore.startScenarioId`：旧存档为空串、其它开局都不是这个 id，两条补丁都不生效，行为与 0.3.77 完全一致。
+
+**初始家当**
+
+`onStart` 与原生各开局同一写法：`DirectoryMaster.Item(id, true)` 造已拥有的物品，`GraphUtils.EmporiumTryAdd(EmporiumEntry.invElement, item)` 放进后场（满了由原版路由到柜台 / 展示柜）。
+
+| 物品 | id | 基准价 |
+|---|---|---:|
+| 简易储藏区（小的储藏柜） | `makeshift_storage_bay`（缺省回退 `storage_bay`） | 250 |
+| 基础背包（第二级） | `backpack_medium`（缺省回退 `satchel`） | 450 |
+| 工具箱 | `toolbox`，`TOOLBOX_UNLOCKED_SLOTS_INT` 解锁 3 格 | 150 |
+| 螺丝刀 / 剪线钳 / 手电筒 | `screwdriver` / `wire_cutter` / `flashlight`，先 `TryAcceptAll(toolbox, …)` 装进箱子，放不下再进后场 | 25 / 40 / 40 |
+| 基础绷带 ×2 | `bandage_item` | 8 × 2 |
+
+家当基准价值合计 971，按开局折价从 600 起始资金里扣 400，**开局持有 200 信用点**（与原生高级开局扣 450 同一量级）。扣款用原生 `PlayerStore.playerCash` 直接写，不新增存档字段。
+
+**初始声望**
+
+20 点不写在 `onStart`：`HandleInitialItem` 末尾会触发 `ModHook.OnNewGameStarted`，`Reputation.NewGame` 在那里把声望归零。`ScavengerStart.Hook()` 在 `Reputation.Hook()` 之后订阅同一事件，因此按订阅顺序排在归零之后，调 `Reputation.SetPoints(20)` 写入 2000 累计价值，并清掉「今天已加过拾荒客客人」的缓存。普通难度与困难难度都是 20；要分难度只改 `ScavengerStart.StartReputation` 一处。
 
 ## 声望与解锁
 
