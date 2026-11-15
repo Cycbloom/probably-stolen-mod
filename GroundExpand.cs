@@ -1,5 +1,7 @@
 using HarmonyLib;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace DumpingGroundMap
 {
@@ -15,6 +17,9 @@ namespace DumpingGroundMap
 
         /// <summary>窗口离画布边缘至少留这么多像素，避免贴边被裁。</summary>
         private const int Margin = 8;
+
+        /// <summary>让开右侧面板时与它保持的间隙。</summary>
+        private const float PanelGap = 8f;
 
         private static EmporiumEntry appliedOwner;
         private static bool applied;
@@ -114,8 +119,10 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 放大后的重排：优先留在原位置；如果纵向会压到前后柜台（商店区），
-        /// 就整块挪到左右两侧里横向重叠更小的一边，并保证不超出画布。
+        /// 按「地面对齐」的九宫格贴边摆放：左 / 中 / 右决定横向，上 / 中 / 下决定纵向，
+        /// 四周留 Margin，并夹在画布内（窗口大于画布时贴左上）。
+        /// 靠右时如果会压住右侧的原生面板（剩余时间 / 受伤概率 / 返回 / 拾荒按钮），
+        /// 整块往左让到面板左侧再留 PanelGap，保证不挡按钮。
         /// </summary>
         internal static void Relayout(EmporiumEntry entry)
         {
@@ -134,65 +141,104 @@ namespace DumpingGroundMap
             int height = window.heightPixels;
             if (width <= 0 || height <= 0) return;
 
-            float x = canvasWidth / 2.1f - width / 2f;
-            float y = height + Margin * 2 <= canvasHeight
-                ? -(canvasHeight - height - Margin)
-                : -(canvasHeight - height);
+            int align = Mathf.Clamp(Tuning.GroundAlign, 0, 8);
+            int column = align % 3;
+            int row = align / 3;
 
-            float shopLeft;
-            float shopTop;
-            float shopRight;
-            float shopBottom;
-            if (ShopRect(entry, out shopLeft, out shopTop, out shopRight, out shopBottom))
-            {
-                // anchoredPosition 的 y 向下为负，换算成「从画布顶边往下」的行号。
-                float top = -y - height;
-                float bottom = -y;
-                if (bottom > shopTop && top < shopBottom)
-                {
-                    float left = Margin;
-                    float right = canvasWidth - Margin - width;
-                    float overlapNow = Overlap(x, x + width, shopLeft, shopRight);
-                    float overlapLeft = Overlap(left, left + width, shopLeft, shopRight);
-                    float overlapRight = Overlap(right, right + width, shopLeft, shopRight);
-                    if (overlapLeft < overlapNow && overlapLeft <= overlapRight) x = left;
-                    else if (overlapRight < overlapNow) x = right;
-                }
-            }
+            float maxX = Mathf.Max(0f, canvasWidth - width);
+            float x = column == 0 ? Margin
+                : column == 2 ? maxX - Margin
+                : maxX / 2f;
+            x = Mathf.Clamp(x, 0f, maxX);
 
-            x = Mathf.Clamp(x, 0f, Mathf.Max(0f, canvasWidth - width));
-            window.rectTransform.anchoredPosition = new Vector2(x, y);
+            float maxTop = Mathf.Max(0f, canvasHeight - height);
+            float top = row == 0 ? Margin
+                : row == 2 ? maxTop - Margin
+                : maxTop / 2f;
+            top = Mathf.Clamp(top, 0f, maxTop);
+
+            x = column == 2 ? AvoidNativePanel(x, top, width, height, maxX) : x;
+
+            // anchoredPosition 的 y 向下为负。
+            window.rectTransform.anchoredPosition = new Vector2(x, -top);
         }
 
-        private static float Overlap(float left, float right, float shopLeft, float shopRight)
+        /// <summary>
+        /// 右侧原生面板（_ULScavenging 里的时间 / 受伤提示与返回、拾荒按钮）
+        /// 与地面窗口重叠时，把地面整块让到面板左边。
+        /// </summary>
+        private static float AvoidNativePanel(float x, float top, int width, int height, float maxX)
         {
-            float start = Mathf.Max(left, shopLeft);
-            float end = Mathf.Min(right, shopRight);
-            return end > start ? end - start : 0f;
+            MapUIManager map = MapUIManager.Instance;
+            RenderHandler handler = RenderHandler.current;
+            if (map == null || map.UIScavengingPanel == null
+                || handler == null || handler.windowUICanvasObject == null) return x;
+            RectTransform canvas = handler.windowUICanvasObject.GetComponent<RectTransform>();
+            if (canvas == null) return x;
+
+            float panelLeft;
+            float panelTop;
+            float panelRight;
+            float panelBottom;
+            if (!NativePanelRect(map.UIScavengingPanel, canvas,
+                out panelLeft, out panelTop, out panelRight, out panelBottom)) return x;
+
+            bool overlapsHorizontally = x + width > panelLeft && x < panelRight;
+            bool overlapsVertically = top + height > panelTop && top < panelBottom;
+            if (!overlapsHorizontally || !overlapsVertically) return x;
+
+            float moved = panelLeft - PanelGap - width;
+            if (moved < Margin) moved = Margin;
+            return Mathf.Clamp(moved, 0f, maxX);
         }
 
-        /// <summary>前后柜台两个窗口合起来当成「商店区」。</summary>
-        private static bool ShopRect(EmporiumEntry entry, out float left, out float top,
-            out float right, out float bottom)
+        /// <summary>
+        /// 把右侧原生面板的可见元素（按钮、文字）合起来当成一个矩形。
+        /// 坐标换算成「从画布左边 / 顶边算起」的像素，与 anchoredPosition 同一套。
+        /// 铺满整个画布的容器不算，否则地面永远被推走。
+        /// </summary>
+        private static bool NativePanelRect(GameObject root, RectTransform canvas,
+            out float left, out float top, out float right, out float bottom)
         {
             left = top = float.MaxValue;
             right = bottom = float.MinValue;
-            bool any = Include(entry.backInvWindow, ref left, ref top, ref right, ref bottom);
-            any |= Include(entry.frontInvWindow, ref left, ref top, ref right, ref bottom);
+            Rect canvasRect = canvas.rect;
+            bool any = false;
+
+            Button[] buttons = root.GetComponentsInChildren<Button>(true);
+            for (int i = 0; i < buttons.Length; ++i)
+            {
+                if (buttons[i] == null) continue;
+                any |= IncludeRect(buttons[i].transform as RectTransform, canvas, canvasRect,
+                    ref left, ref top, ref right, ref bottom);
+            }
+            TMP_Text[] labels = root.GetComponentsInChildren<TMP_Text>(true);
+            for (int i = 0; i < labels.Length; ++i)
+            {
+                if (labels[i] == null) continue;
+                any |= IncludeRect(labels[i].transform as RectTransform, canvas, canvasRect,
+                    ref left, ref top, ref right, ref bottom);
+            }
+
             if (!any) left = top = right = bottom = 0f;
             return any;
         }
 
-        private static bool Include(PixelWindow window, ref float left, ref float top,
-            ref float right, ref float bottom)
+        private static bool IncludeRect(RectTransform target, RectTransform canvas, Rect canvasRect,
+            ref float left, ref float top, ref float right, ref float bottom)
         {
-            if (window == null || window.rectTransform == null) return false;
-            if (window.widthPixels <= 0 || window.heightPixels <= 0) return false;
-            Vector2 position = window.rectTransform.anchoredPosition;
-            left = Mathf.Min(left, position.x);
-            top = Mathf.Min(top, -position.y);
-            right = Mathf.Max(right, position.x + window.widthPixels);
-            bottom = Mathf.Max(bottom, -position.y + window.heightPixels);
+            if (target == null) return false;
+            Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(canvas, target);
+            float l = bounds.min.x - canvasRect.xMin;
+            float r = bounds.max.x - canvasRect.xMin;
+            float t = canvasRect.yMax - bounds.max.y;
+            float b = canvasRect.yMax - bounds.min.y;
+            // 跳过铺满画布的容器（例如面板根节点）。
+            if (r - l >= canvasRect.width * 0.9f && b - t >= canvasRect.height * 0.9f) return false;
+            left = Mathf.Min(left, l);
+            top = Mathf.Min(top, t);
+            right = Mathf.Max(right, r);
+            bottom = Mathf.Max(bottom, b);
             return true;
         }
 
@@ -262,8 +308,9 @@ namespace DumpingGroundMap
             if (Reputation.Points >= Reputation.Perk40Threshold)
             {
                 text += Copy.Text(
-                    " 离开时可以花 50 信用点请拾荒者帮手，把地面上的东西搬回店里。",
-                    " When leaving, you can hire a scavenger helper for 50 credits to carry what is left back to the store.");
+                    " 离开时可以花钱请拾荒者帮手（离场确认框里多一个按钮），他们会把地上剩下的东西按价值从高到低搬进店里；店里也装不下的仍然会被丢掉。",
+                    " When you leave, you can pay a scavenger helper (an extra button on the leave confirmation)"
+                    + " to carry what's left into the store, most valuable first; anything the store can't hold is still lost.");
             }
             else
             {

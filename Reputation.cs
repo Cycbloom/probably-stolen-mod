@@ -958,10 +958,13 @@ namespace DumpingGroundMap
             if (threshold >= Reputation.Perk40Threshold)
             {
                 return Copy.Text(
-                    "你对这片场子越来越熟。三个高级拾荒场对你开放：拆解堆、医疗废弃点、废武器堆。",
+                    "你对这片场子越来越熟。三个高级拾荒场对你开放：拆解堆、医疗废弃点、废武器堆。"
+                    + "离开时还可以花钱请拾荒者帮手，把拾荒时得到的东西搬回店里。",
                     "You know this place better and better. "
                     + "Three high-tier scavenging grounds are open to you: "
-                    + "Scrap Pile, Medical Waste, Weapon Dump.");
+                    + "Scrap Pile, Medical Waste, Weapon Dump. "
+                    + "When you leave, you can also pay a scavenger helper to carry "
+                    + "what you found back to the store.");
             }
             return Copy.Text(
                 "你结交了许多拾荒者朋友。每天会多一名拾荒者来你店里。",

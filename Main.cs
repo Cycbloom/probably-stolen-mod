@@ -1488,6 +1488,7 @@ namespace DumpingGroundMap
         private const string KeyMinorValue = "minor_value";
         private const string KeyGroundWidth = Tuning.GroundWidthKey;
         private const string KeyGroundHeight = Tuning.GroundHeightKey;
+        private const string KeyGroundAlign = Tuning.GroundAlignKey;
         private const string LogTag = "[DGM-SLIDER] ";
 
         private static CustomUIWindow window;
@@ -1499,6 +1500,7 @@ namespace DumpingGroundMap
         private static CustomUIElement debugValue;
         private static CustomUIElement groundWidthValue, groundHeightValue;
         private static CustomUIElement specialtyDropdown;
+        private static CustomUIElement groundAlignDropdown;
         private static CustomUIElement[] evLabels;
         private static CustomUIElement junkSlider, highSlider;
         private static CustomUIElement crateSlider, cardSlider;
@@ -1550,6 +1552,7 @@ namespace DumpingGroundMap
                 || key == KeyCrate || key == KeyCard || key == KeyMinor
                 || key == KeyMinorValue
                 || key == KeyGroundWidth || key == KeyGroundHeight
+                || key == KeyGroundAlign
                 || key == Tuning.SpecialtyKey
                 || key == Tuning.DebugEnabledKey || key == Tuning.DebugPointsKey;
         }
@@ -1646,6 +1649,11 @@ namespace DumpingGroundMap
                 {
                     minorCrateSlider = HookSlider(window, key, 6);
                     minorCrateValue = EnsureValueLine(b, key, minorCrateValue);
+                }
+                else if (key == KeyGroundAlign)
+                {
+                    groundAlignDropdown = b.Last;
+                    HookGroundAlignDropdown(groundAlignDropdown, key);
                 }
                 else if (key == KeyGroundWidth)
                 {
@@ -1859,6 +1867,22 @@ namespace DumpingGroundMap
             });
             Debug.Log(LogTag + key + ": dropdown bound (options="
                 + element.dropdown.options.Count + ")");
+        }
+
+        private static void HookGroundAlignDropdown(CustomUIElement element, string key)
+        {
+            if (element == null || element.dropdown == null)
+            {
+                Debug.LogWarning(LogTag + key + ": dropdown widget missing, alignment fixed at default");
+                return;
+            }
+            element.OnDropdown(delegate(int index)
+            {
+                Tuning.SetGroundAlignLive(index);
+                Debug.Log(LogTag + "ground align=" + Tuning.GroundAlign + " source=dropdown");
+            });
+            Debug.Log(LogTag + key + ": dropdown bound (options="
+                + element.dropdown.options.Count + ", current=" + Tuning.GroundAlign + ")");
         }
 
         private static CustomUIElement HookDebugSlider(CustomUIWindow target, string key)
@@ -2096,6 +2120,8 @@ namespace DumpingGroundMap
             SyncSlider(minorCrateSlider, Tuning.MinorValue);
             SyncSlider(groundWidthSlider, Tuning.GroundWidth);
             SyncSlider(groundHeightSlider, Tuning.GroundHeight);
+            if (groundAlignDropdown != null)
+                groundAlignDropdown.SetIndex(Tuning.GroundAlign, false);
         }
 
         private static void BeginDrag(int kind, float from)
@@ -2165,6 +2191,7 @@ namespace DumpingGroundMap
             groundWidthValue = null;
             groundHeightValue = null;
             specialtyDropdown = null;
+            groundAlignDropdown = null;
             evLabels = null;
             junkSlider = null;
             highSlider = null;

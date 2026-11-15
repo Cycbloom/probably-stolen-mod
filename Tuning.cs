@@ -78,6 +78,20 @@ namespace DumpingGroundMap
         internal const int GroundHeightMax = 31;
 
         /// <summary>
+        /// 地面窗口贴哪个位置：九宫格，0 左上 / 1 上中 / 2 右上 / 3 左中 / 4 居中 /
+        /// 5 右中 / 6 左下 / 7 下中 / 8 右下；默认左下。
+        /// 只在拾荒场景摆放，商店界面不碰。
+        /// </summary>
+        internal const string GroundAlignKey = "ground_align";
+        internal const int DefaultGroundAlign = 6;
+        private static readonly string[] GroundAlignZh =
+            { "左上", "上中", "右上", "左中", "居中", "右中", "左下", "下中", "右下" };
+        private static readonly string[] GroundAlignEn =
+            { "Top left", "Top middle", "Top right", "Middle left", "Center", "Middle right",
+              "Bottom left", "Bottom middle", "Bottom right" };
+        private static string[] groundAlignLabels;
+
+        /// <summary>
         /// One shared tier for every area. Each area still applies it to its
         /// own signature pool, so the same tier yields different goods.
         /// </summary>
@@ -100,6 +114,7 @@ namespace DumpingGroundMap
         private static ConfigEntry<float> debugPointsEntry;
         private static ConfigEntry<int> groundWidthEntry;
         private static ConfigEntry<int> groundHeightEntry;
+        private static ConfigEntry<string> groundAlignEntry;
         private static int liveGroundWidth;
         private static int liveGroundHeight;
         private static bool debugIgnoredLogged;
@@ -189,6 +204,44 @@ namespace DumpingGroundMap
         {
             if (groundHeightEntry == null) return DefaultGroundHeight;
             return Mathf.Clamp(groundHeightEntry.Value, GroundHeightMin, GroundHeightMax);
+        }
+
+        /// <summary>下拉框的九个选项，按当前语言取中 / 英。</summary>
+        internal static string[] GroundAlignLabels
+        {
+            get
+            {
+                if (groundAlignLabels == null)
+                {
+                    groundAlignLabels = new string[GroundAlignZh.Length];
+                    for (int i = 0; i < groundAlignLabels.Length; ++i)
+                        groundAlignLabels[i] = Copy.Text(GroundAlignZh[i], GroundAlignEn[i]);
+                }
+                return groundAlignLabels;
+            }
+        }
+
+        /// <summary>地面贴边位置（0–8）；配置项缺失或值对不上时按默认左下。</summary>
+        internal static int GroundAlign
+        {
+            get
+            {
+                ConfigEntry<string> entry = groundAlignEntry;
+                if (entry == null) return DefaultGroundAlign;
+                int index = System.Array.IndexOf(GroundAlignLabels, entry.Value);
+                return index < 0 ? DefaultGroundAlign : index;
+            }
+        }
+
+        /// <summary>下拉框换档：立即写进配置项，下次进拾荒场景按新位置摆放。</summary>
+        internal static void SetGroundAlignLive(int index)
+        {
+            ConfigEntry<string> entry = groundAlignEntry;
+            if (entry == null) return;
+            string[] labels = GroundAlignLabels;
+            string value = labels[Mathf.Clamp(index, 0, labels.Length - 1)];
+            if (entry.Value == value) return;
+            entry.Set(value);
         }
 
         /// <summary>声望飘字开关；配置项没注册成功时按默认（开）处理。</summary>
@@ -491,6 +544,18 @@ namespace DumpingGroundMap
                     false);
 
                 MigrateSpecialtyTier(config);
+
+                groundAlignEntry = config.Define(GroundAlignKey, GroundAlignLabels[DefaultGroundAlign],
+                    GroundSection,
+                    delegate { return Copy.Text("地面对齐", "Ground alignment"); },
+                    GroundAlignLabels,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "拾荒时地面窗口贴在哪里。\n九个位置：左上、上中、右上、左中、居中、右中、左下、下中、右下。\n默认左下，避开右侧的时间与按钮面板。\n靠右时如果会压住右侧原生面板，会自动往左让开。\n改完下次进拾荒场景生效；商店界面不受影响。",
+                            "Where the ground window sits while scavenging.\nNine spots: top left, top middle, top right, middle left, center, middle right, bottom left, bottom middle, bottom right.\nDefault bottom left, clear of the time and button panel on the right.\nOn the right side it moves left automatically when it would cover that panel.\nApplies the next time you enter the scavenging scene; the shop UI is never touched.");
+                    },
+                    false);
 
                 groundWidthEntry = config.Define(GroundWidthKey, DefaultGroundWidth, GroundSection,
                     delegate { return Copy.Text("地面宽度（格，12–19）", "Ground width (cells, 12-19)"); },

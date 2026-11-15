@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
 using HarmonyLib;
+using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace DumpingGroundMap
 {
     /// <summary>
-    /// 40 声望档的「请拾荒者帮手」：离开拾荒地面时花 50 信用点，
-    /// 按价值从高到低把地面上的战利品搬回店里。
+    /// 40 声望档的「请拾荒者帮手」：离场确认框里除了原版「离开」「取消」，
+    /// 再多一个「花钱请人帮忙」——花钱 + 按价值从高到低把地面上的东西搬回店里 + 离场。
+    /// 原版两个按钮完全不动：点「离开」就是不付费、不搬运地走。
     /// 搬运部分复用原版 DrJacksonLocation.Leave 的写法
     /// （GraphUtils.EmporiumTryAdd(EmporiumEntry.backInvWindow, item)），
     /// 以及 TransferAfterhourToInv 的口袋 / 背包转移顺序。
@@ -17,92 +20,215 @@ namespace DumpingGroundMap
         /// <summary>整个搬运服务一次性收费。</summary>
         internal const int Fee = 50;
 
+        /// <summary>面板向下让出的高度：按钮高 30 + 间隙 8 + 底部留白 10。</summary>
+        private const float ExtraHeight = 48f;
+
+        /// <summary>新按钮与原按钮之间的间隙。</summary>
+        private const float Gap = 8f;
+
+        private static bool armed;
+        private static bool showing;
+
+        private static GameObject helperButton;
+        private static RectTransform helperSlot;
+        private static RectTransform panelRect;
+        private static RectTransform bodyRect;
+        private static RectTransform groupRect;
+        private static GameObject panelOwner;
+        private static Vector2 originalPanelSize;
+        private static Vector2 originalBodyPosition;
+        private static Vector2 originalGroupPosition;
+        private static bool layoutApplied;
+
         internal static bool Available
         {
             get { return Core.Enabled && Reputation.Points >= Reputation.Perk40Threshold; }
         }
 
-        /// <summary>本次拾荒场景是否已经给过选择（含拒绝），避免重复弹窗。</summary>
-        private static bool offered;
-        private static Action resume;
-
+        /// <summary>每次重建拾荒场景时清掉未消费的标记。</summary>
         internal static void Reset()
         {
-            offered = false;
-            resume = null;
+            armed = false;
         }
 
-        /// <summary>
-        /// 在「地面还有东西，确认离开」这一步接管。返回 true 表示已经弹了自己的面板，
-        /// 调用方应跳过原版面板；稍后确认或取消时再通过 resume 继续离场。
-        /// </summary>
-        internal static bool TryOffer(Action continueReturn)
+        /// <summary>原版「地面还有东西，确认离开」即将弹框时调用。</summary>
+        internal static void Arm()
         {
-            if (!Available || offered || continueReturn == null) return false;
+            armed = false;
+            if (!Available) return;
             EmporiumEntry entry = EmporiumEntry.Instance;
             MapUIManager map = MapUIManager.Instance;
-            if (entry == null || map == null) return false;
-            if (!(map.Current is DumpingGroundLocation)) return false;
+            if (entry == null || map == null) return;
+            if (!(map.Current is DumpingGroundLocation)) return;
             GameGridInventory ground = entry.afterhourInventory;
-            if (ground == null || ground.childItems == null || ground.childItems.Count == 0) return false;
-            GenericConfirmationUIManager ui = GenericConfirmationUIManager.Instance;
-            if (ui == null) return false;
+            if (ground == null || ground.childItems == null || ground.childItems.Count == 0) return;
+            armed = true;
+        }
 
-            offered = true;
-            resume = continueReturn;
-            int count = ground.childItems.Count;
-            ui.OpenPanel(
-                Copy.Text(
-                    "地面上还有 " + count + " 件东西。花 50 信用点请拾荒者帮手，他们会按价值从高到低把能放下的搬回店里；店里装不下的仍然会被丢掉。",
-                    "There are " + count + " item(s) left on the ground. Pay 50 credits to hire a scavenger helper, who carries them into the store, most valuable first; anything the store cannot hold is still lost."),
-                Copy.Text("请拾荒者帮手（50 信用点）", "Hire a scavenger helper (50 credits)"),
-                Copy.Text("再想想", "Not now"),
-                OnHired,
-                OnDeclined);
+        internal static void ArmResult(bool opened)
+        {
+            if (!opened) armed = false;
+        }
+
+        /// <summary>确认框打开 / 关闭时同步第三个按钮与原版面板的尺寸。</summary>
+        internal static void SyncPanel(GenericConfirmationUIManager ui, bool open)
+        {
+            if (ui == null) return;
+            if (!open || !armed)
+            {
+                Cancel();
+                return;
+            }
+            armed = false;
+            if (!Build(ui)) return;
+            showing = true;
+            ApplyLayout(ui);
+            helperButton.SetActive(true);
+        }
+
+        private static void Cancel()
+        {
+            armed = false;
+            if (!showing) return;
+            showing = false;
+            if (helperButton != null) helperButton.SetActive(false);
+            RestoreLayout();
+        }
+
+        private static bool Build(GenericConfirmationUIManager ui)
+        {
+            if (helperButton != null && helperSlot != null && panelOwner == ui.panel) return true;
+            if (ui.confirmButton == null || ui.panel == null) return false;
+
+            // 按钮组带横向排版，塞进去会被重新排到左右两边；这里单开一格放在按钮行下方。
+            helperSlot = CreateSlot(ui);
+            if (helperSlot == null) return false;
+
+            GameObject clone = UnityEngine.Object.Instantiate(ui.confirmButton, helperSlot, false);
+            clone.name = "DGM_PaidHelperButton";
+
+            TextMeshProUGUI label = clone.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (label != null)
+            {
+                label.text = Copy.Text("花钱请人帮忙", "Hire Help");
+            }
+
+            Button button = clone.GetComponent<Button>();
+            if (button == null)
+            {
+                // 原按钮不是 UGUI Button 时克隆出来点不动，宁可不显示。
+                UnityEngine.Object.Destroy(clone);
+                UnityEngine.Object.Destroy(helperSlot.gameObject);
+                helperSlot = null;
+                Debug.LogWarning("[DumpingGroundMap] helper button skipped: confirm button has no Button");
+                return false;
+            }
+            button.onClick = new Button.ButtonClickedEvent();
+            button.onClick.AddListener(OnHelperPressed);
+
+            RectTransform rect = clone.GetComponent<RectTransform>();
+            if (rect != null)
+            {
+                rect.anchorMin = Vector2.zero;
+                rect.anchorMax = Vector2.one;
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.offsetMin = Vector2.zero;
+                rect.offsetMax = Vector2.zero;
+            }
+
+            helperButton = clone;
+            panelOwner = ui.panel;
+            layoutApplied = false;
             return true;
         }
 
-        private static void OnHired()
+        private static RectTransform CreateSlot(GenericConfirmationUIManager ui)
         {
-            PlayerStore store = PlayerStore.Instance;
-            if (store == null || !store.HasCredit(Fee))
+            RectTransform source = ui.confirmButton.GetComponent<RectTransform>();
+            if (source == null) return null;
+
+            GameObject slot = new GameObject("DGM_HelperButtonSlot", typeof(RectTransform));
+            RectTransform rect = slot.GetComponent<RectTransform>();
+            rect.SetParent(ui.panel.transform, false);
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = source.rect.size;
+            return rect;
+        }
+
+        private static void ApplyLayout(GenericConfirmationUIManager ui)
+        {
+            panelRect = ui.panel == null ? null : ui.panel.GetComponent<RectTransform>();
+            bodyRect = ui.bodyTMP == null ? null : ui.bodyTMP.rectTransform;
+            groupRect = ui.confirmButton == null
+                ? null
+                : ui.confirmButton.transform.parent as RectTransform;
+            if (panelRect == null || groupRect == null) return;
+
+            if (!layoutApplied)
             {
-                // 原版对「付不起」的付费服务就是静默不执行（如 Georgio 送餐），
-                // 这里补一条提示，然后留在原地让玩家自己收拾，不扣款也不搬运。
-                StashFind.ShowNotice(Copy.Text(
-                    "信用点不够，请不了拾荒者帮手。",
-                    "Not enough credits to hire a scavenger helper."), "helper-poor");
-                Stay();
-                return;
+                originalPanelSize = panelRect.sizeDelta;
+                originalBodyPosition = bodyRect == null ? Vector2.zero : bodyRect.anchoredPosition;
+                originalGroupPosition = groupRect.anchoredPosition;
+                layoutApplied = true;
             }
 
-            store.PayMoney(Fee, true);
-            int carried = CarryBack();
-            Debug.Log("[DumpingGroundMap] scavenger helper paid " + Fee + ", carried " + carried
-                + " item(s) off the ground");
-            Finish();
+            // 面板整体长高，正文与按钮行上移一半，底部刚好空出一行按钮的位置。
+            panelRect.sizeDelta = new Vector2(originalPanelSize.x, originalPanelSize.y + ExtraHeight);
+            if (bodyRect != null)
+            {
+                bodyRect.anchoredPosition = originalBodyPosition + new Vector2(0f, ExtraHeight / 2f);
+            }
+            groupRect.anchoredPosition = originalGroupPosition + new Vector2(0f, ExtraHeight / 2f);
+
+            Vector2 confirm = panelRect.InverseTransformPoint(ui.confirmButton.transform.position);
+            float height = ui.confirmButton.GetComponent<RectTransform>().rect.height;
+            helperSlot.anchoredPosition = new Vector2(confirm.x, confirm.y - height / 2f - Gap - helperSlot.sizeDelta.y / 2f);
         }
 
-        /// <summary>拒绝帮手 / 付不起：只关面板，留在垃圾场，原版确认仍留给下一次离场。</summary>
-        private static void OnDeclined()
+        private static void RestoreLayout()
         {
-            Stay();
+            if (!layoutApplied) return;
+            layoutApplied = false;
+            if (panelRect == null || groupRect == null) return;
+            panelRect.sizeDelta = originalPanelSize;
+            if (bodyRect != null) bodyRect.anchoredPosition = originalBodyPosition;
+            groupRect.anchoredPosition = originalGroupPosition;
         }
 
-        private static void Stay()
+        private static void OnHelperPressed()
         {
-            resume = null;
-            GenericConfirmationUIManager ui = GenericConfirmationUIManager.Instance;
-            if (ui != null) ui.ClosePanel();
-        }
+            try
+            {
+                if (!Available) return;
+                GenericConfirmationUIManager ui = GenericConfirmationUIManager.Instance;
+                PlayerStore store = PlayerStore.Instance;
+                if (store == null || !store.HasCredit(Fee))
+                {
+                    // 钱不够：留在原地不扣款，把提示写进确认框正文，玩家仍可点「离开」或「取消」。
+                    if (ui != null && ui.bodyTMP != null)
+                    {
+                        ui.bodyTMP.text = Copy.Text(
+                            "信用点不够，请不了拾荒者帮手。你可以自己把东西捡起来，或者直接离开。",
+                            "Not enough credits to hire a scavenger helper. Pick the items up yourself or just leave.");
+                    }
+                    return;
+                }
 
-        private static void Finish()
-        {
-            Action next = resume;
-            resume = null;
-            GenericConfirmationUIManager ui = GenericConfirmationUIManager.Instance;
-            if (ui != null) ui.ClosePanel();
-            if (next != null) next();
+                store.PayMoney(Fee, true);
+                int carried = CarryBack();
+                Debug.Log("[DumpingGroundMap] scavenger helper paid " + Fee + ", carried " + carried
+                    + " item(s) off the ground");
+
+                if (ui != null) ui.ClosePanel();
+                MapUIManager map = MapUIManager.Instance;
+                if (map != null) map.ReturnNow();
+            }
+            catch (Exception error)
+            {
+                Debug.LogWarning("[DumpingGroundMap] helper button failed: " + error);
+            }
         }
 
         /// <summary>
@@ -158,12 +284,39 @@ namespace DumpingGroundMap
         }
     }
 
+    /// <summary>原版离场确认是不是「拾荒地面还有东西」这一次。</summary>
     [HarmonyPatch(typeof(MapUIManager), "CheckItemLeftOnGround")]
     internal static class HelperLeavePromptPatch
     {
-        private static bool Prefix(Action action)
+        private static void Prefix()
         {
-            return !ScavHelperService.TryOffer(action);
+            if (!Core.Enabled) return;
+            ScavHelperService.Arm();
+        }
+
+        private static void Postfix(bool __result)
+        {
+            ScavHelperService.ArmResult(__result);
+        }
+    }
+
+    /// <summary>确认框弹出来时在原按钮下方补一个按钮，关掉时恢复原版尺寸。</summary>
+    [HarmonyPatch(typeof(GenericConfirmationUIManager), "OpenPanel")]
+    internal static class HelperPanelPatch
+    {
+        private static void Postfix(GenericConfirmationUIManager __instance)
+        {
+            if (!Core.Enabled) return;
+            ScavHelperService.SyncPanel(__instance, true);
+        }
+    }
+
+    [HarmonyPatch(typeof(GenericConfirmationUIManager), "ClosePanel")]
+    internal static class HelperPanelClosePatch
+    {
+        private static void Postfix(GenericConfirmationUIManager __instance)
+        {
+            ScavHelperService.SyncPanel(__instance, false);
         }
     }
 
