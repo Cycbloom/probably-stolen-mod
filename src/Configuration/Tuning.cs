@@ -953,17 +953,19 @@ namespace DumpingGroundMap
         {
             Init();
             bool perk80 = Reputation.Points >= PerkCatalog.Perk80Threshold;
+            AfterhourLocation location = AfterhourLocation.Get("dumping_ground");
+            float modifier = location == null ? 0f : location.GetModifier("junk_chance");
             return cache.Get(region, new LootSettings(JunkPercent, HighPercent, SpecialtyPercent,
-                CratePercent, KeycardPercent), perk80);
+                CratePercent, KeycardPercent), perk80, ProbabilityMath.JunkScaleFromModifier(modifier));
         }
 
         /// <summary>
         /// Rolls one item for the area, honouring the vanilla junk event.
         /// </summary>
-        internal static string Pick(Region region, float junkScale)
+        internal static string Pick(Region region)
         {
             EffectiveTable table = TableFor(region);
-            int index = table.PickIndex(junkScale);
+            int index = table.PickIndex();
             if (index < 0) return null;
             return table.Items[index];
         }

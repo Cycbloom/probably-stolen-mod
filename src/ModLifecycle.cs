@@ -17,6 +17,8 @@ namespace DumpingGroundMap
             ModHook.OnShutterOpenedLate += ScavengerMilestones.OnShutterOpenedLate;
             ModHook.OnGoingSleepEarly += ScavengerOuting.BeforeSleep;
             ModHook.OnHandlingNightlyServicesEarly += ScavengerOuting.AfterServicePayments;
+            ModHook.OnAfterhourEventStarted += AfterhourEventChanged;
+            ModHook.OnAfterhourEventEnded += AfterhourEventChanged;
             Tuning.Changed += RefreshViews;
             hooked = true;
             // Enabling after a save has already loaded must not retain another run's cache.
@@ -33,6 +35,8 @@ namespace DumpingGroundMap
                 ModHook.OnShutterOpenedLate -= ScavengerMilestones.OnShutterOpenedLate;
                 ModHook.OnGoingSleepEarly -= ScavengerOuting.BeforeSleep;
                 ModHook.OnHandlingNightlyServicesEarly -= ScavengerOuting.AfterServicePayments;
+                ModHook.OnAfterhourEventStarted -= AfterhourEventChanged;
+                ModHook.OnAfterhourEventEnded -= AfterhourEventChanged;
                 Tuning.Changed -= RefreshViews;
                 hooked = false;
             }
@@ -87,6 +91,11 @@ namespace DumpingGroundMap
             Reputation.ApplyPendingDebugPoints(false);
             ScavengerOuting.Sync();
             RefreshViews();
+        }
+
+        private static void AfterhourEventChanged(string locationId, string eventId)
+        {
+            if (locationId == "dumping_ground") RefreshViews();
         }
 
         private static void RefreshViews()

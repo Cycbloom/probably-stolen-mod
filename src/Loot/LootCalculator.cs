@@ -5,7 +5,7 @@ namespace DumpingGroundMap
 {
     internal static class LootCalculator
     {
-        internal static EffectiveTable Build(Region region, LootSettings settings, bool perk80)
+        internal static EffectiveTable Build(Region region, LootSettings settings, bool perk80, float junkScale = 1f)
         {
             RegionLootTable theme = region.Loot;
             RegionLootTable vanilla = ScavLoot.Vanilla;
@@ -116,14 +116,30 @@ namespace DumpingGroundMap
                 probs[slotNext] = cardChance;
             }
 
-            // 4) Expected value of one roll.
+            // 4) Match the native event roll: scale only junk's weight, then
+            // normalize the entire table, including valuables and crate/card slots.
+            junkScale = ProbabilityMath.NormalizeJunkScale(junkScale);
+            if (junkScale != 1f)
+            {
+                float total = 0f;
+                for (int i = 0; i < probs.Length; ++i)
+                {
+                    if (isJunk[i]) probs[i] *= junkScale;
+                    total += probs[i];
+                }
+                if (total > 0f)
+                    for (int i = 0; i < probs.Length; ++i) probs[i] /= total;
+                highChance = total > 0f ? highChance / total : 0f;
+            }
+
+            // 5) Expected value of one event-adjusted roll.
             float expected = 0f;
             for (int i = 0; i < items.Length; ++i)
                 expected += probs[i] * LootCatalog.ValueOf(items[i]);
 
             float finalJunk = junkIndex >= 0 ? probs[junkIndex] : 0f;
-            return new EffectiveTable(items, probs, isHigh, isJunk, highChance, finalJunk, expected,
-                count, highCount, region);
+            return new EffectiveTable(items, probs, isHigh, highChance, finalJunk, expected,
+                count, highCount, region, junkScale);
         }
 
     }

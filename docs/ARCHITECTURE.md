@@ -26,7 +26,9 @@ flowchart LR
   Event --> Factory[LootFactory 创建与补状态]
 ```
 
-`LootCalculator.Build` 接收 `LootSettings` 和 80 档解锁状态，不读取配置、存档或 UI。`LootTableCache` 的输入比较覆盖五个设置值及解锁状态。UI 用 `LootNoticeModel` 将同一份最终槽位投影成分组，不再通过物品 ID 猜测它属于普通池还是贵重品池。
+`LootCalculator.Build` 接收 `LootSettings`、80 档解锁状态和夜间事件垃圾权重倍率，不读取配置、存档或 UI。`LootTableCache` 的输入比较覆盖五个设置值、解锁状态及事件倍率。UI 用 `LootNoticeModel` 将同一份最终槽位投影成分组，不再通过物品 ID 猜测它属于普通池还是贵重品池。
+
+0.3.87 起，Tuning.TableFor 从 dumping_ground 的活动事件读取 junk_chance，先相加再换算为 Max(0, 1 + modifier/100)。LootCalculator 在基础配置与解锁门控之后乘垃圾权重，再统一归一化并计算 EV；抽样直接使用最终 Probs，不再二次乘事件倍率。ModLifecycle 订阅夜间事件开始/结束，刷新已打开的设置预览与告示板；过期事件、读档切换或倍率变化也会在下次读取时自动使缓存失效。
 
 最终表始终保留潜在贵重品、箱子、钥匙卡槽位；未解锁或概率为零时权重为零。这样滑条变化不需要重建窗口，零概率也不会参与抽取。箱子和钥匙卡在告示板单独列出。
 

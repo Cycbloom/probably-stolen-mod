@@ -8,7 +8,7 @@ namespace DumpingGroundMap
 {
     /// <summary>
     /// One area's runtime distribution: final probabilities plus the derived
-    /// expected value. Rebuilt whenever a setting changes.
+    /// expected value. Rebuilt whenever settings, unlocks or junk events change.
     /// </summary>
     internal sealed class EffectiveTable
     {
@@ -18,6 +18,7 @@ namespace DumpingGroundMap
         internal readonly float HighChance;
         internal readonly float JunkChance;
         internal readonly float Ev;
+        internal readonly float JunkScale;
         internal readonly LootSlot[] Slots;
 
         /// <summary>
@@ -27,23 +28,20 @@ namespace DumpingGroundMap
         internal readonly int HighStart;
         internal readonly int HighCount;
 
-        private readonly bool[] isJunk;
         private readonly int[] order;
-        private readonly int junkIndex;
 
-        internal EffectiveTable(string[] items, float[] probs, bool[] isHigh, bool[] isJunk,
-            float highChance, float junkChance, float ev, int highStart, int highCount, Region region)
+        internal EffectiveTable(string[] items, float[] probs, bool[] isHigh,
+            float highChance, float junkChance, float ev, int highStart, int highCount, Region region, float junkScale = 1f)
         {
             Items = items;
             Probs = probs;
             IsHigh = isHigh;
-            this.isJunk = isJunk;
             HighChance = highChance;
             JunkChance = junkChance;
             Ev = ev;
+            JunkScale = junkScale;
             HighStart = highStart;
             HighCount = highCount;
-            junkIndex = Array.IndexOf(items, "junk");
             Slots = new LootSlot[items.Length];
             for (int i = 0; i < items.Length; ++i)
             {
@@ -68,19 +66,18 @@ namespace DumpingGroundMap
         internal float ProbabilityAt(int i) { return Probs[order[i]]; }
         internal string ItemAt(int i) { return Items[order[i]]; }
 
-        internal int PickIndex(float junkScale)
+        internal int PickIndex()
         {
-            return PickIndex(junkScale, UnityEngine.Random.value);
+            return PickIndex(UnityEngine.Random.value);
         }
 
-        internal int PickIndex(float junkScale, float sample)
+        internal int PickIndex(float sample)
         {
-            junkScale = Math.Max(0f, junkScale);
             float sum = 0f;
             for (int i = 0; i < Items.Length; ++i)
             {
                 if (Probs[i] <= 0f) continue;
-                sum += i == junkIndex ? Probs[i] * junkScale : Probs[i];
+                sum += Probs[i];
             }
             if (sum <= 0f) return -1;
 
@@ -90,7 +87,7 @@ namespace DumpingGroundMap
             {
                 if (Probs[i] <= 0f) continue;
                 last = i;
-                roll -= i == junkIndex ? Probs[i] * junkScale : Probs[i];
+                roll -= Probs[i];
                 if (roll < 0f) return i;
             }
             return last;

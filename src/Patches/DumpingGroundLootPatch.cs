@@ -22,12 +22,7 @@ namespace DumpingGroundMap
             Region region = Picker.ChosenRegion;
             if (region == null || !Picker.IsAtDump(MapUIManager.Instance)) return true;
 
-            float junkChance = 0f;
-            AfterhourLocation location = AfterhourLocation.Get("dumping_ground");
-            if (location != null) junkChance = location.GetModifier("junk_chance");
-            float scale = junkChance == 0f ? 1f : Mathf.Max(0f, 1f + junkChance / 100f);
-
-            string itemId = Tuning.Pick(region, scale);
+            string itemId = Tuning.Pick(region);
             if (string.IsNullOrEmpty(itemId)) return true;
 
             // Match vanilla: subscribers can replace/cancel the ID before spawning.

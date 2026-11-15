@@ -28,12 +28,13 @@ internal static class RulesTests
     {
         DataAndProbabilityRules();
         CacheRules();
+        EventAdjustedLootRules();
         EventRules();
         StateRules();
         OutingAndMilestoneRules();
         JackpotWindowRules();
         JackpotNewsRules();
-        Console.WriteLine("PASS: " + assertions + " assertions (loot, state, outings, milestones, jackpot modes/news)");
+        Console.WriteLine("PASS: " + assertions + " assertions (loot/events, state, outings, milestones, jackpot modes/news)");
     }
 
     private static void Check(bool condition, string message)
@@ -97,13 +98,13 @@ internal static class RulesTests
                     if (table.JunkChance + high / 100f + 0.1f <= 0.995f)
                         Near(crate, 0.05f, "Unconstrained crate absolute probability");
                 }
-                Check(table.PickIndex(0f, 0f) >= 0 && table.PickIndex(1f, 1f) >= 0, "Sampling edges");
+                Check(table.PickIndex(0f) >= 0 && table.PickIndex(1f) >= 0, "Sampling edges");
             }
 
             EffectiveTable normal = LootCalculator.Build(region, new LootSettings(50f, 3f, 75f, 0.5f, 0.5f), true);
             int[] samples = new int[normal.Count];
             const int count = 10000;
-            for (int i = 0; i < count; ++i) ++samples[normal.PickIndex(1f, (i + 0.5f) / count)];
+            for (int i = 0; i < count; ++i) ++samples[normal.PickIndex((i + 0.5f) / count)];
             for (int i = 0; i < normal.Count; ++i)
                 Check(Math.Abs(samples[i] / (float)count - normal.Probs[i]) < 0.00021f, "Sampling distribution mismatch");
             bool ordinaryExtractor = false, valuableExtractor = false;
@@ -141,6 +142,69 @@ internal static class RulesTests
             EffectiveTable before = cache.Get(region, original, true);
             Check(!ReferenceEquals(before, cache.Get(region, changed, true)), "Every calculation input invalidates cache");
         }
+    }
+
+    private static void EventAdjustedLootRules()
+    {
+        Near(ProbabilityMath.JunkScaleFromModifier(-50f), 0.5f, "Fresh dump halves junk weight");
+        Near(ProbabilityMath.JunkScaleFromModifier(-50f - 50f), 0f, "Native modifiers add before clamping");
+        Near(ProbabilityMath.JunkScaleFromModifier(-150f), 0f, "Junk weight never becomes negative");
+        Near(ProbabilityMath.JunkScaleFromModifier(50f), 1.5f, "Positive junk event");
+        foreach (Region region in Region.All)
+        foreach (bool unlocked in new[] { false, true })
+        foreach (float junk in new[] { 0f, 50f, 100f })
+        foreach (float specialty in new[] { 0f, 75f, 100f })
+        {
+            LootSettings settings = new LootSettings(junk, 30f, specialty, 5f, 5f);
+            EffectiveTable basis = LootCalculator.Build(region, settings, unlocked);
+            foreach (float scale in new[] { 0f, 0.5f, 1f, 1.5f, 2f })
+            {
+                EffectiveTable table = LootCalculator.Build(region, settings, unlocked, scale);
+                // Independent odds formula: leave every non-junk weight intact.
+                float denominator = 1f - basis.JunkChance + basis.JunkChance * scale;
+                float expectedValue = 0f, total = 0f;
+                for (int i = 0; i < table.Count; ++i)
+                {
+                    float expected = basis.Probs[i] * (basis.Items[i] == "junk" ? scale : 1f) / denominator;
+                    Near(table.Probs[i], expected, "Event-adjusted probability: " + region.Id + "/" + table.Items[i]);
+                    Check(table.Probs[i] >= 0f && !float.IsNaN(table.Probs[i]), "Event probabilities are finite and nonnegative");
+                    expectedValue += expected * LootCatalog.ValueOf(table.Items[i]);
+                    total += table.Probs[i];
+                }
+                Near(total, 1f, "Event table remains normalized");
+                Check(Math.Abs(table.Ev - expectedValue) < 0.002f, "Expected value uses event probabilities");
+                Near(table.JunkChance, basis.JunkChance * scale / denominator, "Displayed junk chance is normalized, not directly halved");
+                Near(table.HighChance, table.ProbabilityOf(LootKind.Valuable), "Valuable subtotal follows the event");
+                Near(table.ProbabilityOf(LootKind.SupplyCrate), basis.ProbabilityOf(LootKind.SupplyCrate) / denominator, "Crate share follows the event once");
+                Near(table.ProbabilityOf(LootKind.Keycard), basis.ProbabilityOf(LootKind.Keycard) / denominator, "Card share follows the event once");
+                foreach (float edge in new[] { 0f, 1f })
+                    Check(table.Probs[table.PickIndex(edge)] > 0f, "Sampling edges never select a zero-probability item");
+            }
+        }
+
+        foreach (Region region in Region.All)
+        foreach (float scale in new[] { 0f, 0.5f, 1f, 1.5f, 2f })
+        {
+            EffectiveTable table = LootCalculator.Build(region, new LootSettings(50f, 3f, 75f, 0.5f, 0.5f), true, scale);
+            int[] sampled = new int[table.Count];
+            const int samples = 10000;
+            for (int i = 0; i < samples; ++i) ++sampled[table.PickIndex((i + 0.5f) / samples)];
+            for (int i = 0; i < table.Count; ++i)
+                Check(Math.Abs(sampled[i] / (float)samples - table.Probs[i]) < 0.00021f, "Every event-adjusted displayed probability matches sampling");
+        }
+
+        LootTableCache cache = new LootTableCache();
+        Region area = Region.All[1];
+        LootSettings original = new LootSettings(50f, 3f, 75f, 0.5f, 0.5f);
+        EffectiveTable normal = cache.Get(area, original, true);
+        EffectiveTable reduced = cache.Get(area, original, true, 0.5f);
+        Check(!ReferenceEquals(normal, reduced) && reduced.JunkChance < normal.JunkChance, "Starting an event invalidates the cached table");
+        Check(ReferenceEquals(reduced, cache.Get(area, original, true, 0.5f)), "Unchanged event reuses the table");
+        EffectiveTable increased = cache.Get(area, original, true, 1.5f);
+        Check(!ReferenceEquals(reduced, increased) && increased.JunkChance > normal.JunkChance, "Changing an event updates the cached table");
+        EffectiveTable restored = cache.Get(area, original, true);
+        Near(restored.JunkChance, normal.JunkChance, "Event end restores the configured junk chance without editing settings");
+        Near(restored.Ev, normal.Ev, "Event end restores expected value");
     }
 
     private static void EventRules()

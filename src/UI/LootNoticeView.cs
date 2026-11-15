@@ -58,6 +58,7 @@ namespace DumpingGroundMap
         private static readonly BoardRow[] boardSpecial = new BoardRow[4];
         private static GameObject boardBonusGrid;
         private static CustomUIElement boardEv;
+        private static CustomUIElement boardCaption;
 
         internal static void Open(Region region)
         {
@@ -84,6 +85,7 @@ namespace DumpingGroundMap
             b.AddLabel(Copy.Text("按大类分组，概率是当前生效值，跟着设置实时变化：",
                 "Grouped by category; chances are live and follow the settings:"), "board_caption");
             Picker.Size(b.Last, -1, 26);
+            boardCaption = b.Last;
             ConfigureText(b.Last, 18, false);
             b.AddSpace(4);
 
@@ -138,8 +140,8 @@ namespace DumpingGroundMap
             }
             b.End();
             b.AddSpace(6);
-            b.AddLabel(Copy.Text("垃圾事件只抬高“垃圾”，其余物品按比例让位；显示 0.0% 表示当前档位下这件物品不出现。",
-                "Junk events only raise \"junk\"; other items yield proportionally. 0.0% means the item cannot appear at the current tier."),
+            b.AddLabel(Copy.Text("已计入当前事件：垃圾权重改变后，全部概率重新归一化；0.0% 表示当前条件下不会掉落。",
+                "Current events are included: changing junk weight renormalizes all chances. 0.0% means unavailable under current conditions."),
                 "board_footer");
             Picker.Size(b.Last, -1, 42);
             ConfigureText(b.Last, 16, true);
@@ -208,6 +210,9 @@ namespace DumpingGroundMap
             if (region == null) return;
 
             EffectiveTable table = Tuning.TableFor(region);
+            if (boardCaption != null)
+                boardCaption.SetText(Copy.Text("按大类分组 · 事件垃圾权重 ×", "Grouped loot · event junk weight ×")
+                    + table.JunkScale.ToString("0.00", CultureInfo.InvariantCulture));
             for (int g = 0; g < boardGroups.Count; ++g)
             {
                 BoardGroup group = boardGroups[g];
@@ -314,6 +319,7 @@ namespace DumpingGroundMap
             boardRegion = null;
             boardGroups.Clear();
             boardEv = null;
+            boardCaption = null;
             boardBonusHeader = null;
             boardBonusGrid = null;
             for (int i = 0; i < boardSpecial.Length; ++i) boardSpecial[i] = null;

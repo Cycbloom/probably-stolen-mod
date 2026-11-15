@@ -26,6 +26,16 @@ namespace DumpingGroundMap
 
     internal static class ProbabilityMath
     {
+        internal static float NormalizeJunkScale(float scale)
+        {
+            return float.IsNaN(scale) || float.IsInfinity(scale) ? 1f : Math.Max(0f, scale);
+        }
+
+        internal static float JunkScaleFromModifier(float percent)
+        {
+            return NormalizeJunkScale(1f + percent / 100f);
+        }
+
         internal static float Clamp(float value, float min, float max)
         {
             if (float.IsNaN(value)) return min;
