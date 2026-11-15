@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.67
+# 垃圾场拾荒地图 · 0.3.68
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -176,14 +176,14 @@ PlayerStore.OnLateShutterOpen()
 | 入口空地 | 工具 7 件：螺丝刀、钢丝钳、焊枪、模组提取器（基础）、撬棍、美工刀、斧头 | 门口空地挖出的工具箱 / A Tool Chest Dug Up at the Main Gate | `TOOL` −20% |
 | 拆解堆 | 材料 8 件：废金属、3D打印耗材、金属螺丝、线缆、枪械零件、电子元件、金属锭、助焊剂 | 拆解堆出了整垛料 / A Whole Stack of Stock From the Scrap Pile | `MATERIAL` −20% |
 | 生活废料带 | 食品 4 件（零嘴、加工果汁、猫粮棒、合成肉）+ 日用品 4 件（牙膏、卷纸、洗发水、净水器） | 废料带里翻出的年货 / A Holiday Haul in the Refuse Lane | `FOOD` −20% 与 `HOUSEHOLD_GOOD` −20% 两条 |
-| 医疗废弃点 | 医疗 8 件：绷带、止血绷带、外用绷带、血袋、医用酒精、药膏、噬菌霉素片、医疗用品（普通） | 医疗废弃点翻出成箱药品 / Crates of Medicine From the Medical Dump | 不挂（原版没有医疗降价先例，只写报纸） |
+| 医疗废弃点 | 医疗 8 件：绷带、止血绷带、外用绷带、血袋、医用酒精、药膏、噬菌霉素片、医疗用品（普通） | 医疗废弃点的整箱药品上了早市 / Crates of Medicine Reach the Morning Market | `MEDICAL` −20%（0.3.68 起真降价，8 件全覆盖） |
 | 废武器堆 | 弹药 3 件（.22 手枪弹、重手枪弹、非致命手枪弹）+ 配件 2 件（加长 .22 弹匣、消音器）+ 枪支 3 件（3D打印手枪、土制手枪、左轮） | 废武器堆的军械箱 / An Arms Crate in the Weapon Dump | `AMMUNITION` / `FIREARM` / `GUN_MOD` 三条各 −20% |
 
-`NegociationData` 的类型串按 `SetGameItemType` 的实际取值核对过：`FOOD`、`HOUSEHOLD_GOOD`、`MATERIAL`、`TOOL`、`AMMUNITION`、`FIREARM`、`GUN_MOD` 都能在对应物品的工厂方法里找到同名写入。土制 / 简易枪械配件会同时带 `MAKESHIFT`，但它们先经 `GunModHelper.InitGunMod` 拿到了 `GUN_MOD`，所以这条修正照样覆盖。
+`NegociationData` 的类型串按 `SetGameItemType` 的实际取值核对过：`FOOD`、`HOUSEHOLD_GOOD`、`MATERIAL`、`TOOL`、`AMMUNITION`、`FIREARM`、`GUN_MOD`、`MEDICAL` 都能在对应物品的工厂方法里找到同名写入。医疗奖池 8 件逐件核对过：7 件在 `MedsItemDirectory` 的工厂里直接写 `MEDICAL`（噬菌霉素片经 `MedicalHelper.InitPillItem(item, true)`），医疗用品（普通）在 `MaterialDirectory::CommonMedicalSupplies` 写 `MEDICAL`，所以一条 `MEDICAL` 就覆盖全部 8 件，没有漏件。土制 / 简易枪械配件会同时带 `MAKESHIFT`，但它们先经 `GunModHelper.InitGunMod` 拿到了 `GUN_MOD`，所以这条修正照样覆盖。
 
 存档键（`PlayerStore.modData`，与声望同一套机制）：`stash_chance`、`stash_phase`、`stash_hit_day`、`stash_hit_region`、`stash_news_day`、`stash_news_fired`。读档时无条件重读并夹紧，窗口不会跳变。
 
-扩展位：`StashTemplate` 里每条样板带奖励池、当场提示、中英文案与两个平行数组 `ItemTypes / PricePercents`；不挂价格的区把两个数组留空，只在报纸正文里叙事。
+扩展位：`StashTemplate` 里每条样板带奖励池、当场提示、中英文案与两个平行数组 `ItemTypes / PricePercents`；需要多条修正就平行写多组，暂时不挂价格的区可以把两个数组留空、只在报纸正文里叙事（0.3.68 起五区都已挂上价格修正）。
 
 ### 60 点小奖：翻出一整箱同一样东西（0.3.56 起，0.3.57 改件数，0.3.58 改门槛，0.3.60 扩候选）
 
@@ -586,7 +586,7 @@ NullReferenceException
 | 物资箱 | 声望 ≥ 80 且该区有箱子、概率大于 0 | 生效表里该箱子的实际概率（从普通物品份额里扣） |
 | 钥匙卡 | 声望 ≥ 80 且该区有卡、概率大于 0 | 生效表里该卡的实际概率 |
 
-没到对应档位、或本区根本没有这项内容时，**整行隐藏**（`SetVisible(false)`，布局组会重排、不留空格），不会显示 0。目前大奖只有生活废料带有样板，小奖只有拆解堆 / 生活废料带 / 医疗废弃点 / 废武器堆有整箱，补给箱与钥匙卡只有这四个区有，入口空地四项都没有。
+没到对应档位、或本区根本没有这项内容时，**整行隐藏**（`SetVisible(false)`，布局组会重排、不留空格），不会显示 0。0.3.67 起大奖五区都有样板，满 60 档即全显示；小奖只有拆解堆 / 生活废料带 / 医疗废弃点 / 废武器堆有整箱，补给箱与钥匙卡只有这四个区有，入口空地这三项都没有。
 
 **实时性与版式**
 

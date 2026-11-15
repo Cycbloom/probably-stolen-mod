@@ -710,7 +710,7 @@ namespace DumpingGroundMap
     /// <summary>
     /// 爆大奖的区域样板：奖励物品池、当场提示、报纸文案，以及中奖次日的价格修正。
     /// 五个区各一条；价格修正按品类挂，可以挂多条（生活废料带同时挂食品与日用品）。
-    /// 没有对应市场品类的区域（医疗废弃点）把品类数组留空，只写报纸、不真降价。
+    /// 某件物品若确实没有对应市场类型，就把品类数组留空，只写报纸、不真降价。
     /// </summary>
     internal sealed class StashTemplate
     {
@@ -793,18 +793,18 @@ namespace DumpingGroundMap
                 "A scavenger claims to have hauled a whole cart of sealed food and household goods out of the refuse lane last night. By the time it reached the morning market, stallholders were already undercutting each other — both are likely to go cheap today.",
                 "食品日用品涌入", "Food and Household Surplus"),
 
-            // 医疗废弃点：只写报纸，不挂价格修正（原版没有医疗降价先例）。
+            // 医疗废弃点：奖池 8 件全部走 MedicalHelper / 对应工厂里的 MEDICAL 类型，挂一条即可全价降。
             new StashTemplate("med",
                 new[] { "bandage_item", "hemostatic_bandage_item", "topical_bandage_item",
                         "blood_bag", "rubbing_alcohol", "salve", "phagimycin_pill", "common_medical" },
-                null, null,
+                new[] { "MEDICAL" }, new[] { -20 },
                 "你在{0}找到一批还没过期的医疗物资。\n今天在这个地方，每次搜索都可能多一件东西。",
                 "You found a batch of still-unexpired medical supplies {0}.\nEvery search here today may turn up something extra.",
-                "医疗废弃点翻出成箱药品",
-                "Crates of Medicine From the Medical Dump",
-                "医疗废弃点那边传来消息，有人在一间封死的处置室里翻出成箱的绷带和药。虽然还没见谁真拿出来卖，街面上已经在传这批货的来路。",
-                "Word from the medical dump: someone pried open a sealed treatment room and found crates of bandages and pills. Nobody has seen the goods on a stall yet, but the street is already trading guesses about where they came from.",
-                "医疗物资流出", "Medical Supplies Surface"),
+                "医疗废弃点的整箱药品上了早市",
+                "Crates of Medicine Reach the Morning Market",
+                "医疗废弃点昨夜有人拖出成箱还没过期的绷带、血袋和药片，天没亮就摆上了早市，开价压得比药铺进货还低。今天医疗用品怕是要跟着一起跌。",
+                "Someone dragged crates of still-unexpired bandages, blood bags and pills out of the medical dump last night and had them on the morning market before dawn, priced below what the pharmacy pays wholesale. Medical supplies are likely to fall with them today.",
+                "医疗物资倾销", "Medical Supplies Dumped"),
 
             // 废武器堆：弹药 + 枪械 + 枪械配件三类，奖池也按这三类取。
             new StashTemplate("weapons",
