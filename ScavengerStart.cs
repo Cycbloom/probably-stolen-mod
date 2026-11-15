@@ -117,40 +117,44 @@ namespace DumpingGroundMap
             scenario.descriptionProvider = delegate
             {
                 return Copy.Text(
-                    "你在垃圾场里长大，知道哪堆废料底下压着能换钱的东西。开局就带着一身拾荒家当，名声也已经有点分量。",
-                    "You grew up in the dump and know which pile hides something worth carrying home. "
-                    + "You start with a scavenger's kit, and people already know your name.");
+                    "在导师找到你之前，你就在垃圾场里讨生活，虽一贫如洗但口碑可靠。"
+                    + "如今你盘下了一家店铺，全部家当就是一间简易储藏区、一只儿童背包和一套用旧了的工具。"
+                    + "你清楚哪堆废料底下压着值钱货，也明白在这一行里，名声比什么都重要。",
+                    "Before The Mentor found you, you made a living in the dump, poor but with a solid reputation. "
+                    + "Now you have a store of your own, and all you own is a makeshift storage bay, "
+                    + "a kid's backpack and a set of worn tools. "
+                    + "You know which piles hide something worth carrying home, and you know a scavenger's name "
+                    + "is earned one haul at a time.");
             };
             scenario.tagProvider = delegate { return Copy.Text("标准开局", "Standard start"); };
             scenario.tagTone = StartingScenario.TagTone.Positive;
 
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("每趟拾荒次数 +2", "Two extra scavenging attempts per trip");
+                return Copy.Text("拾荒客的装备与工具", "Scavenger's Gear and Tools");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text(
-                    "夜里去垃圾场拾荒后，第二天客人不会减少；去别处过夜仍然会少一名客人",
-                    "A night scavenging the dump won't cost you a customer the next day; "
-                    + "nights spent anywhere else still do");
+                return Copy.Text("额外设备（简易储藏区）",
+                    "Additional equipment (Makeshift Storage Bay)");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text(
-                    "初始物资：简易储藏区、基础背包、工具箱（螺丝刀 / 剪线钳 / 手电筒）、基础绷带 ×2",
-                    "Starting gear: makeshift storage bay, basic backpack, toolbox with a screwdriver, "
-                    + "wire cutters and a flashlight, plus 2 basic bandages");
+                return Copy.Text("提升初始声望（拾荒客）",
+                    "Increased starting reputation (Scavengers)");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("初始拾荒客声望 " + StartReputation + " 点（随难度倍率调整）",
-                    "Start with " + StartReputation + " Scavenger reputation (scaled by difficulty)");
+                return Copy.Text("减少初始信用点", "Decreased starting Credit count");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("初始信用点 200（家当已从起始资金里扣除）",
-                    "200 starting credits (the kit is deducted from your starting cash)");
+                return Copy.Text("每趟拾荒能多翻找两次", "Two extra scavenging attempts per trip");
+            });
+            scenario.startWithProviders.Add(delegate
+            {
+                return Copy.Text("夜里去垃圾场拾荒不会影响第二天的客流",
+                    "Night trips to the dump don't cost you customers the next day");
             });
 
             scenario.onStart = OnStart;
@@ -176,10 +180,14 @@ namespace DumpingGroundMap
                 }
                 GameGridInventory inv = entry.invElement;
                 Add(inv, "makeshift_storage_bay", "storage_bay");
-                Add(inv, "backpack_medium", "satchel");
+                Add(inv, "kids_backpack", "satchel");
 
                 GameItem toolbox = Add(inv, "toolbox", null);
-                if (toolbox != null) UnlockToolboxSlots(toolbox, ToolboxSlots);
+                if (toolbox != null)
+                {
+                    UnlockToolboxSlots(toolbox, ToolboxSlots);
+                    MakeShabby(toolbox);
+                }
 
                 GiveTool(inv, toolbox, "screwdriver");
                 GiveTool(inv, toolbox, "wire_cutter");
@@ -248,11 +256,34 @@ namespace DumpingGroundMap
             }
         }
 
+        /// <summary>
+        /// 给工具类物品挂原生「破败」属性（ItemFeatureHelper.SetShabby，
+        /// 原生 NewGameData.HandleInitialItem 给旧货用的就是这一条）。
+        /// 它只加 ItemCondition（CATEGORY_SHABBY / identifier = shabby / modValue = -75），
+        /// 让价值掉到基准的 25%，不改任何使用逻辑。
+        /// </summary>
+        private static void MakeShabby(GameItem item)
+        {
+            try
+            {
+                long baseValue = item.unitValue;
+                ItemFeatureHelper.SetShabby(item);
+                Debug.Log("[DumpingGroundMap] scavenger start: " + item.identifier + " shabby base="
+                    + baseValue + " now=" + item.GetCurrentValue(false, false, false, false, 0L));
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning("[DumpingGroundMap] scavenger start: shabby failed on "
+                    + item.identifier + ": " + ex.Message);
+            }
+        }
+
         /// <summary>工具优先塞进工具箱，放不下再走后场（与原生 AddHandyToolbox 相同）。</summary>
         private static void GiveTool(GameGridInventory inv, GameItem toolbox, string id)
         {
             GameItem tool = Make(id);
             if (tool == null) return;
+            MakeShabby(tool);
             if (toolbox != null && GraphUtils.TryAcceptAll(toolbox, tool, -1) == 0)
             {
                 Debug.Log("[DumpingGroundMap] scavenger start: " + id + " into toolbox");

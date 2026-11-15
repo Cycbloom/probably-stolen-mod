@@ -1,4 +1,4 @@
-# 垃圾场拾荒地图 · 0.3.79
+# 垃圾场拾荒地图 · 0.3.80
 
 夜间外出 → 城市地图选「垃圾场」→ 点「前往」时先打开本 mod 的作业地图，选一块地标、点「进入该区域」，才真正进入垃圾场；进入后点「拾荒」直接按该区的物品表拾取，本次停留内不再询问。离开垃圾场（回家、去别的地点、重新进入）后再来，需要重新选一次。取消或返回键关闭地图。选择只在本次停留内有效，不写入存档。
 
@@ -40,12 +40,19 @@
 | 物品 | id | 基准价 |
 |---|---|---:|
 | 简易储藏区（小的储藏柜） | `makeshift_storage_bay`（缺省回退 `storage_bay`） | 250 |
-| 基础背包（第二级） | `backpack_medium`（缺省回退 `satchel`） | 450 |
-| 工具箱 | `toolbox`，`TOOLBOX_UNLOCKED_SLOTS_INT` 解锁 3 格 | 150 |
-| 螺丝刀 / 剪线钳 / 手电筒 | `screwdriver` / `wire_cutter` / `flashlight`，先 `TryAcceptAll(toolbox, …)` 装进箱子，放不下再进后场 | 25 / 40 / 40 |
+| 儿童背包（5×5） | `kids_backpack`（缺省回退 `satchel`） | 200 |
+| 工具箱（破败） | `toolbox`，`TOOLBOX_UNLOCKED_SLOTS_INT` 解锁 3 格 | 150 → 38 |
+| 螺丝刀 / 剪线钳 / 手电筒（破败） | `screwdriver` / `wire_cutter` / `flashlight`，先 `TryAcceptAll(toolbox, …)` 装进箱子，放不下再进后场 | 25 → 6 / 40 → 10 / 40 → 10 |
 | 基础绷带 ×2 | `bandage_item` | 8 × 2 |
 
-家当基准价值合计 971，按开局折价从 600 起始资金里扣 400，**开局持有 200 信用点**（与原生高级开局扣 450 同一量级）。扣款用原生 `PlayerStore.playerCash` 直接写，不新增存档字段。
+家当基准价值合计 721，破败后实际价值 530（0.3.80）。按开局折价从 600 起始资金里扣 400，**开局持有 200 信用点**（数值待确认，见下）。扣款用原生 `PlayerStore.playerCash` 直接写，不新增存档字段。
+
+**儿童背包与破败（0.3.80）**
+
+- 背包：`backpack_medium`（6×9、450）换成 `kids_backpack`（5×5、200），缺省回退仍是 `satchel`。
+- 破败：直接调原生 `ItemFeatureHelper.SetShabby(item)`（原生 `NewGameData.HandleInitialItem` 给旧货用的就是这一条），给工具箱和三件工具各加一条 `ItemCondition`（`CATEGORY_SHABBY`、identifier `shabby`、`modValue = -75`），价值按基准的 25% 计并四舍五入。没有自造减价逻辑。
+- 功能：`ShabbyFeature` 只影响成色显示与估值，`IsShabby` 在游戏内无调用者，工具的使用、拆解、工具箱容量都不受影响。
+- 开局资金：破败让工具卖不上价，本轮先把资金保持在现值 200；提高多少待确认后单独一版。
 
 **初始声望**
 
