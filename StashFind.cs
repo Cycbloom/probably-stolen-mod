@@ -42,9 +42,6 @@ namespace DumpingGroundMap
         /// <summary>声望不到 60 时的硬上限，单位是百分数。</summary>
         internal const float HardCapLowRep = 0.1f;
 
-        /// <summary>大奖里每区合计的贵重品件数（0.3.70 起固定 1 件）。</summary>
-        internal const int ValuableItems = 1;
-
         internal const int BonusItems = 1;
 
         /// <summary>小奖件数区间与目标价值浮动范围。</summary>
@@ -295,20 +292,16 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 大奖：先按组抽本区各大类的非垃圾物品，再抽 1 件该区匹配的贵重品。
+        /// 大奖：先按组抽本区各大类的非垃圾物品，再按池内权重抽 1 件该区匹配的贵重品。
+        /// 贵重品池的权重同样按单价反比：越便宜权重越大，越贵越稀有。
         /// </summary>
         private static int AddJackpot(List<GameItem> items, StashTemplate template)
         {
             int spawned = AddGroups(items, template);
 
-            string[] valuables = template.ValuableIds;
-            if (valuables == null || valuables.Length == 0) return spawned;
-
-            for (int i = 0; i < ValuableItems; ++i)
-            {
-                int index = UnityEngine.Random.Range(0, valuables.Length);
-                if (Spawn(items, valuables[index])) ++spawned;
-            }
+            string valuable = template.PickValuable();
+            if (valuable == null) return spawned;
+            if (Spawn(items, valuable)) ++spawned;
             return spawned;
         }
 
@@ -795,6 +788,8 @@ namespace DumpingGroundMap
         internal readonly string RegionId;
         internal readonly RewardGroup[] Groups;
         internal readonly string[] ValuableIds;
+        /// <summary>与 ValuableIds 一一对应的权重，按单价反比：越便宜权重越大。</summary>
+        internal readonly int[] ValuableWeights;
         internal readonly string[] ItemTypes;
         internal readonly int[] PricePercents;
         private readonly string noticeZh;
@@ -806,7 +801,8 @@ namespace DumpingGroundMap
         private readonly string displayZh;
         private readonly string displayEn;
 
-        private StashTemplate(string regionId, RewardGroup[] groups, string[] valuableIds,
+        private StashTemplate(string regionId, RewardGroup[] groups,
+            string[] valuableIds, int[] valuableWeights,
             string[] itemTypes, int[] pricePercents,
             string noticeZh, string noticeEn,
             string newsNameZh, string newsNameEn, string newsDescZh, string newsDescEn,
@@ -815,6 +811,7 @@ namespace DumpingGroundMap
             RegionId = regionId;
             Groups = groups;
             ValuableIds = valuableIds;
+            ValuableWeights = valuableWeights;
             ItemTypes = itemTypes;
             PricePercents = pricePercents;
             this.noticeZh = noticeZh;
@@ -832,8 +829,32 @@ namespace DumpingGroundMap
         internal string NewsDescription { get { return Copy.Text(newsDescZh, newsDescEn); } }
         internal string DisplayName { get { return Copy.Text(displayZh, displayEn); } }
 
+        /// <summary>按池内权重抽 1 件贵重品；权重缺失时退化为均匀抽。</summary>
+        internal string PickValuable()
+        {
+            if (ValuableIds == null || ValuableIds.Length == 0) return null;
+
+            int total = 0;
+            if (ValuableWeights != null && ValuableWeights.Length == ValuableIds.Length)
+            {
+                for (int i = 0; i < ValuableWeights.Length; ++i) total += ValuableWeights[i];
+            }
+            if (total <= 0) return ValuableIds[UnityEngine.Random.Range(0, ValuableIds.Length)];
+
+            int roll = UnityEngine.Random.Range(0, total);
+            for (int i = 0; i < ValuableWeights.Length; ++i)
+            {
+                roll -= ValuableWeights[i];
+                if (roll < 0) return ValuableIds[i];
+            }
+            return ValuableIds[ValuableIds.Length - 1];
+        }
+
         private static readonly StashTemplate[] All =
         {
+            // 贵重品权重一律按单价反比（与材料 / 近战 / 子弹的类内口径一致）：
+            // 池内最便宜的一档权重最大，最贵的一两件压到个位数百分比，
+            // 所以每区池子的均值都明显低于等权。池子内容不变，只动权重。
             // 入口空地：通用区，拆材料与工具两组（本区这两个大类的非垃圾表）。
             // 贵重品取芯片与高价工具 / 材料，和第 80 档贵重品池里的同类物品对得上。
             new StashTemplate("gate",
@@ -846,6 +867,7 @@ namespace DumpingGroundMap
                 },
                 new[] { "rare_electronic", "module_extractor_advanced", "printer_chip_gun_part",
                         "advanced_flux_agent", "xray_scanner" },
+                new[] { 12, 12, 50, 50, 4 },
                 new[] { "TOOL" }, new[] { -20 },
                 "你在{0}撬开一只铁皮柜：上层工具码得整整齐齐，底层压着成捆的材料和几块值钱的芯片。\n今天在这个地方，每次搜索都可能多一件东西。",
                 "You pried open a tin chest {0}: tools stacked neatly on top, bundles of stock and a few pricey chips wedged underneath.\nEvery search here today may turn up something extra.",
@@ -873,6 +895,7 @@ namespace DumpingGroundMap
                         "printer_chip_combat_machete", "printer_chip_gun_part",
                         "printer_chip_10_mag_ext", "advanced_flux_agent",
                         "module_extractor_advanced", "rare_electronic" },
+                new[] { 6, 3, 2, 60, 6, 60, 12, 12 },
                 new[] { "MATERIAL" }, new[] { -20 },
                 "你在{0}刨出一垛料、一箱工具和几块还没拆封的模组，底下还压着值钱的芯片。\n今天在这个地方，每次搜索都可能多一件东西。",
                 "You dug out a stack of stock, a box of tools and a few sealed modules {0}, with pricey chips tucked underneath.\nEvery search here today may turn up something extra.",
@@ -898,6 +921,7 @@ namespace DumpingGroundMap
                 },
                 new[] { "bottled_water_premium", "water_filter_adv", "portable_water_purifier",
                         "wine_yeast_infinite", "packet_red_cigarette" },
+                new[] { 9, 6, 9, 20, 50 },
                 new[] { "FOOD", "HOUSEHOLD_GOOD" }, new[] { -20, -20 },
                 "你在{0}翻出一整车没拆封的食品和日用品，中间还夹着几件值钱货。\n今天在这个地方，每次搜索都可能多一件东西。",
                 "You uncovered a whole cart of sealed food and household goods {0}, with a few valuables tucked in among them.\nEvery search here today may turn up something extra.",
@@ -920,6 +944,7 @@ namespace DumpingGroundMap
                     new RewardGroup(2, 2, "common_medical", "surgery_tool")
                 },
                 new[] { "blue_blood_bag", "black_injector", "large_purple_injector", "surgery_tool" },
+                new[] { 14, 6, 50, 30 },
                 new[] { "MEDICAL" }, new[] { -20 },
                 "你在{0}找到一批还没过期的医疗物资：绷带、药片、器械都在，还有几件值钱的药。\n今天在这个地方，每次搜索都可能多一件东西。",
                 "You found a batch of still-unexpired medical supplies {0}: bandages, pills and instruments, plus a few pricey items.\nEvery search here today may turn up something extra.",
@@ -949,6 +974,7 @@ namespace DumpingGroundMap
                 new[] { "revolver", "stun_gun", "smg", "shotgun", "glock_receiver",
                         "combat_machete", "stun_baton", "printer_chip_10_mag_ext",
                         "printer_chip_gun_part" },
+                new[] { 18, 16, 10, 5, 30, 40, 50, 3, 6 },
                 new[] { "AMMUNITION", "FIREARM", "GUN_MOD" }, new[] { -20, -20, -20 },
                 "你在{0}翻出弹药、配件和还能打响的枪，箱底还压着值钱货。\n今天在这个地方，每次搜索都可能多一件东西。",
                 "You turned up ammo, gun mods and a few guns that still fire {0}, with valuables stashed at the bottom of the crate.\nEvery search here today may turn up something extra.",
