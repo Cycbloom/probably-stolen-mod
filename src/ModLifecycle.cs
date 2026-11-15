@@ -14,7 +14,9 @@ namespace DumpingGroundMap
             ScavengerStart.Hook();
             ModHook.OnGameLoadedLate += Loaded;
             ModHook.OnNewGameStarted += NewGame;
-            ModHook.OnShutterOpenedLate += ScavMedal.OnShutterOpenedLate;
+            ModHook.OnShutterOpenedLate += ScavengerMilestones.OnShutterOpenedLate;
+            ModHook.OnGoingSleepEarly += ScavengerOuting.BeforeSleep;
+            ModHook.OnHandlingNightlyServicesEarly += ScavengerOuting.AfterServicePayments;
             Tuning.Changed += RefreshViews;
             hooked = true;
             // Enabling after a save has already loaded must not retain another run's cache.
@@ -28,13 +30,16 @@ namespace DumpingGroundMap
             {
                 ModHook.OnGameLoadedLate -= Loaded;
                 ModHook.OnNewGameStarted -= NewGame;
-                ModHook.OnShutterOpenedLate -= ScavMedal.OnShutterOpenedLate;
+                ModHook.OnShutterOpenedLate -= ScavengerMilestones.OnShutterOpenedLate;
+                ModHook.OnGoingSleepEarly -= ScavengerOuting.BeforeSleep;
+                ModHook.OnHandlingNightlyServicesEarly -= ScavengerOuting.AfterServicePayments;
                 Tuning.Changed -= RefreshViews;
                 hooked = false;
             }
             try
             {
                 ScavengerStart.Unhook();
+                ScavengerOuting.Remove();
                 ReputationPopBridge.Shutdown();
             }
             finally
@@ -67,6 +72,7 @@ namespace DumpingGroundMap
             ResetVisit();
             Reputation.Reload();
             StashFind.Reload();
+            ScavengerOuting.Sync();
             RefreshViews();
         }
 
@@ -79,6 +85,7 @@ namespace DumpingGroundMap
             ScavengerStart.OnNewGameStarted(scenarioId);
             // Explicit debug requests take precedence over the scenario's default starting value.
             Reputation.ApplyPendingDebugPoints(false);
+            ScavengerOuting.Sync();
             RefreshViews();
         }
 

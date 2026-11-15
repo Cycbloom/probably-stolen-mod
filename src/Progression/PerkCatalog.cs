@@ -34,7 +34,7 @@ namespace DumpingGroundMap
         internal const string Perk80NameZh = "识货行家";
         internal const string Perk80NameEn = "Connoisseur";
 
-        /// <summary>100 档：只落门槛与档名，功能待定。</summary>
+        /// <summary>100 档：信物与次日同行夜间服务。</summary>
         internal const int Perk100Threshold = 100;
         internal const string Perk100NameZh = "自己人";
         internal const string Perk100NameEn = "One of Us";
@@ -55,8 +55,8 @@ namespace DumpingGroundMap
                 "拾荒时可能遇到贵重品。偶尔还能翻到补给箱和对应的钥匙卡。",
                 "While scavenging you may come across valuable goods. Now and then you can even turn up a supply crate and its matching keycard."),
             new PerkDefinition(Perk100Threshold, Perk100NameZh, Perk100NameEn,
-                "拾荒者已经把你当成自己人。此档位的额外待遇尚未开放。",
-                "The scavengers treat you as one of their own. Additional benefits for this tier are not available yet."),
+                "拾荒者把你当成自己人，并送来一枚信物。解锁夜间服务「与拾荒客同行」：每次 20 信用点，次日当天多 2 次拾荒，拾荒时不会受轻伤或重伤。",
+                "The scavengers welcome you as one of their own with a token. Unlocks Scavenger Outing: pay 20 credits for 2 extra searches and no minor or major scavenging wounds the next day."),
         };
 
         internal static PerkDefinition For(int threshold)

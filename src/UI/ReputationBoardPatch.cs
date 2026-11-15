@@ -40,11 +40,11 @@ namespace DumpingGroundMap
         };
         /// <summary>
         /// 柱子上的五个奖励点，与原生 perk 同一套刻度（0–200）。
-        /// 20：每天多一名拾荒客客人 + 首次达到 20 点的一枚「拾荒者信物」和一张便条（已生效）。
-        /// 40：三个高级区（拆解堆 / 医疗废弃点 / 废武器堆）的统一解锁门槛（已生效）。
+        /// 20：每天多一名拾荒客客人，并由便签介绍。
+        /// 40：解锁三个高级区和离场付费搬运，并由便签介绍。
         /// 60：隐藏储藏与小奖机会提升。
         /// 80：贵重品出现率改为 80 门控（不到 80 按 0，到了 80 完全按滑条值，默认 3%）；四个区可翻到补给箱与对应钥匙卡（已生效）。
-        /// 100：只落门槛与档名，功能待定。
+        /// 100：发放信物、便签，解锁 20 信用点的次日同行夜间服务。
         /// </summary>
         private static readonly int[] PerkThresholds =
         {
@@ -175,7 +175,7 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// 五个奖励图标，阈值就是 20 / 40 / 60 / 80 / 100。20、40、80 已生效，
-        /// 奖励文案与门槛由 PerkCatalog 定义；100 档额外待遇尚未开放。
+        /// 奖励文案与门槛由 PerkCatalog 定义。
         /// </summary>
         private static List<StoreReputationPerk> BuildPerks(int points)
         {

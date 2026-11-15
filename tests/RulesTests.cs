@@ -30,7 +30,8 @@ internal static class RulesTests
         CacheRules();
         EventRules();
         StateRules();
-        Console.WriteLine("PASS: " + assertions + " assertions (data, probabilities, board coverage, cache, event replacement, run identity, restoration)");
+        OutingAndMilestoneRules();
+        Console.WriteLine("PASS: " + assertions + " assertions (loot, state, next-day outing, milestone delivery)");
     }
 
     private static void Check(bool condition, string message)
@@ -165,7 +166,7 @@ internal static class RulesTests
         Check(!GroundExpand.SearchActive, "Scene setup resets search scope");
         Near(PerkCatalog.MinorMultiplier(59), 0.1f, "Below tier 60");
         Near(PerkCatalog.MinorMultiplier(60), 1f, "At tier 60");
-        Check(PerkCatalog.For(100).DescriptionZh.Contains("尚未开放"), "Tier 100 cannot advertise an unimplemented helper");
+        Check(PerkCatalog.For(100).DescriptionZh.Contains("夜间服务"), "Tier 100 describes the actual night service");
         bool wentOut = true;
         bool original = wentOut;
         RestoreScope outer = new RestoreScope(() => wentOut = original);
@@ -183,5 +184,62 @@ internal static class RulesTests
         Check(identity.Matches(owner, "run_a", 1), "Same save owner");
         Check(!identity.Matches(new object(), "run_a", 1), "Reload replaces owner even in same run");
         Check(!identity.Matches(owner, "run_b", 1) && !identity.Matches(owner, "run_a", 2), "Cross-run/slot save rejected");
+    }
+
+    private static void OutingAndMilestoneRules()
+    {
+        StoreService service = new StoreService();
+        service.isUsing = true;
+        OutingRules.Configure(service, 99);
+        Check(!service.unlocked && !service.isUsing && service.cost == 20, "Locked service cannot remain selected");
+        OutingRules.Configure(service, 100);
+        Check(service.unlocked && service.cost == 20 && !service.isMandatory, "100 reputation unlocks optional 20-credit service");
+        service.isUsing = true;
+        OutingRules.Configure(service, 150);
+        Check(service.isUsing && service.cost == 20, "Refreshing the panel preserves an explicit booking");
+        int benefitDay = OutingRules.BenefitDay(7);
+        Check(benefitDay == 8 && !OutingRules.Active(7, benefitDay), "Booking cannot buff the same night");
+        Check(OutingRules.Active(8, benefitDay) && !OutingRules.Active(9, benefitDay), "Benefit lasts exactly the following day");
+        Check(!OutingRules.Active(-1, -1) && OutingRules.BenefitDay(-1) == -1, "No active service without a valid day");
+        Check(OutingRules.Attempts(5, true) == 7 && OutingRules.Attempts(7, true) == 9, "Service stacks with scavenger start");
+        Check(OutingRules.Attempts(5, false) == 5 && OutingRules.Attempts(0, true) == 0, "Expiry and native inability preserved");
+
+        HashSet<string> keys = new HashSet<string>();
+        foreach (MilestoneNote note in MilestoneNotes.All)
+        {
+            Check(keys.Add(note.Key), "Each note has its own per-save receipt");
+            Check(!note.Due(note.Threshold - 1, false) && note.Due(note.Threshold, false), "Milestone threshold");
+            Check(!note.Due(200, true), "Received note never repeats");
+            Check(!note.GivesToken(true), "Legacy token receipt prevents a duplicate");
+            Check(note.GivesToken(false) == (note.Threshold == 100), "Token belongs exclusively to 100 reputation");
+        }
+        Check(!MilestoneNotes.All[0].Body(true, false).Contains("信物"), "20-point letter no longer claims a token");
+        Check(MilestoneNotes.All[1].Body(true, false).Contains("搬回你店里"), "40-point letter explains hauling");
+        Check(MilestoneNotes.All[2].Body(true, true).Contains("20 信用点")
+            && MilestoneNotes.All[2].Body(true, true).Contains("2 回"), "100-point letter follows service price and attempts");
+        Check(!MilestoneNotes.All[2].Body(true, false).Contains("这枚信物"), "Upgrade note does not imply a second token");
+
+        List<string> onCounter = new List<string>();
+        bool received = false;
+        bool full = true;
+        Func<string, bool> place = item => {
+            if (full && item == "note") return false;
+            onCounter.Add(item); return true;
+        };
+        Action<List<string>> rollback = items => { foreach (string item in items) onCounter.Remove(item); };
+        Check(!MilestoneDelivery.Give(true, () => "token", () => "note", place, rollback, () => received = true),
+            "Full counter defers the token-and-note bundle");
+        Check(onCounter.Count == 0 && !received, "Failed note rolls token back without marking receipt");
+        full = false;
+        Check(MilestoneDelivery.Give(true, () => "token", () => "note", place, rollback, () => received = true)
+            && received && onCounter.Count == 2, "Retry delivers and marks both items");
+        onCounter.Clear(); received = false;
+        Check(MilestoneDelivery.Give(false, () => { throw new Exception("duplicate token"); }, () => "note", place,
+            rollback, () => received = true) && onCounter.Count == 1, "Legacy player receives only the new letter");
+        onCounter.Clear();
+        bool failed = false;
+        try { MilestoneDelivery.Give(true, () => "token", () => "note", place, rollback, () => { throw new Exception("save receipt failed"); }); }
+        catch (Exception) { failed = true; }
+        Check(failed && onCounter.Count == 0, "Receipt failure also rolls the whole bundle back");
     }
 }
