@@ -42,9 +42,8 @@ namespace DumpingGroundMap
         /// <summary>声望不到 60 时的硬上限，单位是百分数。</summary>
         internal const float HardCapLowRep = 0.1f;
 
-        /// <summary>大奖里每区合计的贵重品件数区间。</summary>
-        internal const int ValuableMinItems = 1;
-        internal const int ValuableMaxItems = 2;
+        /// <summary>大奖里每区合计的贵重品件数（0.3.70 起固定 1 件）。</summary>
+        internal const int ValuableItems = 1;
 
         internal const int BonusItems = 1;
 
@@ -296,8 +295,7 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 大奖：先按组抽本区各大类的非垃圾物品，再抽 1–2 件该区匹配的贵重品。
-        /// 组与组之间不重不漏，贵重品互不重复。
+        /// 大奖：先按组抽本区各大类的非垃圾物品，再抽 1 件该区匹配的贵重品。
         /// </summary>
         private static int AddJackpot(List<GameItem> items, StashTemplate template)
         {
@@ -306,16 +304,9 @@ namespace DumpingGroundMap
             string[] valuables = template.ValuableIds;
             if (valuables == null || valuables.Length == 0) return spawned;
 
-            int count = UnityEngine.Random.Range(ValuableMinItems, ValuableMaxItems + 1);
-            if (count > valuables.Length) count = valuables.Length;
-            bool[] used = new bool[valuables.Length];
-            for (int i = 0; i < count; ++i)
+            for (int i = 0; i < ValuableItems; ++i)
             {
                 int index = UnityEngine.Random.Range(0, valuables.Length);
-                int guard = 0;
-                while (used[index] && guard++ < valuables.Length)
-                    index = (index + 1) % valuables.Length;
-                used[index] = true;
                 if (Spawn(items, valuables[index])) ++spawned;
             }
             return spawned;
