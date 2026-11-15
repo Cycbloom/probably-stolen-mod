@@ -608,7 +608,7 @@ namespace DumpingGroundMap
             try
             {
                 StoreEvent ev = BuildEvent(template);
-                manager.QueueFuturEvent(ev, today, true);
+                QueueNewsForToday(manager, ev);
                 newsFired = today;
                 newsDay = -1;
                 SaveState();
@@ -619,6 +619,37 @@ namespace DumpingGroundMap
             {
                 Debug.LogWarning("[DumpingGroundMap] stash: news queue failed: " + ex.Message);
             }
+        }
+
+        internal static void QueueNewsForToday(StoreEventManager manager, StoreEvent ev)
+        {
+            // day 是剩余天数，不是绝对日期。此时已到次日开日，随后同一次
+            // OnDayStart 的 HandleFuturEvent 会激活它；startDay 也必须落在今天。
+            manager.QueueFuturEvent(ev, 0, true);
+        }
+
+        /// <summary>修复旧版把绝对日期当等待天数后留在未来队列中的大奖新闻。</summary>
+        internal static int RepairLegacyNews(StoreEventManager manager, int today, int queuedDay, string regionId)
+        {
+            if (manager == null || queuedDay <= 0 || today < queuedDay || StashTemplate.For(regionId) == null)
+                return 0;
+            if (manager.futurEvents.Count != manager.futurEventsDay.Count) return 0;
+
+            int repaired = 0;
+            for (int i = manager.futurEvents.Count - 1; i >= 0; --i)
+            {
+                StoreEvent ev = manager.futurEvents[i];
+                // 旧版排队时 startDay = queuedDay + queuedDay。只处理这个明确特征，
+                // 并以本存档的发报收据与区域约束，避免修改原版及其他 Mod 的事件。
+                if (ev == null || ev.identifier != "dgm_stash_" + regionId
+                    || ev.startDay != (long)queuedDay * 2) continue;
+                if (!manager.IsEventActive(ev.identifier)) manager.ActivateEvent(ev, false, false);
+                if (!manager.IsEventActive(ev.identifier)) continue;
+                manager.futurEvents.RemoveAt(i);
+                manager.futurEventsDay.RemoveAt(i);
+                ++repaired;
+            }
+            return repaired;
         }
 
         private static StoreEvent BuildEvent(StashTemplate template)
@@ -694,6 +725,9 @@ namespace DumpingGroundMap
                     + " phase=" + phase + " hit_day=" + hitDay
                     + " hit_region=" + hitRegion + " news_day=" + newsDay
                     + " news_fired=" + newsFired + " store=" + (saveName ?? "?"));
+                int repaired = RepairLegacyNews(StoreStation.Instance.storeEventManager, Today(), newsFired, hitRegion);
+                if (repaired > 0)
+                    Debug.Log("[DumpingGroundMap] stash: repaired legacy queued news count=" + repaired);
             }
             catch (Exception ex)
             {

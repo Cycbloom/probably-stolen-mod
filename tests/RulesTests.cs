@@ -32,7 +32,8 @@ internal static class RulesTests
         StateRules();
         OutingAndMilestoneRules();
         JackpotWindowRules();
-        Console.WriteLine("PASS: " + assertions + " assertions (loot, state, outings, milestones, jackpot modes)");
+        JackpotNewsRules();
+        Console.WriteLine("PASS: " + assertions + " assertions (loot, state, outings, milestones, jackpot modes/news)");
     }
 
     private static void Check(bool condition, string message)
@@ -249,6 +250,84 @@ internal static class RulesTests
         try { MilestoneDelivery.Give(true, () => "token", () => "note", place, rollback, () => { throw new Exception("save receipt failed"); }); }
         catch (Exception) { failed = true; }
         Check(failed && onCounter.Count == 0, "Receipt failure also rolls the whole bundle back");
+    }
+
+    private static void JackpotNewsRules()
+    {
+        FieldInfo singleton = typeof(StoreStation).GetField("instance", BindingFlags.Static | BindingFlags.NonPublic);
+        object previous = singleton.GetValue(null);
+        FieldInfo playerSingleton = typeof(PlayerStore).GetField("instance", BindingFlags.Static | BindingFlags.NonPublic);
+        object previousPlayer = playerSingleton.GetValue(null);
+        PlayerStore player = (PlayerStore)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(PlayerStore));
+        player.startingPerks = new List<StartingPerk>();
+        playerSingleton.SetValue(null, player);
+        StoreStation station = (StoreStation)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(StoreStation));
+        singleton.SetValue(null, station);
+        try
+        {
+            foreach (int hitDay in new[] { 1, 2, 12, 99 })
+            {
+                int today = hitDay + 1;
+                station.dayCounter = today;
+                StoreEventManager manager = new StoreEventManager();
+                station.storeEventManager = manager;
+                StoreEvent ev = new StoreEvent();
+                ev.identifier = "dgm_stash_test";
+                ev.newsName = "Jackpot news";
+                ev.displayName = "Food surplus";
+                ev.duration = ev.totalDuration = 1;
+                ev.cooldown = 60;
+                StashFind.QueueNewsForToday(manager, ev);
+                Check(manager.futurEvents.Count == 1 && ReferenceEquals(manager.futurEvents[0], ev), "News enters the native queue");
+                Check(manager.futurEventsDay[0] == 0, "Opening-day news is due immediately, never delayed by the day number");
+                Check(ev.startDay == today && ev.IsKnown, "Native queue assigns today's calendar date and reveals the event");
+                Check((int)StoreEventManager.GetEventDayType(ev, today) == 4, "Calendar sees a single-day event, not an out-of-range blank continuation");
+                Check(ev.GetDisplayName() == "Food surplus", "Calendar retains the event title");
+                Check(manager.GetActiveEventOnDay(today, false, false).Contains(ev), "Calendar includes the jackpot on the following day");
+                Check(!manager.GetActiveEventOnDay(today + 1, false, false).Contains(ev), "Jackpot market event does not spill into a later day");
+                Check(manager.GetActiveEvents().Count == 0, "The normal opening-day handler remains responsible for activation");
+                manager.HandleFuturEvent();
+                Check(manager.futurEvents.Count == 0 && manager.futurEventsDay.Count == 0, "Native opening-day handling consumes the news immediately");
+                Check(manager.GetActiveEvents().Contains(ev) && !ev.isHiddenFromNewsPaper, "News is active and eligible for the native newspaper that day");
+                Check(ev.startDay == today && (int)StoreEventManager.GetEventDayType(ev, today) == 4, "Activation preserves the titled single-day calendar entry");
+                manager.HandleFuturEvent();
+                Check(manager.GetActiveEvents().Count == 1, "Repeated future-queue handling cannot duplicate the same news");
+            }
+
+            station.dayCounter = 2;
+            StoreEventManager legacyManager = new StoreEventManager();
+            station.storeEventManager = legacyManager;
+            StoreEvent legacy = new StoreEvent();
+            legacy.identifier = "dgm_stash_refuse";
+            legacy.duration = legacy.totalDuration = 1;
+            legacyManager.QueueFuturEvent(legacy, 2, true);
+            legacyManager.futurEventsDay[0] = 1; // 旧版第 2 天 OnDayStart 已减过一次。
+            StoreEvent unrelated = new StoreEvent();
+            unrelated.identifier = "another_mod_event";
+            unrelated.duration = 1;
+            legacyManager.QueueFuturEvent(unrelated, 5, true);
+            Check(StashFind.RepairLegacyNews(legacyManager, 1, 2, "refuse") == 0, "Legacy repair never publishes before its receipt date");
+            Check(StashFind.RepairLegacyNews(legacyManager, 2, 2, "gate") == 0, "Legacy repair is constrained to the saved jackpot region");
+            Check(StashFind.RepairLegacyNews(legacyManager, 2, 2, "refuse") == 1, "The reported day-2 save repairs its delayed jackpot news");
+            Check(legacy.startDay == 2 && legacyManager.GetActiveEvents().Contains(legacy), "Repaired news is active today for calendar and newspaper");
+            Check(legacyManager.futurEvents.Count == 1 && ReferenceEquals(legacyManager.futurEvents[0], unrelated)
+                && legacyManager.futurEventsDay[0] == 5, "Repair preserves unrelated events and their countdowns");
+            Check(StashFind.RepairLegacyNews(legacyManager, 2, 2, "refuse") == 0
+                && legacyManager.GetActiveEvents().Count == 1, "Repeated load cannot duplicate repaired news");
+
+            StoreEventManager currentManager = new StoreEventManager();
+            StoreEvent current = new StoreEvent();
+            current.identifier = "dgm_stash_refuse";
+            current.duration = 1;
+            StashFind.QueueNewsForToday(currentManager, current);
+            Check(StashFind.RepairLegacyNews(currentManager, 2, 2, "refuse") == 0
+                && currentManager.futurEvents.Count == 1, "Correctly scheduled news is never treated as a legacy error");
+        }
+        finally
+        {
+            singleton.SetValue(null, previous);
+            playerSingleton.SetValue(null, previousPlayer);
+        }
     }
 
     private static void JackpotWindowRules()
