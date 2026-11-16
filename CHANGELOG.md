@@ -1,6 +1,6 @@
 ﻿# 版本记录
 
-## 0.6.4（待部署）
+## 0.6.4
 
 - 修复 0.6.2/0.6.3 被模组扫描器判定「使用了清单文件中未声明的权限」而无法启用的问题：0.6.2 的「更好的拾荒」桥接通过 `Type.GetMethod` 反射调用对方公开入口，扫描器据此记录 `reflection-external`，但清单仍写着 `<Capabilities />`。
 - 清单补上 `<Capabilities><Capability>reflection-external</Capability></Capabilities>`，这是游戏认可的准确写法（元素名 `Capability`，取元素文本并转为小写）；其它能力仍不声明。该能力在当前版本只触发启用前的权限提示，不会被拒绝。
