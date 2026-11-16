@@ -20,6 +20,10 @@ namespace DumpingGroundMap
         internal readonly float Ev;
         internal readonly float JunkScale;
         internal readonly LootSlot[] Slots;
+        internal readonly EffectiveTable WithoutRegionalEvent;
+        internal readonly RegionalEvent RegionalEvent;
+        private readonly float[] eventValues;
+        internal float EventEv { get { return WithoutRegionalEvent == null ? 0f : Math.Max(0f, Ev - WithoutRegionalEvent.Ev); } }
 
         /// <summary>
         /// 贵重品在 Items / Probs 里的起始下标与件数。贵重品槽位可能和普通表里的
@@ -31,7 +35,8 @@ namespace DumpingGroundMap
         private readonly int[] order;
 
         internal EffectiveTable(string[] items, float[] probs, bool[] isHigh,
-            float highChance, float junkChance, float ev, int highStart, int highCount, Region region, float junkScale = 1f)
+            float highChance, float junkChance, float ev, int highStart, int highCount, Region region, float junkScale = 1f,
+            EffectiveTable withoutRegionalEvent = null, RegionalEvent regionalEvent = null, float[] values = null)
         {
             Items = items;
             Probs = probs;
@@ -42,12 +47,15 @@ namespace DumpingGroundMap
             JunkScale = junkScale;
             HighStart = highStart;
             HighCount = highCount;
+            WithoutRegionalEvent = withoutRegionalEvent;
+            RegionalEvent = regionalEvent;
+            eventValues = values;
             Slots = new LootSlot[items.Length];
             for (int i = 0; i < items.Length; ++i)
             {
                 LootKind kind = i < highStart ? LootKind.Ordinary
                     : i < highStart + highCount ? LootKind.Valuable
-                    : items[i] == LootCatalog.CrateFor(region.Id) ? LootKind.SupplyCrate : LootKind.Keycard;
+                    : items[i].StartsWith("loot_crate_", StringComparison.Ordinal) ? LootKind.SupplyCrate : LootKind.Keycard;
                 Slots[i] = new LootSlot(items[i], kind,
                     kind == LootKind.Ordinary ? region.Loot.CategoryOf(items[i]) : -1);
             }
@@ -62,6 +70,10 @@ namespace DumpingGroundMap
         }
 
         internal int Count { get { return Items.Length; } }
+        internal float ExpectedValueAt(int i, string regionId)
+        {
+            return eventValues == null ? LootCatalog.ExpectedValueOf(Items[i], regionId) : eventValues[i];
+        }
         internal int IndexAt(int i) { return order[i]; }
         internal float ProbabilityAt(int i) { return Probs[order[i]]; }
         internal string ItemAt(int i) { return Items[order[i]]; }

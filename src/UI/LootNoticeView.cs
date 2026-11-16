@@ -54,11 +54,16 @@ namespace DumpingGroundMap
 
         private static Region boardRegion;
         private static readonly List<BoardGroup> boardGroups = new List<BoardGroup>();
+        private static readonly List<BoardItem> boardSupplyItems = new List<BoardItem>();
         private static CustomUIElement boardBonusHeader;
         private static readonly BoardRow[] boardSpecial = new BoardRow[4];
         private static GameObject boardBonusGrid;
         private static CustomUIElement boardEv;
+        private static EffectiveTable boardEvSource;
+        private static MainExpectation boardEvParts;
+        private static string boardMinorContents;
         private static CustomUIElement boardCaption;
+        private static CustomUIElement boardEvent;
 
         internal static void Open(Region region)
         {
@@ -70,10 +75,14 @@ namespace DumpingGroundMap
                 Copy.Text("拾荒告示板 · ", "Loot Notice · ") + region.Name,
                 CustomUIManager.LAYER_OVERLAY, null, CustomUIManager.Style.Meta);
             boardWindow = b.Handle;
-            b.SetSize(620, 552).Center().SetDraggable(false).SetCloseOnEscape(true).OnClose(BoardClosed);
+            b.SetSize(620, 640).Center().SetDraggable(false).SetCloseOnEscape(true).OnClose(BoardClosed);
 
             boardRegion = region;
+            List<string> minorNames = new List<string>();
+            foreach (string id in StashFind.MinorBox.ItemsFor(region.Id)) minorNames.Add(Picker.ItemName(id));
+            boardMinorContents = string.Join(Copy.Text("、", ", "), minorNames.ToArray());
             boardGroups.Clear();
+            boardSupplyItems.Clear();
 
             b.AddLabel(Copy.Text("—— 本区掉落公示 ——", "— Area Loot Notice —"), "board_header");
             b.Last.SetTextColor(Picker.Accent);
@@ -82,6 +91,18 @@ namespace DumpingGroundMap
             b.AddLabel(region.Detail, "board_detail");
             Picker.Size(b.Last, -1, 42);
             ConfigureText(b.Last, 18, true);
+            b.AddLabel("", "board_event");
+            boardEvent = b.Last;
+            Picker.Size(boardEvent, -1, 64);
+            ConfigureText(boardEvent, 16, true);
+            boardEvent.SetTextColor(Picker.Accent);
+            b.AddLabel(" ", "board_ev");
+            boardEv = b.Last;
+            Picker.Size(b.Last, -1, 120);
+            ConfigureText(b.Last, 20, true);
+            if (b.Last.text != null) b.Last.text.richText = true;
+            b.Last.SetTextColor(Picker.Accent);
+            b.AddSpace(6);
             b.AddLabel(Copy.Text("按大类分组，概率是当前生效值，跟着设置实时变化：",
                 "Grouped by category; chances are live and follow the settings:"), "board_caption");
             Picker.Size(b.Last, -1, 26);
@@ -89,7 +110,7 @@ namespace DumpingGroundMap
             ConfigureText(b.Last, 18, false);
             b.AddSpace(4);
 
-            b.BeginScroll(300);
+            b.BeginScroll(228);
 
             EffectiveTable table = Tuning.TableFor(region);
             foreach (LootNoticeGroup source in LootNoticeModel.Groups(table))
@@ -138,6 +159,14 @@ namespace DumpingGroundMap
             {
                 boardSpecial[i] = AddRow(b, "board_special_" + i);
             }
+            for (int i = table.HighStart + table.HighCount; i < table.Count; ++i)
+            {
+                BoardItem item = new BoardItem();
+                item.Id = table.Items[i];
+                item.Slot = i;
+                item.Row = AddRow(b, "board_supply_" + i);
+                boardSupplyItems.Add(item);
+            }
             b.End();
             b.AddSpace(6);
             b.AddLabel(Copy.Text("已计入当前事件：垃圾权重改变后，全部概率重新归一化；0.0% 表示当前条件下不会掉落。",
@@ -148,11 +177,6 @@ namespace DumpingGroundMap
             b.Last.SetTooltip(b.Last.GetText());
             b.End();
 
-            b.AddSpace(6);
-            b.AddLabel(" ", "board_ev");
-            boardEv = b.Last;
-            Picker.Size(b.Last, -1, 24);
-            ConfigureText(b.Last, 18, false);
             b.Show();
 
             RefreshBoard();
@@ -210,8 +234,16 @@ namespace DumpingGroundMap
             if (region == null) return;
 
             EffectiveTable table = Tuning.TableFor(region);
+            if (boardEvent != null)
+            {
+                RegionalEvent effect = table.RegionalEvent;
+                boardEvent.SetText(effect == null ? Copy.Text("今日无区域事件", "No regional event today")
+                    : Copy.Text("今日事件：", "Today's event: ") + effect.Title + Copy.Text(" · 今日结束", " · Ends today")
+                        + "\n" + effect.Description);
+                boardEvent.SetTooltip(effect == null ? "" : effect.Tooltip);
+            }
             if (boardCaption != null)
-                boardCaption.SetText(Copy.Text("按大类分组 · 事件垃圾权重 ×", "Grouped loot · event junk weight ×")
+                boardCaption.SetText(Copy.Text("实际概率 · 全场垃圾权重 ×", "Live chances · yard-wide junk weight ×")
                     + table.JunkScale.ToString("0.00", CultureInfo.InvariantCulture));
             for (int g = 0; g < boardGroups.Count; ++g)
             {
@@ -233,7 +265,6 @@ namespace DumpingGroundMap
             }
 
             int points = Reputation.Points;
-            bool tier60 = points >= PerkCatalog.Perk60Threshold;
             bool tier80 = points >= PerkCatalog.Perk80Threshold;
 
             string crateId = LootCatalog.CrateFor(region.Id);
@@ -241,24 +272,87 @@ namespace DumpingGroundMap
             float crate = table.ProbabilityOf(LootKind.SupplyCrate);
             float card = table.ProbabilityOf(LootKind.Keycard);
 
-            // 0.3.67 起五区都有大奖样板，这一行只在声望不到 60 时隐藏；
-            // 留着 HasJackpot 判断，是为了以后加没有样板的区域时仍然不显示 0。
-            bool showJackpot = tier60 && StashFind.HasJackpot(region.Id);
-            bool showMinor = tier60 && StashFind.HasMinor(region.Id);
+            // Below 60 both rewards still have reduced chances; show those actual odds.
+            bool showJackpot = StashFind.HasJackpot(region.Id);
+            bool showMinor = StashFind.HasMinor(region.Id);
+            RewardExpectation rewards = new RewardExpectation(StashFind.PreviewJackpotPercent(region),
+                showMinor ? StashFind.PreviewMinorPercent(region) : 0f,
+                RewardExpectation.MeanJackpotValue(StashTemplate.For(region.Id)),
+                StashFind.MinorBox.ExpectedValue(region.Id, Tuning.MinorValue));
             bool showCrate = tier80 && crate > 0f;
             bool showCard = tier80 && card > 0f;
-            SetBoardSpecial(0, showJackpot, Copy.Text("大奖", "Jackpot"), StashFind.CurrentChancePercent);
-            SetBoardSpecial(1, showMinor, Copy.Text("小奖", "Minor find"), Tuning.EffectiveMinorPercent);
-            SetBoardSpecial(2, showCrate, Copy.Text("物资箱", "Supply crate"), crate * 100f);
-            SetBoardSpecial(3, showCard, Copy.Text("钥匙卡", "Keycard"), card * 100f);
+            SetBoardSpecial(0, showJackpot, Copy.Text("大奖", "Jackpot"), rewards.JackpotProbability * 100f);
+            SetBoardSpecial(1, showMinor, Copy.Text("小奖", "Minor find"), rewards.MinorProbability * 100f);
+            if (showJackpot)
+            {
+                string jackpotTip = Tuning.StashWindowEnabled
+                    ? Copy.Text("大奖按自然日更新概率，当天固定。连续5个未中大奖的日子达到上限，中奖后次日减半。\n每趟最多中一次；本趟已中时显示0%。",
+                        "Jackpot odds update once per calendar day and stay fixed that day. Five missed days reach the cap; a win halves the next day's odds.\nAt most one win per visit; shows 0% after this visit's win.")
+                    : Copy.Text("大奖窗口已关闭，直接使用当前生效上限；保存的日窗口进度暂停。",
+                        "Daily window is off: uses the effective cap directly while saved progress is paused.");
+                boardSpecial[0].Name.SetTooltip(jackpotTip);
+                boardSpecial[0].Chance.SetTooltip(jackpotTip);
+            }
+            if (showMinor)
+            {
+                string minorTip = Copy.Text("本区小奖整箱：", "Area minor-reward crates: ") + boardMinorContents
+                    + Copy.Text("\n命中后随机一种，整箱同类物品；数量按目标价值与单价计算（1–12件）。实际概率已计入大奖优先。",
+                        "\nOne type per crate, chosen at random. Count follows target value and unit price (1-12 items). Effective odds include jackpot precedence.");
+                minorTip += "\n" + (Tuning.MinorWindowEnabled
+                    ? Copy.Text("每次搜索更新窗口；未中增长、中奖减半。", "Per-search window: misses increase odds, wins halve them.")
+                    : Copy.Text("小奖窗口关闭，直接使用生效上限。", "Minor window is off: uses the effective cap directly."))
+                    + Copy.Text("\n当前抽奖概率：", "\nCurrent roll chance: ") + BoardPercentValue(StashFind.CurrentMinorChancePercent)
+                    + Copy.Text("；实际生效上限：", "; effective cap: ") + BoardPercentValue(Tuning.EffectiveMinorPercent);
+                boardSpecial[1].Name.SetTooltip(minorTip);
+                boardSpecial[1].Chance.SetTooltip(minorTip);
+            }
+            SetBoardSpecial(2, showCrate, Copy.Text("补给箱合计", "All crates"), crate * 100f);
+            SetBoardSpecial(3, showCard, Copy.Text("钥匙卡合计", "All keycards"), card * 100f);
+            foreach (BoardItem item in boardSupplyItems)
+            {
+                float probability = table.Probs[item.Slot];
+                item.Row.SetVisible(tier80 && probability > 0f);
+                if (tier80 && probability > 0f) item.Row.SetText(Picker.ItemName(item.Id), BoardPercent(probability));
+            }
             if (boardBonusHeader != null)
                 boardBonusHeader.SetVisible(showJackpot || showMinor || showCrate || showCard);
             if (boardBonusGrid != null)
                 boardBonusGrid.SetActive(showJackpot || showMinor || showCrate || showCard);
 
             if (boardEv != null)
-                boardEv.SetText(Copy.Text("本区期望价值：", "Expected value: ")
-                    + table.Ev.ToString("0.00", CultureInfo.InvariantCulture));
+            {
+                if (!ReferenceEquals(boardEvSource, table))
+                {
+                    boardEvSource = table;
+                    boardEvParts = MainExpectation.From(table, region.Id);
+                }
+                MainExpectation parts = boardEvParts;
+                boardEv.SetText(Copy.Text("主掉落期望合计 ≈ ", "Main-drop expected total ≈ ")
+                    + table.Ev.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Text(" 信用点", " credits")
+                    + "\n<size=16>" + Copy.Text("基础 ", "Base ") + parts.Base.ToString("0.00", CultureInfo.InvariantCulture)
+                    + Copy.Text(" + 贵重增益 ", " + rare ") + parts.Valuable.ToString("0.00", CultureInfo.InvariantCulture)
+                    + Copy.Text(" + 箱卡增益 ", " + crates/cards ") + parts.Supply.ToString("0.00", CultureInfo.InvariantCulture)
+                    + "</size>\n<size=16>" + Copy.Text("今日事件增益 +", "Today's regional uplift +")
+                    + parts.Event.ToString("0.00", CultureInfo.InvariantCulture)
+                    + "</size>\n<size=15>" + Copy.Text("奖励期望/次搜索：大奖 +", "Bonus EV/search: jackpot +")
+                    + rewards.JackpotEv.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Text(" · 小奖 +", " · minor +")
+                    + rewards.MinorEv.ToString("0.00", CultureInfo.InvariantCulture)
+                    + "</size>\n<size=13>" + Copy.Text("贵重与箱卡为净增益；工具、额外收获另算",
+                        "Rare/crates are net uplifts; tools and extra finds are separate") + "</size>");
+                string valueNote = Copy.Text("单位：信用点/件。基础、贵重和箱卡按同日无区域事件拆分，事件增益为当前区域事件前后的差值；四项相加等于当前主掉落期望。全场原版事件已计入。贵重品和箱卡为扣除替代普通掉落后的净增益，箱子按内容估值。\n贵重品概率：",
+                    "Units: credits/item. Base/rare/crates use the same day without regional effects. Regional uplift is the event/no-event difference; all four terms sum to current main-drop EV. Native yard-wide events are included. Rare/crates are net uplifts; crates use estimated contents value.\nValuable chance: ")
+                    + BoardPercent(parts.ValuableProbability) + Copy.Text("；箱卡概率：", "; crate/card chance: ")
+                    + BoardPercent(parts.SupplyProbability)
+                    + Copy.Text("\n大奖中奖时平均价值：", "\nMean jackpot payout: ")
+                    + rewards.JackpotValue.ToString("0.00", CultureInfo.InvariantCulture)
+                    + Copy.Text("；当前概率：", "; current chance: ") + BoardPercentValue(rewards.JackpotProbability * 100f)
+                    + Copy.Text("\n小奖中奖时平均价值：", "\nMean minor payout: ")
+                    + rewards.MinorValue.ToString("0.00", CultureInfo.InvariantCulture)
+                    + Copy.Text("；实际概率：", "; effective chance: ") + BoardPercentValue(rewards.MinorProbability * 100f)
+                    + Copy.Text("\n奖励期望按每次搜索、当前概率计算；小奖已计入大奖优先及1–12件限制。大奖后的后续额外收获、工具、额外主掉落和市场效果另算。",
+                        "\nBonus EV is per search at current odds; minor rewards include jackpot precedence and the 1-12 item limit. Later extra finds, tools, extra main rolls and market effects are separate.");
+                boardEv.SetTooltip(valueNote);
+            }
         }
 
         private static void SetBoardGroupVisible(BoardGroup group, bool visible)
@@ -287,6 +381,7 @@ namespace DumpingGroundMap
         /// <summary>已经换算成百分数的值（大奖 / 小奖 / 箱子 / 钥匙卡）。</summary>
         private static string BoardPercentValue(float percent)
         {
+            if (percent <= 0f) return "0.00%";
             if (percent < 0.01f) return "<0.01%";
             return percent.ToString("0.00", CultureInfo.InvariantCulture) + "%";
         }
@@ -294,6 +389,8 @@ namespace DumpingGroundMap
         /// <summary>变体补充说明；显示名称和悬停说明都使用完整名称。</summary>
         private static string BoardItemName(string id)
         {
+            if (id == HydraUsage.ItemId)
+                return Picker.ItemName(id) + Copy.Text("（剩余1/3、1/2或全满）", " (1/3, 1/2 or full uses)");
             if (id == LootCatalog.InjectorBadId)
                 return Copy.Text("免疫宁注射器（过期/仿品/不能用）",
                     "Immunivax injector (expired/counterfeit/unusable)");
@@ -318,8 +415,13 @@ namespace DumpingGroundMap
         {
             boardRegion = null;
             boardGroups.Clear();
+            boardSupplyItems.Clear();
             boardEv = null;
+            boardEvSource = null;
+            boardEvParts = null;
+            boardMinorContents = null;
             boardCaption = null;
+            boardEvent = null;
             boardBonusHeader = null;
             boardBonusGrid = null;
             for (int i = 0; i < boardSpecial.Length; ++i) boardSpecial[i] = null;

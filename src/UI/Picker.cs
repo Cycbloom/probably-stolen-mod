@@ -33,12 +33,13 @@ namespace DumpingGroundMap
         /// 为空则是地点面板里点「拾荒」的兜底弹窗。
         /// </summary>
         private DumpingGroundLocation target;
-        private readonly CustomUIElement[] pins = new CustomUIElement[Region.All.Length];
-        private readonly Image[] pinRings = new Image[Region.All.Length];
+        private OverviewMap overview;
+        private Region hovered, inspected;
+        private Vector2 selectedPoint;
         private Region selected;
         private CustomUIWindow window;
         private GameObject shade;
-        private CustomUIElement description, confirm, reputationLabel;
+        private CustomUIElement description, confirm, reputationLabel, notice, eventSummary;
 
         private Picker(MapUIManager map, Action resume)
         {
@@ -152,11 +153,12 @@ namespace DumpingGroundMap
 
             // 离开垃圾场（回家后 Current 变空、换去别的地点、读档后场景重建）时丢掉本次选择。
             if (ChosenRegion != null && !map.IsInTransit && map.Current != chosenAt)
-                ResetChoice();
+                ResetChoice(false);
         }
 
-        internal static void ResetChoice()
+        internal static void ResetChoice(bool restoreBackdrop = true)
         {
+            if (restoreBackdrop) RegionBackdrop.Restore();
             ChosenRegion = null;
             chosenAt = null;
         }
@@ -167,7 +169,14 @@ namespace DumpingGroundMap
             CustomUIBuilder b = ui.CreateWindow(WindowId, Copy.Text("垃圾场 · 拾荒地图", "Dumping Ground · Search Map"),
                 CustomUIManager.LAYER_OVERLAY, null, CustomUIManager.Style.Meta);
             window = b.Handle;
-            b.SetSize(740, 624).Center().SetDraggable(false).SetCloseOnEscape(true).OnClose(Cleanup);
+            Vector2 canvasSize = new Vector2(1920f, 1080f);
+            Canvas canvas = window.Rect.GetComponentInParent<Canvas>();
+            RectTransform canvasRect = canvas != null ? canvas.rootCanvas.transform as RectTransform : null;
+            if (canvasRect != null && canvasRect.rect.width > 0f && canvasRect.rect.height > 0f)
+                canvasSize = canvasRect.rect.size;
+            Vector2 mapSize = OverviewSize(canvasSize.x, canvasSize.y);
+            b.SetSize(mapSize.x + 60f, mapSize.y + 340f).Center()
+                .SetDraggable(false).SetCloseOnEscape(true).OnClose(Cleanup);
 
             shade = new GameObject("DumpingGroundMapShade", typeof(RectTransform), typeof(Image));
             RectTransform cover = (RectTransform)shade.transform;
@@ -179,91 +188,89 @@ namespace DumpingGroundMap
             cover.SetSiblingIndex(window.Rect.GetSiblingIndex());
             shade.GetComponent<Image>().color = new Color32(9, 16, 19, 183);
 
-            b.AddLabel(Copy.Text("选一个地标即进入该区域；进入后点“拾荒”直接按该区的物品表拾取，本次停留内不再询问。告示板可查看该区物品概率。",
-                "Pick a landmark to enter that area; after that, Search uses its table for the rest of the visit. Open a notice board to see its item chances."));
-            Size(b.Last, -1, 44);
+            b.AddLabel(Copy.Text("悬停查看物资，点击地标或附近地面落下 X，再确认前往。本趟沿用所选区域。",
+                "Hover to preview; click a landmark or nearby ground, then confirm. Area stays fixed this visit."));
+            eventSummary = b.Last;
+            eventSummary.SetTooltip(Copy.Text("悬停查看今日事件与收益，点击地标或附近地面落下 X，再确认前往。本趟沿用所选区域。",
+                "Hover for today's effects and EV; click a landmark or nearby ground, then confirm. Area stays fixed this visit."));
+            Size(b.Last, -1, 36);
+            if (b.Last.text != null)
+            {
+                b.Last.text.fontSize = 16;
+                b.Last.text.enableAutoSizing = true;
+                b.Last.text.fontSizeMin = 13;
+                b.Last.text.fontSizeMax = 16;
+                b.Last.text.enableWordWrapping = true;
+            }
             b.AddSpace(6);
-            Sprite background = ui.GetModSprite(Core.Id, "dumping_ground_map", true);
-            b.AddImage(background, 680, 328, "map");
+            Sprite background = ui.GetModSprite(Core.Id, "dumping_ground_map_base", true)
+                ?? ui.GetModSprite(Core.Id, "dumping_ground_map_art", true)
+                ?? ui.GetModSprite(Core.Id, "dumping_ground_map", true);
+            b.AddImage(background, mapSize.x, mapSize.y, "map");
             CustomUIElement mapPanel = b.Last;
-            Size(mapPanel, -1, 328);
+            Size(mapPanel, mapSize.x, mapSize.y);
             mapPanel.SetImageColor(background == null ? (Color)new Color32(39, 60, 56, 255) : Color.white);
             // Keep click targets tied to the same rectangle as the map image.
             RectTransform graphic = mapPanel.image.rectTransform;
+            // Anchors on pins and notice buttons use this exact full-image rectangle.
+            mapPanel.image.type = Image.Type.Simple;
+            mapPanel.image.preserveAspect = false;
 
-            for (int i = 0; i < Region.All.Length; ++i)
-            {
-                Region region = Region.All[i];
-                Vector2 anchor = new Vector2(region.X, region.Y);
-                RectTransform pinRect = PinRect(graphic, "Landmark " + (i + 1), anchor);
-                Image ring = pinRect.gameObject.AddComponent<Image>();
-                Sprite ringSprite = ui.GetSprite("border_white");
-                if (ringSprite != null)
-                {
-                    ring.sprite = ringSprite;
-                    ring.type = Image.Type.Sliced;
-                }
-                ring.raycastTarget = false;
-                pinRings[i] = ring;
-                CustomUIBuilder pinBuilder = new CustomUIBuilder(ui, window, pinRect);
-                // 未解锁的地标在编号后带上门槛，按钮同时压暗，点开仍会解释原因。
-                string pinLabel = (i + 1) + "  " + region.Name;
-                if (region.RequiredReputation > 0) pinLabel += " · " + region.RequiredReputation;
-                pinBuilder.AddButton(pinLabel, () => Select(region), "area_" + i);
-                CustomUIElement pin = pinBuilder.Last;
-                pin.Rect.anchorMin = Vector2.zero;
-                pin.Rect.anchorMax = Vector2.one;
-                pin.Rect.offsetMin = new Vector2(2, 2);
-                pin.Rect.offsetMax = new Vector2(-2, -2);
-                pins[i] = pin;
-
-                RectTransform boardRect = PinRect(graphic, "Notice " + (i + 1), anchor);
-                boardRect.anchoredPosition = new Vector2(0f, -40f);
-                boardRect.sizeDelta = new Vector2(110f, 26f);
-                CustomUIBuilder boardBuilder = new CustomUIBuilder(ui, window, boardRect);
-                boardBuilder.AddButton(Copy.Text("告示板", "Notice"), () =>
-                {
-                    Select(region);
-                    LootNoticeView.Open(region);
-                }, "area_board_" + i);
-                CustomUIElement boardButton = boardBuilder.Last;
-                boardButton.Rect.anchorMin = Vector2.zero;
-                boardButton.Rect.anchorMax = Vector2.one;
-                boardButton.Rect.offsetMin = Vector2.zero;
-                boardButton.Rect.offsetMax = Vector2.zero;
-            }
+            mapPanel.image.raycastTarget = false;
+            overview = new OverviewMap(graphic, mapSize, ui, window, Hover, ChoosePoint);
 
             b.AddSpace(6).AddLabel("", "reputation");
             reputationLabel = b.Last;
             Size(reputationLabel, -1, 24);
             if (reputationLabel.text != null) reputationLabel.text.alignment = TextAlignmentOptions.MidlineLeft;
+            if (reputationLabel.text != null)
+            {
+                reputationLabel.text.enableAutoSizing = true;
+                reputationLabel.text.fontSizeMin = 11;
+                reputationLabel.text.fontSizeMax = 16;
+                reputationLabel.text.enableWordWrapping = false;
+                reputationLabel.text.overflowMode = TextOverflowModes.Ellipsis;
+            }
             RefreshReputation();
 
             b.AddSpace(8).AddLabel("", "description");
             description = b.Last;
-            Size(description, -1, 64);
+            Size(description, -1, 104);
+            if (description.text != null) { description.text.fontSize = 17; description.text.enableAutoSizing = true; description.text.fontSizeMin = 13; description.text.fontSizeMax = 17; }
             if (description.text != null) description.text.alignment = TextAlignmentOptions.MidlineLeft;
+            if (description.text != null)
+            {
+                description.text.enableWordWrapping = true;
+                description.text.overflowMode = TextOverflowModes.Ellipsis;
+            }
             b.AddSpace(8).BeginRow(12, TextAnchor.MiddleRight);
+            b.AddButton(Copy.Text("查看物品概率", "Loot chances"), delegate
+            {
+                Region focus = hovered ?? inspected ?? selected;
+                if (focus != null) LootNoticeView.Open(focus);
+            });
+            notice = b.Last;
+            Size(notice, Mathf.Min(164f, mapSize.x * 0.32f), 36);
             b.AddButton(Copy.Text("取消", "Cancel"), Close);
-            Size(b.Last, 130, 36);
+            Size(b.Last, Mathf.Min(130f, mapSize.x * 0.22f), 36);
             b.AddButton(target != null
                 ? Copy.Text("进入该区域", "Enter this area")
                 : Copy.Text("开始拾荒", "Start search"), StartSearch);
             confirm = b.Last;
-            Size(confirm, 178, 36);
+            Size(confirm, Mathf.Min(248f, mapSize.x * 0.38f), 36);
             b.End();
             Select(null);
             b.Show();
         }
 
-        private static RectTransform PinRect(RectTransform parent, string name, Vector2 anchor)
+        internal static Vector2 OverviewSize(float canvasWidth, float canvasHeight)
         {
-            RectTransform rect = (RectTransform)new GameObject(name, typeof(RectTransform)).transform;
-            rect.SetParent(parent, false);
-            rect.anchorMin = rect.anchorMax = anchor;
-            rect.anchoredPosition = Vector2.zero;
-            rect.sizeDelta = new Vector2(172, 42);
-            return rect;
+            // Overlay UI uses a 1920-wide reference canvas. Reserve the title,
+            // description and action row, then fit the 2:1 artwork without cropping.
+            float availableWidth = Mathf.Min(1440f, canvasWidth - 64f) - 60f;
+            float availableHeight = Mathf.Min(1040f, canvasHeight - 48f) - 340f;
+            float width = Mathf.Max(2f, Mathf.Min(availableWidth, availableHeight * 2f));
+            return new Vector2(width, width * 0.5f);
         }
 
         internal static void Size(CustomUIElement element, float width, float height)
@@ -294,6 +301,10 @@ namespace DumpingGroundMap
 
         internal static string ItemName(string identifier)
         {
+            if (identifier == WaterSupplyPack.HalfTest)
+                return ItemName("full_water_test_strip_box") + Copy.Text("（半盒 · 5张）", " (half pack, 5 strips)");
+            if (identifier == WaterSupplyPack.HalfTablets)
+                return ItemName("full_water_purification_tablet_box") + Copy.Text("（半瓶 · 5颗）", " (half bottle, 5 tablets)");
             string key;
             if (!NameKeys.TryGetValue(identifier, out key))
                 key = "item_" + identifier + "_name";
@@ -330,67 +341,89 @@ namespace DumpingGroundMap
             return Mathf.RoundToInt(pct).ToString(CultureInfo.InvariantCulture) + "%";
         }
 
-        /// <summary>地图下方那行：当前声望 + 各高级区门槛。</summary>
         private void RefreshReputation()
         {
             if (reputationLabel == null) return;
-            string text = Copy.Text("声望 ", "Reputation ") + Reputation.Points;
-            for (int i = 0; i < Region.All.Length; ++i)
-            {
-                Region region = Region.All[i];
-                if (region.RequiredReputation <= 0) continue;
-                text += "  ·  " + region.Name + " " + region.RequiredReputation;
-            }
-            reputationLabel.SetText(text);
+            int unlocked = 0;
+            foreach (Region region in Region.All) if (region.Unlocked) ++unlocked;
+            reputationLabel.SetText(Copy.Text("声望 ", "Reputation ") + Reputation.Points
+                + "  ·  " + Copy.Text("可探索 ", "Available ") + unlocked + "/" + Region.All.Length
+                + "  ·  " + Copy.Text("基础收益目标 +", "Base reward target +") + (LootBalance.Stage(Reputation.Points) * 10) + "%");
             reputationLabel.SetTextColor(Accent);
         }
 
-        private void PaintPins()
+        private void Hover(Region region)
         {
-            for (int i = 0; i < pins.Length; ++i)
-            {
-                Region pinRegion = Region.All[i];
-                bool active = pinRegion == selected;
-                bool locked = !pinRegion.Unlocked;
-                pins[i].SetTextColor(active ? Accent : (locked ? LockedInk : Ink));
-                pinRings[i].color = active ? Accent : (locked ? LockedRing : RingInk);
-            }
+            if (current != this) return;
+            hovered = region;
+            RefreshDetails();
+        }
+
+        private void ChoosePoint(Region region, Vector2 point)
+        {
+            if (current != this) return;
+            selectedPoint = point;
+            Select(region);
         }
 
         private void Select(Region region)
         {
             if (current != this) return;
-            if (region != null && !region.Unlocked)
-            {
-                // 锁定区：不选中，只解释门槛，避免“点了没反应”。
-                selected = null;
-                PaintPins();
-                int left = RemainingSearches();
-                string need = Copy.Text("需要声望 ", "Needs ") + region.RequiredReputation
-                    + Copy.Text(" 才能进入「", " reputation to enter ") + region.Name
-                    + Copy.Text("」；当前声望 ", "\"; you have ") + Reputation.Points + "。";
-                description.SetText(need + "\n" + Copy.Text("剩余拾荒次数：", "Searches left: ") + left);
-                confirm.SetInteractable(false);
-                return;
-            }
+            inspected = region;
+            selected = region != null && region.Unlocked ? region : null;
+            if (overview != null) overview.SetSelection(selected, selectedPoint);
+            RefreshDetails();
+        }
 
-            selected = region;
-            PaintPins();
-
-            int remainingSearches = RemainingSearches();
-            string remaining = Copy.Text("剩余拾荒次数：", "Searches left: ") + remainingSearches;
-            if (selected == null)
-            {
-                string hint = target != null
-                    ? Copy.Text("点击地图上的编号地标，再点“进入该区域”前往此地。", "Select a numbered landmark, then choose \"Enter this area\".")
-                    : Copy.Text("点击地图上的编号地标查看掉落倾向。", "Select a numbered landmark to see its loot bias.");
-                description.SetText(hint + "\n" + remaining);
-            }
+        private void RefreshDetails()
+        {
+            if (description == null || confirm == null) return;
+            Region focus = hovered ?? inspected ?? selected;
+            string details;
+            if (focus == null)
+                details = Copy.Text("在地图上选一个拾荒地点。边缘围墙与远离地标的废料堆不可搜索。",
+                    "Choose a search area on the map. Outer walls and distant scrap piles cannot be searched.");
             else
             {
-                description.SetText(selected.Detail + "\n" + remaining);
+                details = (focus == selected ? Copy.Text("已选：", "Selected: ") : Copy.Text("预览：", "Preview: "))
+                    + focus.Name + " · " + focus.Detail;
+                if (!focus.Unlocked)
+                    details += Copy.Text("  需要声望 ", "  Needs reputation ") + focus.RequiredReputation
+                        + Copy.Text("（当前 ", " (current ") + Reputation.Points + ")";
+                else
+                {
+                    EffectiveTable table = Tuning.TableFor(focus);
+                    if (table.RegionalEvent != null) details += "\n" + RegionalEvents.Details(focus, table);
+                    else details += "\n" + Copy.Text("今日无区域事件 · 主掉落期望 ", "No regional event · Main-drop EV ")
+                        + table.Ev.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Text(" 信用点/件", " credits/item");
+                }
             }
-            confirm.SetInteractable(selected != null && (target != null || ScavHelper.CanScavenge()));
+            if (eventSummary != null) eventSummary.SetText(RegionalEvents.TodaySummary());
+            description.SetTooltip(details);
+            description.SetText(details + "\n" + Copy.Text("剩余拾荒次数：", "Searches left: ") + RemainingSearches());
+            notice.SetInteractable(focus != null);
+            confirm.SetText(selected == null ? Copy.Text("请选择地点", "Choose an area")
+                : target != null ? Copy.Text("前往：", "Enter: ") + selected.Name
+                : Copy.Text("搜索：", "Search: ") + selected.Name);
+            if (confirm.text != null)
+            {
+                confirm.text.enableAutoSizing = true;
+                confirm.text.fontSizeMin = 12;
+                confirm.text.fontSizeMax = 18;
+                confirm.text.enableWordWrapping = false;
+                confirm.text.overflowMode = TextOverflowModes.Ellipsis;
+            }
+            confirm.SetTooltip(selected == null ? "" : selected.Name);
+            confirm.SetInteractable(selected != null && selected.Unlocked
+                && (target != null || ScavHelper.CanScavenge()));
+            RefreshReputation();
+        }
+
+        internal static void RefreshIfOpen()
+        {
+            if (current == null || current.window == null || !current.window.IsAlive) return;
+            if (current.overview != null) current.overview.Refresh();
+            current.RefreshDetails();
         }
 
         private int RemainingSearches()
@@ -437,6 +470,7 @@ namespace DumpingGroundMap
             // 记住这次选择，本次停留里后续拾荒直接沿用（Intercept 不会再弹地图）。
             ChosenRegion = choice;
             chosenAt = location;
+            RegionBackdrop.Refresh(map);
             StashFind.ResetTrip();
             resume();
         }

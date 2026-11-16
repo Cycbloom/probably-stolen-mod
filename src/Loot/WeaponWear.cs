@@ -32,6 +32,20 @@ namespace DumpingGroundMap
             };
 
         /// <summary>枪械物品 id 时重掷成色；其它物品直接跳过。</summary>
+        internal static float ExpectedValue(string id, float fullValue)
+        {
+            int[] weights;
+            if (!Weights.TryGetValue(id, out weights)) return fullValue;
+            double sum = 0d, total = 0d;
+            double[] modifiers = { 1.25d, 1.12d, 1d, 0.88d, 0.75d };
+            for (int i = 0; i < weights.Length; ++i)
+            {
+                sum += weights[i] * Math.Round(fullValue * modifiers[i]);
+                total += weights[i];
+            }
+            return (float)(sum / total);
+        }
+
         internal static void Apply(string itemId, GameItem item)
         {
             int[] weights;

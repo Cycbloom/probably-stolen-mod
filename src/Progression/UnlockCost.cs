@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -18,9 +18,13 @@ namespace DumpingGroundMap
         private static readonly Dictionary<string, int> table =
             new Dictionary<string, int>
             {
-                { "scrap", PerkCatalog.Perk40Threshold },
+                { "scrap", PerkCatalog.Perk20Threshold },
+                { "water", PerkCatalog.Perk20Threshold },
                 { "med", PerkCatalog.Perk40Threshold },
-                { "weapons", PerkCatalog.Perk40Threshold }
+                { "weapons", PerkCatalog.Perk60Threshold },
+                { "electronics", PerkCatalog.Perk60Threshold },
+                { "vehicles", PerkCatalog.Perk40Threshold }
+                // Only gate and refuse are open at zero reputation.
             };
 
         internal static int For(string regionId)

@@ -178,26 +178,20 @@ namespace DumpingGroundMap
         /// 每区的主题表，全部按「大类 → 子项」两层定义：Share 是大类在整表
         /// （10000 份）里的份额，类内权重只决定彼此的相对比例。
         ///
-        /// 两条固定规则：
-        /// 1. 垃圾份额沿用各区原有基准，不搞一刀切（入口 48.75%、拆解 59.89%、
-        ///    生活 47.67%、医疗 46.47%、废武器 50%），这样专精与垃圾倍率的
-        ///    插值结果和以前一致。
-        /// 2. 类内权重与单价成反比：同一大类里单价越低权重越大，单价越高越靠后，
-        ///    避免单一高价物品概率过高、也让 EV 不再随高价件膨胀。
-        ///    材料是唯一有额外系数的：按枪匠 3D 打印机 / 机床芯片的实际消耗量
-        ///    调整后，废金属、3D 打印耗材最高，线缆、金属螺丝压低
-        ///    （明细见 docs/掉落权重与期望收益.md）。
+        /// 类别构成由本表固定，类内初始权重偏向常见实用品。
+        /// LootBalance 根据声望在类内重分配权重，保持大类份额与地点特色。
+        /// 八区垃圾基准统一为50%，泵站瓶型内部固定5/45/45/5。
         /// </summary>
         private static Dictionary<string, RegionLootTable> BuildThemes()
         {
             Dictionary<string, RegionLootTable> result = new Dictionary<string, RegionLootTable>();
 
-            // 入口空地：通用杂项，保持原版的构成比例（垃圾 48.75%）。
+            // 入口空地：通用杂项。
             result["gate"] = BuildCategories(
                 new[] { "垃圾", "材料", "食品", "日用", "医疗", "近战", "工具", "杂项" },
                 new[] { "Junk", "Materials", "Food", "Household", "Medical", "Melee", "Tools", "Misc" },
-                Cat(4875, new[] { "junk" }, new[] { 1 }),
-                Cat(1750,
+                Cat(5000, new[] { "junk" }, new[] { 1 }),
+                Cat(1625,
                     new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire", "gun_part",
                         "common_electronic", "metal_ingot" },
                     new[] { 140, 120, 20, 18, 12, 8, 4 }),
@@ -223,33 +217,25 @@ namespace DumpingGroundMap
                     new[] { "glass_shard", "empty_beer_bottle", "scratcher", "system_module_ruined", "turbo_booster" },
                     new[] { 300, 120, 30, 20, 17 }));
 
-            // 拆解堆：材料 / 工具 / 模组，垃圾比例最高（59.89%）。
+            // 拆解堆：原材料为主，少量工具与电子残件；不再产出完整模组。
             result["scrap"] = BuildCategories(
-                new[] { "垃圾", "材料", "工具", "模组", "杂项" },
-                new[] { "Junk", "Materials", "Tools", "Modules", "Misc" },
-                Cat(5989, new[] { "junk" }, new[] { 1 }),
-                Cat(2900,
-                    new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire", "gun_part",
-                        "common_electronic", "metal_ingot" },
-                    new[] { 140, 120, 20, 18, 12, 8, 4 }),
-                Cat(520,
-                    new[] { "screwdriver", "turbo_booster", "wire_cutter", "welder", "module_extractor" },
-                    new[] { 24, 17, 15, 8, 6 }),
-                Cat(400,
-                    new[] { "system_module_ruined", "system_module_corrupt", "blank_module",
-                        "random_performance_module", "random_efficiency_module", "random_quality_module",
-                        "system_module_performance", "system_module_eco", "system_module_fineness" },
-                    new[] { 20, 13, 10, 9, 9, 9, 9, 6, 6 }),
-                Cat(191,
-                    new[] { "glass_shard", "crowbar", "food_stamp_fake" },
-                    new[] { 300, 8, 3 }));
+                new[] { "垃圾", "原材料", "拆卸工具", "电子残件" },
+                new[] { "Junk", "Raw materials", "Dismantling tools", "Electronic salvage" },
+                Cat(5000, new[] { "junk" }, new[] { 1 }),
+                Cat(3750,
+                    new[] { "scrap_metal", "printer_plastic", "nuts_metal", "metal_ingot", "kotton_fabric" },
+                    new[] { 140, 120, 30, 20, 8 }),
+                Cat(1000,
+                    new[] { "screwdriver", "wire_cutter", "welder", "crowbar" },
+                    new[] { 50, 25, 10, 10 }),
+                Cat(250, new[] { "common_electronic", "system_module_ruined" }, new[] { 1, 3 }));
 
-            // 生活废料带：食品 / 日用品 / 便宜药品，垃圾 47.67%。
+            // 生活废料带：食品 / 日用品 / 便宜药品。
             result["refuse"] = BuildCategories(
                 new[] { "垃圾", "食品", "日用", "医疗", "空瓶" },
                 new[] { "Junk", "Food", "Household", "Medical", "Bottles" },
-                Cat(4767, new[] { "junk" }, new[] { 1 }),
-                Cat(2600,
+                Cat(5000, new[] { "junk" }, new[] { 1 }),
+                Cat(2367,
                     new[] { "zerochew", "processed_juice", "soda_red", "cat_bar", "processed_milk",
                         "li_eat_snackbar", "energy_drink", "red_beer", "cup_noodle", "galaxy_blend",
                         "processed_meat", "beis_icecream", "nudka", "mini_alcohol_bottle" },
@@ -267,12 +253,12 @@ namespace DumpingGroundMap
                     new[] { 75, 50, 40, 40, 38, 38, 33, 8 }),
                 Cat(333, new[] { "empty_beer_bottle", "wine_bottle" }, new[] { 3, 1 }));
 
-            // 医疗废弃点：医疗耗材 / 药品 / 器械，垃圾 46.47%。
+            // 医疗废弃点：医疗耗材 / 药品 / 器械。
             result["med"] = BuildCategories(
                 new[] { "垃圾", "医疗耗材", "药品", "器械" },
                 new[] { "Junk", "Medical supplies", "Medicine", "Instruments" },
-                Cat(4647, new[] { "junk" }, new[] { 1 }),
-                Cat(3200,
+                Cat(5000, new[] { "junk" }, new[] { 1 }),
+                Cat(2847,
                     new[] { "bandage_item", "hemostatic_bandage_item", "topical_bandage_item",
                         "blood_bag", "rubbing_alcohol", "salve" },
                     new[] { 75, 38, 38, 18, 17, 8 }),
@@ -324,6 +310,60 @@ namespace DumpingGroundMap
                         "revolver", "stun_gun", "smg", "shotgun" },
                     new[] { 40, 22, 14, 9, 6, 4, 3, 2 }));
 
+            // 电子垃圾坡：非垃圾部分 50% 电子件、35% 模组、15% 精密工具。
+            // 电子件只取普通元件，不把 rare_electronic 等 80 档贵重品放进普通池。
+            result["electronics"] = BuildCategories(
+                new[] { "垃圾", "电子件", "工具", "模组" },
+                new[] { "Junk", "Electronics", "Tools", "Modules" },
+                Cat(5000, new[] { "junk" }, new[] { 1 }),
+                Cat(2500,
+                    new[] { "common_electronic", "wire", "flux_agent" },
+                    new[] { 35, 70, 120 }),
+                Cat(750,
+                    new[] { "screwdriver", "wire_cutter", "module_extractor" },
+                    new[] { 60, 35, 8 }),
+                Cat(1750,
+                    new[] { "system_module_ruined", "system_module_corrupt", "blank_module",
+                        "random_performance_module", "random_efficiency_module",
+                        "random_quality_module", "system_module_performance" },
+                    new[] { 80, 55, 40, 25, 25, 25, 25 }));
+
+            // 报废车场：非垃圾部分 55% 维修工具、35% 机械材料、10% 可拆零件。
+            result["vehicles"] = BuildCategories(
+                new[] { "垃圾", "材料", "工具", "零件" },
+                new[] { "Junk", "Materials", "Tools", "Parts" },
+                Cat(5000, new[] { "junk" }, new[] { 1 }),
+                Cat(1750,
+                    new[] { "scrap_metal", "nuts_metal", "wire", "metal_ingot" },
+                    new[] { 120, 50, 40, 10 }),
+                Cat(2750,
+                    new[] { "screwdriver", "wire_cutter", "welder", "turbo_booster", "box_cutter",
+                        "crowbar" },
+                    new[] { 60, 35, 12, 40, 20, 8 }),
+                Cat(500,
+                    new[] { "gun_part", "internal_springs" },
+                    new[] { 3, 2 }));
+
+            // 废泵站：垃圾50%、储水31%、净水检测10%、日用9%。日用品减半后全给储水。
+            // 原生容量450 / 750 / 2000 / 6000 ml；普通和大瓶占多数，按PumpWater灌水。
+            // 净水耗材只出有内容的包装；water_filter_adv、portable_water_purifier、
+            // bottled_water_premium 仍是 80 档贵重品池专属。
+            result["water"] = BuildCategories(
+                new[] { "垃圾", "储水容器", "净水与检测", "日用" },
+                new[] { "Junk", "Water containers", "Treatment and testing", "Household" },
+                Cat(5000, new[] { "junk" }, new[] { 1 }),
+                Cat(3100,
+                    new[] { "small_bottled_water", "bottled_water", "large_bottled_water", "water_jug" },
+                    new[] { 5, 45, 45, 5 }),
+                Cat(1000,
+                    new[] { "hydroreed_filter", "water_filter", "full_water_test_strip_box",
+                        "full_water_purification_tablet_box", WaterSupplyPack.HalfTablets,
+                        WaterSupplyPack.HalfTest, "uv_filter" },
+                    new[] { 50, 50, 80, 60, 120, 150, 5 }),
+                Cat(900,
+                    new[] { "caffeine_pill", "toothpaste", "toilet_paper", "shampoo", "paper_towel" },
+                    new[] { 60, 40, 24, 20, 17 }));
+
             return result;
         }
 
@@ -345,8 +385,15 @@ namespace DumpingGroundMap
             AddAll(result, "householdTable",
                 "caffeine_pill", "toothpaste", "water_filter", "shampoo", "paper_towel", "toilet_paper",
                 "full_water_test_strip_box", "full_water_purification_tablet_box",
+                WaterSupplyPack.HalfTest, WaterSupplyPack.HalfTablets,
                 "packet_red_cigarette", "food_stamp", "mini_bottle", "wine_bottle",
                 "wine_berry", "wine_yeast", "wine_yeast_red", "wine_superyeast", "wine_yeast_infinite");
+            // 废泵站新增的普通净水 / 饮水物品同样归在原版 householdTable，
+            // 让 ModHook 的事件上下文仍报一个真实存在的原版表名。
+            AddAll(result, "householdTable",
+                "bottled_water", "small_bottled_water", "large_bottled_water", "water_jug",
+                "water_ration", "water_ration_small", "water_tablet", "water_test_strip",
+                "water_tablet_container", "water_test_container", "hydroreed_filter", "uv_filter");
             AddAll(result, "makeshiftWeaponTable",
                 "glass_shard_shiv", "box_cutter", "kitchen_knife",
                 "combat_knife", "kitchen_cleaver", "hatchet", "skinning_knife", "stun_baton", "combat_machete");

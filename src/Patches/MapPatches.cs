@@ -55,7 +55,7 @@ namespace DumpingGroundMap
     [HarmonyPatch(typeof(DumpingGroundLocation), "Leave")]
     internal static class LeaveDumpPatch
     {
-        private static void Postfix() { Picker.ResetChoice(); }
+        private static void Postfix() { Picker.ResetChoice(false); }
     }
 
     [HarmonyPatch(typeof(MapUIManager), "CloseLocationPanel")]
@@ -67,6 +67,24 @@ namespace DumpingGroundMap
     [HarmonyPatch(typeof(MapUIManager), "Update")]
     internal static class MapUpdatePatch
     {
-        private static void Postfix(MapUIManager __instance) { Picker.CheckLocation(__instance); }
+        private static void Postfix(MapUIManager __instance)
+        {
+            Picker.CheckLocation(__instance);
+            RegionBackdrop.Refresh(__instance);
+        }
+    }
+
+    // Apply after the native scene becomes active, before the transition reveals it.
+    [HarmonyPatch(typeof(MapUIManager), "ShowStage")]
+    internal static class RegionStagePatch
+    {
+        private static void Postfix(MapUIManager __instance) { RegionBackdrop.Refresh(__instance); }
+    }
+
+    // Restore only after the native return transition has hidden the outgoing scene.
+    [HarmonyPatch(typeof(MapUIManager), "HideStage")]
+    internal static class HiddenRegionStagePatch
+    {
+        private static void Postfix() { RegionBackdrop.RestoreIfHidden(); }
     }
 }

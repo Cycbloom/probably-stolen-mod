@@ -44,6 +44,9 @@ namespace DumpingGroundMap
                 }
             }
             long repValue = Reputation.Add(sum);
+            // Record unlocks on the day they happen so the new area's first
+            // event can join tomorrow, even if this was today's last search.
+            RegionalEvents.Sync();
             ReputationPopBridge.Show(repValue);
             Debug.Log("[DumpingGroundMap] scavenge: items=" + count + " value=" + sum
                 + " repValue=" + repValue + " total=" + Reputation.TotalValue

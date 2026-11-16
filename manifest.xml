@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Manifest>
   <ID>local.dumping_ground_map</ID>
   <Name>垃圾场拾荒地图 / Dumping Ground Map</Name>
   <Author>Local</Author>
-  <ModVersion>0.3.90</ModVersion>
-  <Description>垃圾场分区拾荒、声望成长与拾荒客开局。20/40/100 声望以拾荒客便签介绍客流、搬运及同行服务；100 声望赠信物，解锁 20 信用点的次日同行：多 2 次拾荒，拾荒免受轻伤和重伤。 / Regional scavenging and reputation progression. Scavenger letters introduce rewards at 20/40/100 reputation. At 100, receive a token and unlock a 20-credit next-day outing: 2 extra searches and no scavenging wounds.</Description>
+  <ModVersion>0.6.1</ModVersion>
+  <Description>八地点垃圾场总览，独立地标悬停反馈、地图点击落点与确认前往。新增电子垃圾坡、报废车场、废泵站。 / Eight-area scrapyard overview with responsive landmarks and map destination markers. New E-Waste Slope, Vehicle Graveyard and Pump Station. 垃圾场分区拾荒、声望成长与拾荒客开局。20/40/100 声望以拾荒客便签介绍客流、搬运及同行服务；100 声望赠信物，解锁 20 信用点的次日同行：多 2 次拾荒，拾荒免受轻伤和重伤。 / Regional scavenging and reputation progression. Scavenger letters introduce rewards at 20/40/100 reputation. At 100, receive a token and unlock a 20-credit next-day outing: 2 extra searches and no scavenging wounds.</Description>
   <GameVersions>
     <Version>0.46D</Version>
   </GameVersions>

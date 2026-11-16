@@ -18,6 +18,8 @@ namespace DumpingGroundMap
     {
         internal static string RealId(string itemId)
         {
+            if (itemId == WaterSupplyPack.HalfTest || itemId == WaterSupplyPack.HalfTablets)
+                return WaterSupplyPack.ContainerId(itemId);
             if (itemId == LootCatalog.InjectorBadId) return LootCatalog.InjectorId;
             if (itemId == LootCatalog.CigaretteFakeId) return LootCatalog.CigaretteId;
             if (itemId == LootCatalog.StampFakeId) return "food_stamp";
@@ -28,6 +30,7 @@ namespace DumpingGroundMap
         /// <summary>小瓶酒精要现灌液体，不能走目录 id；其余直接生成。</summary>
         internal static GameItem Create(string itemId)
         {
+            if (WaterSupplyPack.ContainerId(itemId) != null) return WaterSupplyPack.Create(itemId);
             if (itemId == LootCatalog.MiniAlcoholId)
                 return PreBuildChemHelper.CreateMiniAlcoholBottle();
             return ItemSpawner.Spawn(RealId(itemId));

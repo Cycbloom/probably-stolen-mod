@@ -59,6 +59,7 @@ namespace DumpingGroundMap
             DeferredSave.Cancel();
             Reputation.ResetSession();
             StashFind.ResetSession();
+            RegionalEvents.ResetSession();
         }
 
         private static void ResetVisit()
@@ -77,6 +78,9 @@ namespace DumpingGroundMap
             Reputation.Reload();
             ScavengerTrafficRules.RepairSavedReport();
             StashFind.Reload();
+            StashFind.SyncDailyWindow();
+            RegionalEvents.ResetSession();
+            RegionalEvents.Sync();
             ScavengerOuting.Sync();
             RefreshViews();
         }
@@ -90,6 +94,9 @@ namespace DumpingGroundMap
             ScavengerStart.OnNewGameStarted(scenarioId);
             // Explicit debug requests take precedence over the scenario's default starting value.
             Reputation.ApplyPendingDebugPoints(false);
+            StashFind.SyncDailyWindow();
+            RegionalEvents.ResetSession();
+            RegionalEvents.Sync();
             ScavengerOuting.Sync();
             RefreshViews();
         }
@@ -101,6 +108,8 @@ namespace DumpingGroundMap
 
         private static void RefreshViews()
         {
+            RegionalEvents.Sync();
+            Picker.RefreshIfOpen();
             NativeSettings.RefreshIfOpen();
             LootNoticeView.RefreshIfOpen();
         }

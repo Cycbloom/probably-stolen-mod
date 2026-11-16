@@ -27,7 +27,7 @@ namespace DumpingGroundMap
 
             // Match vanilla: subscribers can replace/cancel the ID before spawning.
             string resolved = NativeLootEvents.Resolve(itemId);
-            __result = LootFactory.Create(resolved);
+            __result = LootFactory.Create(resolved, region.Id, RegionalEvents.ActiveFor(region) != null);
             if (__result != null) StashFind.NoticeSpecialFind(resolved);
             return false;
         }

@@ -5,12 +5,14 @@ namespace DumpingGroundMap
     /// <summary>One construction path for basic loot and bonus rewards.</summary>
     internal static class LootFactory
     {
-        internal static GameItem Create(string token)
+        internal static GameItem Create(string token, string regionId = null, bool regionalEvent = false)
         {
             if (string.IsNullOrEmpty(token)) return null;
             GameItem item = LootVariants.Create(token);
             if (item == null) return null;
             LootVariants.Apply(token, item);
+            HydraUsage.Apply(LootVariants.RealId(token), item);
+            PumpWater.Apply(LootVariants.RealId(token), regionId, item, regionalEvent && regionId == "water");
             WeaponWear.Apply(LootVariants.RealId(token), item);
             return item;
         }

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -9,15 +9,15 @@ namespace DumpingGroundMap
     /// <summary>
     /// 60 档「眼力毒辣」的爆大奖，以及同一档位的小奖。
     ///
-    /// 大奖概率用 AIMD：起点 0.05%，未中且没到上限一半时翻倍（慢启动），
-    /// 过半或中过奖后改为每次 +0.05% 线性爬升；中奖后窗口砍半再继续。
+    /// 大奖按自然日进行加法增长、中奖减半；从本轮起点连续五个未中日到上限。
+    /// 当天概率固定，中奖的结果在次日更新时处理；固定模式暂停日窗口。
     /// 上限来自设置项 stash_cap（0.1–5.0，步进 0.1）；
     /// stash_window_enabled 关闭时固定使用实际生效上限，暂停窗口更新；
     /// 声望不到 60 时上限硬顶 0.1%，但不完全排除。
     ///
-    /// 小奖是独立设置项 minor_percent（0–10%，默认 3%），平常概率单独掷：
-    /// 声望 &lt; 60 时按设置值的 1/10 生效，≥ 60 时全值生效，0 时两档都不出；
-    /// 不写 AIMD 状态、不登新闻、不改价格、不触发大奖的当日额外收获。
+    /// 小奖设置项 minor_percent 为窗口上限，逐次搜索慢启动、加法增长、中奖减半；
+    /// 声望 &lt; 60 时当前概率按 1/10 生效，0 时不出、不增长。
+    /// 独立存储窗口，不登新闻、不改价格、不触发大奖的当日额外收获。
     /// 同一次搜索里大奖命中时完全跳过小奖。
     ///
     /// 一趟（进入某处垃圾场后）最多中一次大奖，标记只在内存里，换区时清空。
@@ -36,10 +36,16 @@ namespace DumpingGroundMap
         internal const string HitRegionKey = "stash_hit_region";
         internal const string NewsDayKey = "stash_news_day";
         internal const string NewsFiredKey = "stash_news_fired";
+        internal const string WindowDayKey = "stash_window_day";
+        internal const string CycleStartKey = "stash_cycle_start";
+        internal const string MissDaysKey = "stash_miss_days";
+        internal const string WindowCapKey = "stash_window_cap";
+        internal const string WindowHitDayKey = "stash_window_hit_day";
+        internal const string MinorChanceKey = "minor_chance";
+        internal const string MinorPhaseKey = "minor_phase";
 
-        /// <summary>窗口起点与线性步长，单位是百分数（0.05 = 0.05%）。</summary>
+        /// <summary>大奖窗口起点，单位是百分数（0.05 = 0.05%）。</summary>
         internal const float StartChance = JackpotChanceRules.Start;
-        internal const float LinearStep = JackpotChanceRules.Step;
 
         /// <summary>声望不到 60 时的硬上限，单位是百分数。</summary>
         internal const float HardCapLowRep = 0.1f;
@@ -52,8 +58,12 @@ namespace DumpingGroundMap
         internal const float MinorValueFloor = 0.75f;
         internal const float MinorValueCeil = 1.25f;
 
-        private static float chance = StartChance;
-        private static int phase;
+        private static JackpotDailyState daily = new JackpotDailyState();
+        private static float chance { get { return daily.Chance; } set { daily.Chance = value; } }
+        private static float minorChance = MinorChanceRules.StartFor(Tuning.DefaultMinorPercent);
+        private static int minorPhase;
+        private static int adaptiveHitDay = -1;
+        private static int phase; // Retained legacy save field; daily progression uses daily.MissDays.
         private static int hitDay = -1;
         private static string hitRegion = "";
         private static int newsDay = -1;
@@ -64,7 +74,11 @@ namespace DumpingGroundMap
 
         internal static void ResetSession()
         {
+            daily = new JackpotDailyState();
             chance = StartChance;
+            minorChance = MinorChanceRules.StartFor(Tuning.DefaultMinorPercent);
+            minorPhase = 0;
+            adaptiveHitDay = -1;
             phase = 0;
             hitDay = newsDay = newsFired = -1;
             hitRegion = "";
@@ -102,8 +116,32 @@ namespace DumpingGroundMap
             get
             {
                 EnsureLoaded();
+                SyncDailyWindow();
                 return JackpotChanceRules.Current(chance, EffectiveCap(), Tuning.StashWindowEnabled);
             }
+        }
+
+        internal static float CurrentMinorChancePercent
+        {
+            get
+            {
+                EnsureLoaded();
+                return MinorChanceRules.Current(minorChance, Tuning.MinorPercent, Tuning.MinorWindowEnabled)
+                    * PerkCatalog.MinorMultiplier(Reputation.Points);
+            }
+        }
+
+        internal static float PreviewMinorPercent(Region region)
+        {
+            return region != null && HasMinor(region.Id) ? CurrentMinorChancePercent : 0f;
+        }
+
+        internal static void SyncDailyWindow()
+        {
+            if (!Core.Enabled || !PlayerStore.HasInstance || StoreStation.Instance == null || EmporiumEntry.Instance == null) return;
+            if (Today() < 1) return;
+            EnsureLoaded();
+            if (daily.Advance(Today(), EffectiveCap(), Tuning.StashWindowEnabled, adaptiveHitDay)) SaveState();
         }
 
         /// <summary>该区有没有大奖样板；没有就根本不会掷大奖，告示板据此隐藏这一行。</summary>
@@ -116,6 +154,15 @@ namespace DumpingGroundMap
         internal static bool HasMinor(string regionId)
         {
             return MinorBox.Has(regionId);
+        }
+
+        internal static float PreviewJackpotPercent(Region region)
+        {
+            if (region == null || !HasJackpot(region.Id)) return 0f;
+            // A new destination will reset the trip flag when confirmed. Only the
+            // currently visited area has already consumed its one jackpot.
+            if (tripHit && Picker.ChosenRegion == region) return 0f;
+            return CurrentChancePercent;
         }
 
         private static float ClampChance(float value, float cap)
@@ -139,6 +186,7 @@ namespace DumpingGroundMap
             if (region == null) return;
 
             EnsureLoaded();
+            SyncDailyWindow();
             int today = Today();
             if (today < 0) return;
 
@@ -146,7 +194,6 @@ namespace DumpingGroundMap
             float cap = EffectiveCap();
             bool useWindow = Tuning.StashWindowEnabled;
             float rollChance = JackpotChanceRules.Current(chance, cap, useWindow);
-            if (useWindow) chance = rollChance;
             bool bonusActive = hitDay == today && hitRegion == region.Id;
             bool jackpotHit = false;
 
@@ -159,9 +206,11 @@ namespace DumpingGroundMap
                 if (hit)
                 {
                     int spawned = AddJackpot(items, template);
-                    JackpotChanceRules.AfterHit(ref chance, ref phase, cap, useWindow);
+                    // This day's probability is fixed. The next day consumes
+                    // the winning-day result and halves its window once.
                     tripHit = true;
                     hitDay = today;
+                    if (useWindow) adaptiveHitDay = today;
                     hitRegion = region.Id;
                     newsDay = today + 1;
                     newsFired = -1;
@@ -180,8 +229,6 @@ namespace DumpingGroundMap
                 }
                 else
                 {
-                    JackpotChanceRules.AfterMiss(ref chance, ref phase, cap, useWindow);
-                    if (useWindow) SaveState();
                     Debug.Log("[DumpingGroundMap] stash: miss region=" + region.Id
                         + " day=" + today + " roll=" + roll.ToString("F3")
                         + " chance " + before.ToString("F3") + " -> "
@@ -191,7 +238,15 @@ namespace DumpingGroundMap
                 }
             }
 
-            if (!jackpotHit) TryMinor(items, region, today);
+            bool minorHit = !jackpotHit && TryMinor(items, region, today);
+            if (HasMinor(region.Id) && Tuning.MinorPercent > 0f)
+            {
+                // Every eligible search is one minor-window tick. A jackpot
+                // blocks the minor payout, so that search counts as no minor win.
+                MinorChanceRules.AfterSearch(ref minorChance, ref minorPhase,
+                    Tuning.MinorPercent, Tuning.MinorWindowEnabled, minorHit);
+                if (Tuning.MinorWindowEnabled) SaveState();
+            }
 
             if (bonusActive && template != null)
             {
@@ -336,21 +391,20 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 小奖：按设置项 minor_percent 独立掷一次。声望 &lt; 60 时按设置值的 1/10 生效，
-        /// 声望 ≥ 60 时按设置值全值生效；设置值为 0 时两档都是 0。
+        /// 小奖：按当前窗口概率独立掷一次，声望不足60时乘1/10。
         /// 命中后从该区的整箱表里随机抽一种，整箱只放同一样东西。
-        /// 不写 AIMD 状态、不登新闻、不改价格、不触发大奖的当日额外收获。
+        /// 窗口由调用方在搜索末尾统一更新一次；不登新闻、不改价格。
         /// </summary>
-        private static void TryMinor(List<GameItem> items, Region region, int today)
+        private static bool TryMinor(List<GameItem> items, Region region, int today)
         {
-            float percent = Tuning.EffectiveMinorPercent;
-            if (percent <= 0f) return;
+            float percent = CurrentMinorChancePercent;
+            if (percent <= 0f) return false;
 
             MinorBox box = MinorBox.Roll(region.Id);
-            if (box == null) return;
+            if (box == null) return false;
 
             float roll = UnityEngine.Random.value * 100f;
-            if (roll >= percent) return;
+            if (roll >= percent) return false;
 
             int crateValue;
             int count = MinorCount(box, out crateValue);
@@ -359,7 +413,7 @@ namespace DumpingGroundMap
             {
                 try
                 {
-                    GameItem item = ItemSpawner.Spawn(box.ItemId);
+                    GameItem item = LootFactory.Create(box.ItemId);
                     if (item != null)
                     {
                         items.Add(item);
@@ -377,12 +431,13 @@ namespace DumpingGroundMap
                 }
             }
 
-            NotifyMinor(box, region.Id);
+            if (spawned > 0) NotifyMinor(box, region.Id);
             Debug.Log("[DumpingGroundMap] stash: minor region=" + region.Id
                 + " day=" + today + " box=" + box.ItemId + " items=" + spawned + "/" + count
                 + " value=" + crateValue + " target=" + Tuning.MinorValue.ToString("F0")
                 + " tier=" + (Reputation.Points < PerkCatalog.Perk60Threshold ? "1/10" : "full")
                 + " roll=" + roll.ToString("F3") + " chance=" + percent.ToString("F2"));
+            return spawned > 0;
         }
 
         /// <summary>
@@ -413,7 +468,7 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 每区 4–6 种「整箱」，全部取自该区主题，单一单价 15–60、不含垃圾。
+        /// 每区若干种「整箱」，全部取自该区主题，不含垃圾。
         /// 整箱只放同一样东西，件数不写死，由 minor_value（目标价值）除以单价反推。
         /// </summary>
         internal sealed class MinorBox
@@ -431,20 +486,27 @@ namespace DumpingGroundMap
 
             private static readonly MinorBox[] All =
             {
+                // 入口空地：通用日常补给，兼有基础维修和常备药。
+                new MinorBox("gate", "caffeine_pill", 10f),
+                new MinorBox("gate", "toothpaste", 15f),
+                new MinorBox("gate", "bandage_item", 8f),
+                new MinorBox("gate", "printer_plastic", 12f),
+                new MinorBox("gate", "screwdriver", 25f),
+
                 // 生活废料带：食品 / 饮品 / 零食 / 纸品 / 医疗
                 new MinorBox("refuse", "processed_meat", 25f),
                 new MinorBox("refuse", "energy_drink", 18f),
                 new MinorBox("refuse", "beis_icecream", 40f),
                 new MinorBox("refuse", "toilet_paper", 25f),
                 new MinorBox("refuse", "paper_towel", 35f),
-                new MinorBox("refuse", "hemostatic_bandage_item", 16f),
+                new MinorBox("refuse", "li_eat_snackbar", 17f),
 
-                // 拆解堆：电子件 / 材料 / 锭 / 工具 / 模组
-                new MinorBox("scrap", "common_electronic", 33f),
-                new MinorBox("scrap", "gun_part", 25f),
+                // 拆解堆：成批原料。
+                new MinorBox("scrap", "scrap_metal", 10f),
+                new MinorBox("scrap", "printer_plastic", 12f),
+                new MinorBox("scrap", "nuts_metal", 14f),
                 new MinorBox("scrap", "metal_ingot", 50f),
-                new MinorBox("scrap", "screwdriver", 25f),
-                new MinorBox("scrap", "system_module_corrupt", 45f),
+                new MinorBox("scrap", "kotton_fabric", 65f),
 
                 // 医疗废弃点：绷带 / 药 / 消毒 / 血袋 / 通用医疗
                 new MinorBox("med", "hemostatic_bandage_item", 16f),
@@ -459,7 +521,30 @@ namespace DumpingGroundMap
                 new MinorBox("weapons", "mag_22_ext", 35f),
                 new MinorBox("weapons", "box_cutter", 28f),
                 new MinorBox("weapons", "kitchen_knife", 45f),
-                new MinorBox("weapons", "printed_gun", 40f)
+                new MinorBox("weapons", "printed_gun", 40f),
+
+                // 电子垃圾坡：电子件 / 元件 / 模组 / 工具
+                new MinorBox("electronics", "common_electronic", 33f),
+                new MinorBox("electronics", "wire", 16f),
+                new MinorBox("electronics", "system_module_ruined", 30f),
+                new MinorBox("electronics", "system_module_corrupt", 45f),
+                new MinorBox("electronics", "blank_module", 60f),
+
+                // 报废车场：金属件 / 工具 / 可拆零件
+                new MinorBox("vehicles", "wire_cutter", 40f),
+                new MinorBox("vehicles", "welder", 80f),
+                new MinorBox("vehicles", "screwdriver", 25f),
+                new MinorBox("vehicles", "box_cutter", 28f),
+                new MinorBox("vehicles", "turbo_booster", 35f),
+                new MinorBox("vehicles", "crowbar", 75f),
+
+                // 废泵站：批量奖励只给净水设备和耗材，不给瓶、桶或饮水包。
+                new MinorBox("water", "hydroreed_filter", 20f),
+                new MinorBox("water", "water_filter", 25f),
+                new MinorBox("water", WaterSupplyPack.HalfTest, 16f),
+                new MinorBox("water", WaterSupplyPack.HalfTablets, 31f),
+                new MinorBox("water", "full_water_test_strip_box", 31f),
+                new MinorBox("water", "full_water_purification_tablet_box", 55f)
             };
 
             /// <summary>该区有没有小奖整箱。</summary>
@@ -485,6 +570,28 @@ namespace DumpingGroundMap
                     --pick;
                 }
                 return null;
+            }
+
+            internal static float ExpectedValue(string regionId, float target)
+            {
+                float sum = 0f;
+                int matches = 0;
+                foreach (MinorBox box in All)
+                {
+                    if (box.RegionId != regionId) continue;
+                    ++matches;
+                    sum += RewardExpectation.MeanMinorCount(target, box.UnitPrice)
+                        * LootCatalog.ExpectedValueOf(box.ItemId, null);
+                }
+                return matches > 0 ? sum / matches : 0f;
+            }
+
+            internal static string[] ItemsFor(string regionId)
+            {
+                List<string> items = new List<string>();
+                foreach (MinorBox box in All)
+                    if (box.RegionId == regionId) items.Add(box.ItemId);
+                return items.ToArray();
             }
 
             internal string ItemName()
@@ -552,7 +659,36 @@ namespace DumpingGroundMap
                                 "墙角的破纸箱里" },
                         new[] { "in the trash heap by the gate", "in a half-collapsed carriage",
                                 "under a peeled-back sheet of metal",
-                                "in a soggy cardboard box in the corner" }) }
+                                "in a soggy cardboard box in the corner" }) },
+                    { "electronics", new PlaceTalk(
+                        new[] { "烧穿的配电柜里", "剥开的线缆槽里", "堆到顶的电路板垛下",
+                                "拆开的机箱里", "塌了的电子货架后", "锈死的配电箱里",
+                                "压扁的服务器机柜下" },
+                        new[] { "inside a burnt-out switchgear cabinet",
+                                "in a stripped-open cable trench",
+                                "under a towering heap of circuit boards",
+                                "inside a pried-open machine casing",
+                                "behind a collapsed electronics rack",
+                                "inside a rusted-shut distribution box",
+                                "under a crushed server cabinet" }) },
+                    { "vehicles", new PlaceTalk(
+                        new[] { "翻倒的车厢底下", "拆空的后备箱里", "压扁的驾驶室里",
+                                "卸下的车门后", "油污的底盘下", "报废车轮堆里",
+                                "撬开的引擎盖下" },
+                        new[] { "under an overturned carriage", "in a stripped-out trunk",
+                                "inside a crushed cab", "behind a detached car door",
+                                "under an oil-stained chassis", "in a heap of dead wheels",
+                                "under a pried-open engine hood" }) },
+                    { "water", new PlaceTalk(
+                        new[] { "锈死的泵房里", "干涸的水池底下", "拆开的水泵旁",
+                                "塌了半截的水塔下", "积满淤泥的阀门井里",
+                                "废弃的过滤罐后面", "断裂的水管旁" },
+                        new[] { "inside the rusted-shut pump house",
+                                "at the bottom of a dry reservoir", "beside a dismantled pump",
+                                "under a half-collapsed water tower",
+                                "in a silt-filled valve pit",
+                                "behind an abandoned filter tank",
+                                "beside a burst water main" }) }
                 };
 
             private static readonly PlaceTalk Fallback = new PlaceTalk(
@@ -759,6 +895,13 @@ namespace DumpingGroundMap
                 chance = ClampChance(
                     ModHelper.GetModDataFloat(Core.Id, ChanceKey, StartChance), Tuning.StashCap);
                 phase = ModHelper.GetModDataInt(Core.Id, PhaseKey, 0);
+                daily.Day = ModHelper.GetModDataInt(Core.Id, WindowDayKey, -1);
+                daily.CycleStart = ModHelper.GetModDataFloat(Core.Id, CycleStartKey, chance);
+                daily.MissDays = ModHelper.GetModDataInt(Core.Id, MissDaysKey, 0);
+                daily.Cap = ModHelper.GetModDataFloat(Core.Id, WindowCapKey, 0f);
+                adaptiveHitDay = ModHelper.GetModDataInt(Core.Id, WindowHitDayKey, -1);
+                minorChance = ModHelper.GetModDataFloat(Core.Id, MinorChanceKey, MinorChanceRules.StartFor(Tuning.MinorPercent));
+                minorPhase = ModHelper.GetModDataInt(Core.Id, MinorPhaseKey, 0);
                 hitDay = ModHelper.GetModDataInt(Core.Id, HitDayKey, -1);
                 hitRegion = ModHelper.GetModData(Core.Id, HitRegionKey, "") ?? "";
                 newsDay = ModHelper.GetModDataInt(Core.Id, NewsDayKey, -1);
@@ -781,7 +924,11 @@ namespace DumpingGroundMap
 
         internal static void NewGame(string saveName)
         {
+            daily = new JackpotDailyState();
             chance = StartChance;
+            minorChance = MinorChanceRules.StartFor(Tuning.MinorPercent);
+            minorPhase = 0;
+            adaptiveHitDay = -1;
             phase = 0;
             hitDay = -1;
             hitRegion = "";
@@ -798,6 +945,13 @@ namespace DumpingGroundMap
             {
                 ModHelper.SetModDataFloat(Core.Id, ChanceKey, chance);
                 ModHelper.SetModDataInt(Core.Id, PhaseKey, phase);
+                ModHelper.SetModDataInt(Core.Id, WindowDayKey, daily.Day);
+                ModHelper.SetModDataFloat(Core.Id, CycleStartKey, daily.CycleStart);
+                ModHelper.SetModDataInt(Core.Id, MissDaysKey, daily.MissDays);
+                ModHelper.SetModDataFloat(Core.Id, WindowCapKey, daily.Cap);
+                ModHelper.SetModDataInt(Core.Id, WindowHitDayKey, adaptiveHitDay);
+                ModHelper.SetModDataFloat(Core.Id, MinorChanceKey, minorChance);
+                ModHelper.SetModDataInt(Core.Id, MinorPhaseKey, minorPhase);
                 ModHelper.SetModDataInt(Core.Id, HitDayKey, hitDay);
                 ModHelper.SetModData(Core.Id, HitRegionKey, hitRegion ?? "");
                 ModHelper.SetModDataInt(Core.Id, NewsDayKey, newsDay);

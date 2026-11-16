@@ -37,6 +37,20 @@ namespace DumpingGroundMap
         }
     }
 
+    [HarmonyPatch(typeof(ModConfigWindow), "ResetWidgets")]
+    internal static class ModConfigResetPatch
+    {
+        private static void Prefix(CustomUIWindow __0, ModConfig __1)
+        {
+            NativeSettings.BeforeNativeReset(__0, __1);
+        }
+
+        private static void Postfix(CustomUIWindow __0, ModConfig __1)
+        {
+            NativeSettings.AfterNativeReset(__0, __1);
+        }
+    }
+
     [HarmonyPatch(typeof(ModConfigWindow), "Apply")]
     internal static class ModConfigApplyPatch
     {

@@ -8,7 +8,7 @@ Windows 环境需要游戏 Managed DLL、.NET Framework 4.7.2 引用程序集及
 ./build.ps1 -GameRoot 'D:/Steam/steamapps/common/Probably Stolen' -Check -Install
 ```
 
-源码自动收集自 src/**/*.cs，测试不会编进 Mod。编译先写 obj/release，规则检查成功后才更新 dist；部署前检查游戏已关闭。dist 仅包含 DLL、清单与 Paper。构建输出版本、Git 提交和 DLL SHA-256；程序集 FileVersion/InformationalVersion 来自清单与提交，程序集绑定版本继续保持原来的 0.0.0.0。
+源码自动收集自 src/**/*.cs，测试不会编进 Mod。编译先写 obj/release，规则检查成功后才更新 dist；部署前检查游戏已关闭。发布内容为 DLL、清单与 Textures/Paper（源码素材目录为 Paper）。ModLoader.LoadTextures 先检查 Textures 目录，再从其中的 Paper 子目录载入，不能把 Paper 直接放在模组根目录。构建输出版本、Git 提交和 DLL SHA-256；程序集 FileVersion/InformationalVersion 来自清单与提交，程序集绑定版本继续保持原来的 0.0.0.0。
 
 游戏 ModScanner 在 Unity 外没有已初始化的游戏程序集目录，因此检查工具从实际 Managed 目录建立引用白名单。扫描器的 Pending 是受游戏运行时保护的 API 调用，不等于拒绝项；本项目要求拒绝项、未声明能力均为零。
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -14,14 +14,14 @@ namespace DumpingGroundMap
     internal static class Tuning
     {
         internal static event Action Changed;
-        internal const float DefaultJunkPercent = 50f;
+        internal const float DefaultJunkPercent = 100f;
         internal const float DefaultHighPercent = 3f;
         internal const int DefaultSpecialtyTier = 2;
 
-        /// <summary>80 档：补给箱与钥匙卡的绝对概率，各自一个设置项（默认 0.5%、范围 0–5%）。</summary>
+        /// <summary>80 档：补给箱与钥匙卡的绝对概率，各自一个设置项（默认 1%、范围 0–5%）。</summary>
         internal const string CratePercentKey = "crate_percent";
         internal const string KeycardPercentKey = "keycard_percent";
-        internal const float DefaultSpecialPercent = 0.5f;
+        internal const float DefaultSpecialPercent = 1f;
         internal const float SpecialPercentMin = 0f;
         internal const float SpecialPercentMax = 5f;
 
@@ -30,6 +30,8 @@ namespace DumpingGroundMap
         internal const float DefaultMinorPercent = 3f;
         internal const float MinorPercentMin = 0f;
         internal const float MinorPercentMax = 10f;
+        internal const string MinorWindowKey = "minor_window_enabled";
+        internal const bool DefaultMinorWindow = true;
 
         /// <summary>小奖整箱的目标价值：件数按「目标值 ×[0.75,1.25] ÷ 单价」反推。</summary>
         internal const string MinorValueKey = "minor_value";
@@ -39,7 +41,7 @@ namespace DumpingGroundMap
         internal const float MinorValueStep = 10f;
 
         internal const float JunkMin = 0f;
-        internal const float JunkMax = 100f;
+        internal const float JunkMax = 150f;
         internal const float HighMin = 0f;
         internal const float HighMax = 30f;
 
@@ -109,6 +111,7 @@ namespace DumpingGroundMap
         private static ConfigEntry<float> crateEntry;
         private static ConfigEntry<float> cardEntry;
         private static ConfigEntry<float> minorEntry;
+        private static ConfigEntry<bool> minorWindowEntry;
         private static ConfigEntry<float> minorValueEntry;
         private static ConfigEntry<float> stashCapEntry;
         private static ConfigEntry<bool> stashWindowEntry;
@@ -368,7 +371,7 @@ namespace DumpingGroundMap
             get { return hasLive ? liveMinorValue : EntryMinorValue(); }
         }
 
-        /// <summary>小奖的实际生效概率（%）：声望不到 60 时按 1/10 计，告示板与实际掷骰共用。</summary>
+        /// <summary>小奖实际生效概率上限（%）；窗口当前概率由StashFind读取。</summary>
         internal static float EffectiveMinorPercent
         {
             get
@@ -377,6 +380,11 @@ namespace DumpingGroundMap
                 percent *= PerkCatalog.MinorMultiplier(Reputation.Points);
                 return percent;
             }
+        }
+
+        internal static bool MinorWindowEnabled
+        {
+            get { return minorWindowEntry == null ? DefaultMinorWindow : minorWindowEntry.Value; }
         }
 
         /// <summary>True while a slider drag is holding unsaved values in memory.</summary>
@@ -448,7 +456,10 @@ namespace DumpingGroundMap
         {
             float ev;
             if (baseEvCache.TryGetValue(region.Id, out ev)) return ev;
-            ev = LootCalculator.Build(region, new LootSettings(100f, 0f, 0f, 0f, 0f), false).Ev;
+            RegionLootTable original = ScavLoot.Vanilla;
+            ev = 0f;
+            for (int i = 0; i < original.Count; ++i)
+                ev += original.Weights[i] / (float)original.Total * LootCatalog.ValueOf(original.Items[i]);
             baseEvCache[region.Id] = ev;
             return ev;
         }
@@ -462,13 +473,13 @@ namespace DumpingGroundMap
                 ModConfig config = ModHelper.GetConfig(Core.Id);
 
                 junkEntry = config.Define("junk_percent", DefaultJunkPercent, SectionName,
-                    delegate { return Copy.Text("垃圾出现率倍率（%，0–100）", "Junk chance multiplier (%, 0-100)"); },
-                    0f, 100f,
+                    delegate { return Copy.Text("垃圾出现率倍率（%，0–150）", "Junk chance multiplier (%, 0-150)"); },
+                    JunkMin, JunkMax,
                     delegate
                     {
                         return Copy.Text(
-                            "每次拾荒出多少垃圾，只由这条决定。\n50%：入口空地的垃圾约 49% → 约 24%。\n100%：原版水平（约 49%）；0%：不出垃圾。\n注意：50% 不是「一半掉落都是垃圾」，\n而是把原本的垃圾量减半。",
-                            "Sets how much junk shows up each search; it only changes junk.\n50%: Main Gate junk goes from about 49% to about 24%.\n100%: vanilla level (about 49%). 0%: no junk at all.\nNote: 50% does not mean half of all drops are junk -\nit halves the original junk amount.");
+                            "范围0–150%，默认100%。\n100%：常态50%垃圾；150%：75%垃圾。\n50%：25%垃圾；0%：不出垃圾。\n声望0/20/40/60的基础收益按100%倍率校准，\n分别为12.24/13.46/14.69/15.91，大小奖另算。\n夜间事件仍会改变垃圾权重。",
+                            "Range 0-150%, default 100%.\n100% gives 50% junk; 150% gives 75%.\n50% gives 25% junk; 0% removes junk.\nBase rewards at reputation 0/20/40/60 are calibrated at 100%:\n12.24/13.46/14.69/15.91, excluding bonuses.\nNight events still modify junk weights.");
                     },
                     false);
 
@@ -489,8 +500,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "声望达到 80（识货行家）后，每次拾荒出补给箱的绝对概率。\n默认 0.5%，范围 0–5%，按 0.1 吸附；0% 不出。\n补给箱从普通物品份额里扣，垃圾概率不变。\n只在本区有对应箱子时生效（拆解堆、生活废料带、医疗废弃点、废武器堆）。",
-                            "Absolute chance per search for a supply crate, active at 80 reputation (Connoisseur).\nDefault 0.5%, range 0-5%, 0.1 steps; 0% disables it.\nThe crate share comes out of normal items, so junk chance is unchanged.\nOnly applies where the area has a matching crate (Scrap Pile, Refuse Lane, Medical Waste, Weapon Dump).");
+                            "声望达到80后，每次主掉落出补给箱的总概率。\n默认1%，范围0–5%，按0.1吸附；0%不出。\n八区均有箱子，具体箱型按本区权重分配。\n箱子种类增多不会叠加总概率；份额从非垃圾普通物品中扣除。",
+                            "Total supply-crate chance per main roll, active at 80 reputation.\nDefault 1%, range 0-5%, 0.1 steps; 0% disables it.\nAll eight areas have regional crate-type weights.\nMore types share this total; they replace non-junk ordinary items.");
                     },
                     false);
 
@@ -500,21 +511,30 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "声望达到 80（识货行家）后，每次拾荒出对应钥匙卡的绝对概率。\n默认 0.5%，范围 0–5%，按 0.1 吸附；0% 不出。\n钥匙卡从普通物品份额里扣，垃圾概率不变。\n只在本区有对应箱子时生效（拆解堆、生活废料带、医疗废弃点、废武器堆）。",
-                            "Absolute chance per search for the matching keycard, active at 80 reputation (Connoisseur).\nDefault 0.5%, range 0-5%, 0.1 steps; 0% disables it.\nThe keycard share comes out of normal items, so junk chance is unchanged.\nOnly applies where the area has a matching crate (Scrap Pile, Refuse Lane, Medical Waste, Weapon Dump).");
+                            "声望达到80后，每次主掉落出钥匙卡的总概率。\n默认1%，范围0–5%，按0.1吸附；0%不出。\n八区均有卡片，类型权重与本区箱型配套。\n箱子、卡片独立掉落；份额从非垃圾普通物品中扣除。",
+                            "Total keycard chance per main roll, active at 80 reputation.\nDefault 1%, range 0-5%, 0.1 steps; 0% disables it.\nCard-type weights match each area's native crate locks.\nCrates and cards roll independently and replace non-junk ordinary items.");
                     },
                     false);
 
                 minorEntry = config.Define(MinorPercentKey, DefaultMinorPercent, SectionName,
-                    delegate { return Copy.Text("小奖概率（%，0–10）", "Minor prize chance (%, 0-10)"); },
+                    delegate { return Copy.Text("小奖概率上限（%，0–10）", "Minor prize chance cap (%, 0-10)"); },
                     MinorPercentMin, MinorPercentMax,
                     delegate
                     {
                         return Copy.Text(
-                            "每次拾荒独立掷一次小奖，两档门槛：\n声望达到 60（眼力毒辣）时按本设置值生效；不到 60 时按本值的 1/10 生效（默认 3% 即 0.3%）。\n默认 3%，范围 0–10%，按 0.1 吸附；0% 两档都不出。\n小奖按区翻出一整箱同一种物品（每区 2–3 种），\n整箱值多少钱看下一项「小奖整箱价值」。\n不发新闻、不改价格、不触发大奖的当日额外收获，也不影响爆大奖的累积窗口。\n同一次搜索里大奖、小奖都命中时只算大奖。\n小奖物品与正常拾荒一样计入声望。",
-                            "Every search rolls once for a minor prize, in two tiers:\nfrom 60 reputation (Keen Eye) it uses this value; below 60 it uses one tenth (3% becomes 0.3%).\nDefault 3%, range 0-10%, 0.1 steps; 0% disables both tiers.\nA minor prize is a whole crate of one item type (2-3 crates per area);\nits value is the \"Minor prize crate value\" setting below.\nNo news, no price change, no jackpot bonus item, and no effect on the jackpot window.\nIf both jackpot and minor prize hit in the same search, only the jackpot counts.\nMinor prize items count toward reputation like any other find.");
+                            "小奖窗口上限，默认3%，范围0–10%，0%停用。\n开启下方小奖窗口时，概率逐次搜索增长，中奖后减半；关闭时直接用本值。\n声望不足60时，当前实际概率仍乘1/10（上限3%对应实际最高0.3%）。\n按本区奖池翻出一整箱同一种物品，价值看「小奖整箱价值」。\n大奖优先，告示牌的小奖实际概率已扣除大奖占用。\n小奖物品照常计入声望，不发新闻、不改价格，也不影响大奖窗口。",
+                            "Minor-prize window cap: default 3%, range 0-10%; 0% disables it.\nWith the minor window on, odds grow per search and halve after a win; off uses this cap directly.\nBelow 60 reputation, current odds are multiplied by 1/10 (a 3% cap gives at most 0.3%).\nA whole crate of one regional item type; payout follows Minor prize crate value.\nJackpots have priority; the notice shows minor odds after that exclusion.\nItems count toward reputation. No news, market effect, or change to the jackpot window.");
                     },
                     false);
+
+                minorWindowEntry = config.Define(MinorWindowKey, DefaultMinorWindow, SectionName,
+                    delegate { return Copy.Text("启用小奖概率拥塞窗口（每次搜索）", "Use an adaptive minor-prize window (per search)"); },
+                    delegate
+                    {
+                        return Copy.Text("开启：默认从0.3%开始，未中先翻倍，达到上限一半后每次搜索增加0.1个百分点；中奖后减半。\n起点取上限的1/10且不超过0.3%。每次有效搜索更新一次，各区域共用、随存档保存。\n关闭：直接使用上方概率上限，暂停窗口进度。\n声望不到60时，当前实际概率仍按1/10生效。上限0时不抽奖、不增长。",
+                            "On: starts at 0.3% with the default cap. Misses first double the chance, then add 0.1 percentage points per search after reaching half the cap. Wins halve it.\nStart is one tenth of the cap, at most 0.3%. One update per eligible search, shared across areas and saved with the run.\nOff: uses the cap directly and pauses saved progress.\nBelow 60 reputation, actual odds remain one tenth. A zero cap disables rolls and growth.");
+                    }, false);
+                minorWindowEntry.OnChanged += delegate(bool value) { Invalidated(); };
 
                 minorValueEntry = config.Define(MinorValueKey, DefaultMinorValue, SectionName,
                     delegate { return Copy.Text("小奖整箱价值", "Minor prize crate value"); },
@@ -528,12 +548,12 @@ namespace DumpingGroundMap
                     false);
 
                 stashWindowEntry = config.Define(StashWindowKey, DefaultStashWindow, SectionName,
-                    delegate { return Copy.Text("启用大奖概率拥塞窗口", "Use an adaptive jackpot window"); },
+                    delegate { return Copy.Text("启用大奖概率拥塞窗口（每天）", "Use an adaptive jackpot window (daily)"); },
                     delegate
                     {
                         return Copy.Text(
-                            "开启：大奖概率从 0.05% 逐步增长，未中时先翻倍、再每次增加 0.05%，中奖后减半。\n关闭：每次直接按下方「爆大奖概率上限」抽奖，不增长也不减半。\n声望不到 60 时，两种模式都仍受 0.1% 上限限制。\n关闭时暂停已有窗口进度，重新开启后继续。每趟最多一次大奖。",
-                            "On: start at 0.05%, grow by doubling and then +0.05% per miss, and halve after a win.\nOff: every roll uses the jackpot chance cap below, without growth or halving.\nBoth modes remain capped at 0.1% below 60 reputation.\nDisabling pauses saved window progress; enabling resumes it. At most one jackpot per visit.");
+                            "开启：当天概率固定，每个自然日只更新一次。\n从本轮起点线性增长，连续5个未中大奖的日子达到上限；没去拾荒的日子也计入。\n中奖后次日概率减半，再用5个未中日增长到上限。最低0.05%。\n默认上限1%时：0.05→0.24→0.43→0.62→0.81→1.00%。\n关闭：直接用下方上限，暂停日窗口进度。声望不足60仍受0.1%上限限制。\n每趟最多一次大奖；同一天多次搜索不增加窗口概率。",
+                            "On: odds stay fixed throughout the day, with one update per calendar day.\nLinear growth from the cycle start reaches the cap after 5 days without a jackpot, including non-scavenging days.\nA winning day halves odds the next day, then starts another 5-day recovery. Minimum 0.05%.\nAt the default 1% cap: 0.05, 0.24, 0.43, 0.62, 0.81, 1.00%.\nOff uses the cap directly and pauses progress. Below 60 reputation, the cap remains 0.1%.\nAt most one jackpot per visit; more searches do not increase the daily odds.");
                     }, false);
 
                 stashCapEntry = config.Define(StashCapKey, DefaultStashCap, SectionName,
@@ -542,8 +562,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "大奖概率的上限。\n启用拥塞窗口时，概率动态增长到这个上限；关闭时，每次直接使用这个概率。\n声望不到 60 时，实际生效的上限仍压到 0.1%。\n适用于配置了储藏样板的全部五个区域。每趟最多中一次大奖。",
-                            "Jackpot chance cap.\nWith the adaptive window enabled, the chance grows toward this cap; when disabled, every roll uses it directly.\nThe effective cap is still limited to 0.1% below 60 reputation.\nApplies to all five areas with stash templates. At most one jackpot per visit.");
+                            "大奖概率的上限。\n启用拥塞窗口时，概率动态增长到这个上限；关闭时，每次直接使用这个概率。\n声望不到 60 时，实际生效的上限仍压到 0.1%。\n适用于配置了储藏样板的全部八个区域。每趟最多中一次大奖。",
+                            "Jackpot chance cap.\nWith the adaptive window enabled, the chance grows toward this cap; when disabled, every roll uses it directly.\nThe effective cap is still limited to 0.1% below 60 reputation.\nApplies to all eight areas with stash templates. At most one jackpot per visit.");
                     },
                     false);
 
@@ -915,48 +935,41 @@ namespace DumpingGroundMap
 
         internal static void ResetDefaults()
         {
-            hasLive = false;
-            SetJunkPercent(DefaultJunkPercent);
-            SetHighPercent(DefaultHighPercent);
-            SetSpecialtyTier(DefaultSpecialtyTier);
+            ApplyPreset(0);
         }
 
         internal static void ApplyPreset(int preset)
         {
-            // 3 / 4 只改「小奖整箱价值」，不动垃圾、贵重品与专精。
-            if (preset == 3 || preset == 4)
-            {
-                hasLive = false;
-                if (minorValueEntry != null)
-                    minorValueEntry.Set(preset == 3 ? DefaultMinorValue : 100f);
-                return;
-            }
-            float junk = DefaultJunkPercent;
-            float high = DefaultHighPercent;
-            int tier = DefaultSpecialtyTier;
-            switch (preset)
-            {
-                case 1: // every area drops only its own specialties
-                    tier = SpecialtyLabels.Length - 1;
-                    break;
-                case 2: // gamble on valuable finds
-                    high = 8f;
-                    break;
-            }
+            LootPreset profile = LootPreset.For(preset);
             hasLive = false;
-            SetJunkPercent(junk);
-            SetHighPercent(high);
-            SetSpecialtyTier(tier);
+            SetJunkPercent(profile.Junk);
+            SetHighPercent(profile.High);
+            SetSpecialtyTier(profile.SpecialtyTier);
+            if (crateEntry != null) crateEntry.Set(profile.Crate);
+            if (cardEntry != null) cardEntry.Set(profile.Card);
+            if (minorEntry != null) minorEntry.Set(profile.Minor);
+            if (minorWindowEntry != null) minorWindowEntry.Set(DefaultMinorWindow);
+            if (minorValueEntry != null) minorValueEntry.Set(profile.MinorValue);
+            if (stashCapEntry != null) stashCapEntry.Set(profile.StashCap);
+            if (stashWindowEntry != null) stashWindowEntry.Set(DefaultStashWindow);
+            Invalidated();
         }
 
         internal static EffectiveTable TableFor(Region region)
         {
             Init();
+            return PreviewTableFor(region, new LootSettings(JunkPercent, HighPercent, SpecialtyPercent,
+                CratePercent, KeycardPercent));
+        }
+
+        internal static EffectiveTable PreviewTableFor(Region region, LootSettings settings)
+        {
+            Init();
             bool perk80 = Reputation.Points >= PerkCatalog.Perk80Threshold;
             AfterhourLocation location = AfterhourLocation.Get("dumping_ground");
             float modifier = location == null ? 0f : location.GetModifier("junk_chance");
-            return cache.Get(region, new LootSettings(JunkPercent, HighPercent, SpecialtyPercent,
-                CratePercent, KeycardPercent), perk80, ProbabilityMath.JunkScaleFromModifier(modifier));
+            return cache.Get(region, settings, perk80, ProbabilityMath.JunkScaleFromModifier(modifier), Reputation.Points,
+                RegionalEvents.ActiveFor(region));
         }
 
         /// <summary>

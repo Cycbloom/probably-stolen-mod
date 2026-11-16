@@ -37,6 +37,7 @@ namespace DumpingGroundMap
         private static CustomUIElement crateValue, cardValue;
         private static CustomUIElement minorValue;
         private static CustomUIElement minorCrateValue;
+        private static CustomUIElement stashCapValue, stashCapSlider;
         private static CustomUIElement debugValue;
         private static CustomUIElement groundWidthValue, groundHeightValue;
         private static CustomUIElement specialtyDropdown;
@@ -90,7 +91,7 @@ namespace DumpingGroundMap
         {
             return key == KeyJunk || key == KeyHigh
                 || key == KeyCrate || key == KeyCard || key == KeyMinor
-                || key == KeyMinorValue
+                || key == KeyMinorValue || key == Tuning.StashCapKey
                 || key == KeyGroundWidth || key == KeyGroundHeight
                 || key == KeyGroundAlign
                 || key == Tuning.SpecialtyKey
@@ -110,6 +111,7 @@ namespace DumpingGroundMap
                 if (buildingKey != KeyJunk && buildingKey != KeyHigh
                     && buildingKey != KeyCrate && buildingKey != KeyCard
                     && buildingKey != KeyMinor && buildingKey != KeyMinorValue
+                    && buildingKey != Tuning.StashCapKey
                     && buildingKey != KeyGroundWidth && buildingKey != KeyGroundHeight
                     && buildingKey != Tuning.DebugPointsKey) return;
                 if (!ReferenceEquals(element, building.Last)) return;
@@ -138,6 +140,7 @@ namespace DumpingGroundMap
                 else if (key == KeyCard) cardValue = label;
                 else if (key == KeyMinor) minorValue = label;
                 else if (key == KeyMinorValue) minorCrateValue = label;
+                else if (key == Tuning.StashCapKey) stashCapValue = label;
                 else if (key == KeyGroundWidth) groundWidthValue = label;
                 else if (key == KeyGroundHeight) groundHeightValue = label;
                 else debugValue = label;
@@ -189,6 +192,19 @@ namespace DumpingGroundMap
                 {
                     minorCrateSlider = HookSlider(window, key, 6);
                     minorCrateValue = EnsureValueLine(b, key, minorCrateValue);
+                }
+                else if (key == Tuning.StashCapKey)
+                {
+                    stashCapSlider = window.Get(key);
+                    stashCapValue = EnsureValueLine(b, key, stashCapValue);
+                    if (stashCapSlider != null && stashCapSlider.slider != null)
+                    {
+                        stashCapSlider.OnSlider(delegate(float value)
+                        {
+                            SyncSlider(stashCapSlider, Tuning.ClampStashCap(value));
+                            Refresh();
+                        });
+                    }
                 }
                 else if (key == KeyGroundAlign)
                 {
@@ -257,6 +273,12 @@ namespace DumpingGroundMap
                 Debug.LogWarning(LogTag + key + ": slider widget missing, live value disabled");
                 return null;
             }
+            if (key == KeyJunk)
+            {
+                element.slider.minValue = Tuning.JunkMin;
+                element.slider.maxValue = Tuning.JunkMax;
+                element.slider.wholeNumbers = true;
+            }
             element.slider.onValueChanged.AddListener(delegate(float value) { OnSlide(kind, value); });
             HookRelease(element, key);
             Debug.Log(LogTag + key + ": live listener bound (min="
@@ -290,8 +312,8 @@ namespace DumpingGroundMap
         private static void AddEvBlock(CustomUIBuilder b)
         {
             b.AddSpace(6);
-            b.AddLabel(Copy.Text("—— 每次拾荒大约能捡到的物品价值（拖动时实时刷新） ——",
-                "— Rough value of what one search turns up (live while dragging) —"), "dgm_ev_header");
+            b.AddLabel(Copy.Text("—— 单次主掉落期望收益（信用点，实时刷新） ——",
+                "— Expected value per main drop (credits, live) —"), "dgm_ev_header");
             CustomUIElement header = b.Last;
             if (header.text != null) header.text.color = Picker.Accent;
             Picker.Size(header, -1, 26);
@@ -308,19 +330,21 @@ namespace DumpingGroundMap
             {
                 b.AddLabel("", "dgm_ev_" + i);
                 evLabels[i] = b.Last;
-                Picker.Size(evLabels[i], -1, 24);
+                Picker.Size(evLabels[i], -1, 66);
+                if (evLabels[i].text != null)
+                {
+                    evLabels[i].text.richText = true;
+                    evLabels[i].text.fontSize = 18;
+                    evLabels[i].text.enableWordWrapping = false;
+                    evLabels[i].text.overflowMode = TextOverflowModes.Ellipsis;
+                    evLabels[i].text.alignment = TextAlignmentOptions.MidlineLeft;
+                }
             }
 
             b.AddSpace(4);
             b.BeginRow(8f, TextAnchor.MiddleLeft);
             PresetButton(b, 0, Copy.Text("默认", "Default"));
-            PresetButton(b, 1, Copy.Text("专精拉满", "Specialty max"));
-            PresetButton(b, 2, Copy.Text("赌贵重品", "Gamble"));
-            b.End();
-            b.AddSpace(2);
-            b.BeginRow(8f, TextAnchor.MiddleLeft);
-            PresetButton(b, 3, Copy.Text("默认 200", "Default 200"));
-            PresetButton(b, 4, Copy.Text("贴近原版 100", "Vanilla-ish 100"));
+            PresetButton(b, 1, Copy.Text("加强", "Enhanced"));
             b.End();
             b.AddSpace(4);
         }
@@ -329,6 +353,12 @@ namespace DumpingGroundMap
         {
             b.AddButton(text, delegate { ApplyPreset(preset); });
             Picker.Size(b.Last, 140, 34);
+            LootPreset profile = LootPreset.For(preset);
+            b.Last.SetTooltip(string.Format(CultureInfo.InvariantCulture,
+                Copy.Text("垃圾倍率 {0}% · 专精 {1}%\n贵重品 {2}% · 箱/卡各 {3}%\n小奖上限 {4}% · 小奖价值 {5}\n大奖上限 {6}% · 大小奖窗口开启\n大奖按天，小奖按搜索。声望门槛照常生效。",
+                    "Junk {0}% · Specialty {1}%\nValuables {2}% · Crates/cards {3}% each\nMinor cap {4}% · Minor value {5}\nJackpot cap {6}% · Both adaptive windows on\nJackpot daily; minor per search. Reputation gates still apply."),
+                profile.Junk, profile.SpecialtyPercent, profile.High, profile.Crate,
+                profile.Minor, profile.MinorValue, profile.StashCap));
         }
 
         /// <summary>「拾荒地面」分组末尾的三个常用尺寸，只写宽高两项。</summary>
@@ -359,6 +389,8 @@ namespace DumpingGroundMap
         {
             EndDrag();
             Tuning.ApplyGroundPreset(width, height);
+            SyncSlider(groundWidthSlider, Tuning.GroundWidth);
+            SyncSlider(groundHeightSlider, Tuning.GroundHeight);
             Refresh();
         }
 
@@ -496,42 +528,84 @@ namespace DumpingGroundMap
         {
             if (window == null || !window.IsAlive) return;
 
+            // Native ResetWidgets writes without notifications and leaves config
+            // entries unchanged until Apply. Labels and EV must show the widgets.
             if (junkValue != null)
-                junkValue.SetText(Mathf.RoundToInt(Tuning.JunkPercent) + "%");
+                junkValue.SetText(Mathf.RoundToInt(SliderValue(junkSlider, Tuning.JunkPercent)) + "%");
             if (highValue != null)
-                highValue.SetText(Tuning.HighPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+                highValue.SetText(SliderValue(highSlider, Tuning.HighPercent).ToString("0.0", CultureInfo.InvariantCulture) + "%");
             if (crateValue != null)
-                crateValue.SetText(Tuning.CratePercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+                crateValue.SetText(SliderValue(crateSlider, Tuning.CratePercent).ToString("0.0", CultureInfo.InvariantCulture) + "%");
             if (cardValue != null)
-                cardValue.SetText(Tuning.KeycardPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+                cardValue.SetText(SliderValue(cardSlider, Tuning.KeycardPercent).ToString("0.0", CultureInfo.InvariantCulture) + "%");
             if (minorValue != null)
-                minorValue.SetText(Tuning.MinorPercent.ToString("0.0", CultureInfo.InvariantCulture) + "%");
+                minorValue.SetText(SliderValue(minorSlider, Tuning.MinorPercent).ToString("0.0", CultureInfo.InvariantCulture) + "%");
             if (minorCrateValue != null)
-                minorCrateValue.SetText(Tuning.MinorValue.ToString("0", CultureInfo.InvariantCulture));
+                minorCrateValue.SetText(SliderValue(minorCrateSlider, Tuning.MinorValue).ToString("0", CultureInfo.InvariantCulture));
+            if (stashCapValue != null)
+                stashCapValue.SetText(SliderValue(stashCapSlider, Tuning.StashCap).ToString("0.0", CultureInfo.InvariantCulture) + "%");
             if (debugValue != null)
-                debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
+                debugValue.SetText(SliderValue(debugSlider, Tuning.DebugPoints).ToString("0.0", CultureInfo.InvariantCulture));
             if (groundWidthValue != null)
-                groundWidthValue.SetText(Tuning.GroundWidth.ToString(CultureInfo.InvariantCulture));
+                groundWidthValue.SetText(SliderValue(groundWidthSlider, Tuning.GroundWidth).ToString("0", CultureInfo.InvariantCulture));
             if (groundHeightValue != null)
-                groundHeightValue.SetText(Tuning.GroundHeight.ToString(CultureInfo.InvariantCulture));
+                groundHeightValue.SetText(SliderValue(groundHeightSlider, Tuning.GroundHeight).ToString("0", CultureInfo.InvariantCulture));
             if (evLabels == null) return;
 
-            float baseSum = 0f;
-            float newSum = 0f;
+            int tier = specialtyDropdown != null && specialtyDropdown.dropdown != null
+                ? specialtyDropdown.dropdown.value : Tuning.SpecialtyTier;
+            LootSettings preview = new LootSettings(
+                SliderValue(junkSlider, Tuning.JunkPercent),
+                SliderValue(highSlider, Tuning.HighPercent),
+                (Mathf.Clamp(tier, 0, 3) + 1) * 25f,
+                SliderValue(crateSlider, Tuning.CratePercent),
+                SliderValue(cardSlider, Tuning.KeycardPercent));
+            MainExpectation average = new MainExpectation();
+            int openCount = 0;
             for (int i = 0; i < Region.All.Length; ++i)
             {
                 Region region = Region.All[i];
-                float before = Tuning.BaseEv(region);
-                EffectiveTable table = Tuning.TableFor(region);
-                baseSum += before;
-                newSum += table.Ev;
-                evLabels[i].SetText(Line(region.Name, before, table.Ev));
+                if (!region.Unlocked)
+                {
+                    evLabels[i].SetText(region.Name + Copy.Text("　未开放，需要声望 ", "  Locked; reputation ") + region.RequiredReputation);
+                    continue;
+                }
+                EffectiveTable table = Tuning.PreviewTableFor(region, preview);
+                MainExpectation parts = MainExpectation.From(table, region.Id);
+                average.Base += parts.Base;
+                average.Valuable += parts.Valuable;
+                average.Supply += parts.Supply;
+                average.Event += parts.Event;
+                average.Total += parts.Total;
+                ++openCount;
+                SetEvLine(evLabels[i], region.Name, parts);
             }
-            float count = Region.All.Length;
-            evLabels[Region.All.Length].SetText(Line(
-                Copy.Text("各区平均", "all-area average"), baseSum / count, newSum / count));
+            float count = Math.Max(1, openCount);
+            average.Base /= count;
+            average.Valuable /= count;
+            average.Supply /= count;
+            average.Event /= count;
+            average.Total /= count;
+            SetEvLine(evLabels[Region.All.Length], Copy.Text("已开放区域平均", "Open-area average"), average);
+            evLabels[Region.All.Length].SetTextColor(Picker.Accent);
 
-            SyncWidgets();
+        }
+
+        private static float SliderValue(CustomUIElement element, float fallback)
+        {
+            return element != null && element.slider != null ? element.slider.value : fallback;
+        }
+
+        internal static void BeforeNativeReset(CustomUIWindow target, ModConfig config)
+        {
+            if (config == null || config.ModId != Core.Id || !ReferenceEquals(target, window)) return;
+            CommitDrag();
+        }
+
+        internal static void AfterNativeReset(CustomUIWindow target, ModConfig config)
+        {
+            if (config == null || config.ModId != Core.Id || !ReferenceEquals(target, window)) return;
+            Refresh();
         }
 
         private static string ReferenceLine()
@@ -554,14 +628,18 @@ namespace DumpingGroundMap
                 "Vanilla reference (100% junk, no specialty): ") + valueText;
         }
 
-        private static string Line(string name, float before, float after)
+        private static void SetEvLine(CustomUIElement label, string name, MainExpectation parts)
         {
-            float change = before > 0f ? (after - before) / before * 100f : 0f;
-            return name + "　" + Copy.Text("原版 ", "vanilla ")
-                + before.ToString("0.00", CultureInfo.InvariantCulture) + "  →  "
-                + Copy.Text("现在 ", "now ")
-                + after.ToString("0.00", CultureInfo.InvariantCulture)
-                + "（" + (change >= 0f ? "+" : "") + change.ToString("0.0", CultureInfo.InvariantCulture) + "%）";
+            string total = parts.Total.ToString("0.00", CultureInfo.InvariantCulture);
+            string components = Copy.Text("基础 ", "Base ") + parts.Base.ToString("0.00", CultureInfo.InvariantCulture)
+                + Copy.Text(" + 贵重增益 ", " + rare uplift ") + parts.Valuable.ToString("0.00", CultureInfo.InvariantCulture)
+                + Copy.Text(" + 箱卡增益 ", " + crates/cards ") + parts.Supply.ToString("0.00", CultureInfo.InvariantCulture)
+                + "\n" + Copy.Text("+ 今日事件增益 ", "+ Today's event ") + parts.Event.ToString("0.00", CultureInfo.InvariantCulture);
+            label.SetText(name + Copy.Text("　合计 ≈ ", "  Total ≈ ") + total
+                + "\n<size=15>" + components + "</size>");
+            label.SetTooltip(name + "\n" + components + " ≈ " + total
+                + Copy.Text(" 信用点/件\n基础、贵重和箱卡按同日无区域事件的情况拆分；事件项为今日区域事件的净增益，全场原版事件已计入。大奖、小奖、工具和额外收获另算。",
+                    " credits/item\nBase/rare/crates use the same day without regional effects; event is the net regional uplift. Native yard-wide events are included. Jackpots, minor rewards, tools and extra finds are separate."));
         }
 
         private static void OnSlide(int kind, float value)
@@ -640,6 +718,13 @@ namespace DumpingGroundMap
             // does not move it, so drive the widget explicitly.
             if (specialtyDropdown != null)
                 specialtyDropdown.SetIndex(Tuning.SpecialtyTier, false);
+            CustomUIElement cap = window == null ? null : window.Get(Tuning.StashCapKey);
+            if (cap != null && cap.slider != null) cap.SetFloat(Tuning.StashCap, false);
+            CustomUIElement adaptive = window == null ? null : window.Get(Tuning.StashWindowKey);
+            if (adaptive != null && adaptive.toggle != null) adaptive.toggle.SetIsOnWithoutNotify(Tuning.StashWindowEnabled);
+            CustomUIElement minorAdaptive = window == null ? null : window.Get(Tuning.MinorWindowKey);
+            if (minorAdaptive != null && minorAdaptive.toggle != null) minorAdaptive.toggle.SetIsOnWithoutNotify(Tuning.MinorWindowEnabled);
+            SyncWidgets();
             Refresh();
         }
 
@@ -727,6 +812,8 @@ namespace DumpingGroundMap
             cardValue = null;
             minorValue = null;
             minorCrateValue = null;
+            stashCapValue = null;
+            stashCapSlider = null;
             debugValue = null;
             groundWidthValue = null;
             groundHeightValue = null;

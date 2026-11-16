@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace DumpingGroundMap
@@ -6,38 +6,34 @@ namespace DumpingGroundMap
     internal static class LootCatalog
     {
         /// <summary>
-        /// 80 档：该区对应的满箱上锁补给箱。入口空地不给箱子。
+        /// 80档区域补给池的主箱型；实际分布使用SupplyPool的全部条目。
         /// 用 PreBuiltItemHelper 的 loot_crate_* id，ItemSpawner 会自动走预构建满箱。
         /// </summary>
         internal static string CrateFor(string regionId)
         {
-            switch (regionId)
-            {
-                case "scrap": return "loot_crate_engineering";
-                case "refuse": return "loot_crate_service";
-                case "med": return "loot_crate_medical";
-                case "weapons": return "loot_crate_security";
-                default: return null;
-            }
+            SupplyEntry[] entries = SupplyPool.For(regionId);
+            return entries.Length > 0 ? entries[0].CrateId : null;
         }
 
         /// <summary>80 档：与箱子同区出现的对应钥匙卡。</summary>
         internal static string CardFor(string regionId)
         {
-            switch (regionId)
-            {
-                case "scrap": return "eng_keycard";
-                case "refuse": return "ser_keycard";
-                case "med": return "med_keycard";
-                case "weapons": return "sec_keycard";
-                default: return null;
-            }
+            SupplyEntry[] entries = SupplyPool.For(regionId);
+            return entries.Length > 0 ? entries[0].CardId : null;
         }
 
         internal static float ValueOf(string itemId)
         {
             float value;
             return UnitValues.TryGetValue(itemId, out value) ? value : 0f;
+        }
+
+        internal static float ExpectedValueOf(string itemId, string regionId)
+        {
+            float value = ValueOf(itemId);
+            if (regionId == "water" && PumpWater.IsContainer(itemId)) return PumpWater.ExpectedValue(itemId, value);
+            if (itemId == HydraUsage.ItemId) return (124f + 176f + 325f) / 3f;
+            return WeaponWear.ExpectedValue(itemId, value);
         }
 
         /// <summary>
@@ -50,32 +46,34 @@ namespace DumpingGroundMap
         /// </summary>
         internal static readonly ValuableDefinition[] Valuables =
         {
-            new ValuableDefinition("blue_blood_bag", 2, 1, 3, 4, 1),
-            new ValuableDefinition("water_filter_adv", 2, 1, 3, 1, 2),
-            new ValuableDefinition("portable_water_purifier", 1, 1, 3, 1, 2),
-            new ValuableDefinition("bottled_water_premium", 2, 1, 3, 1, 2),
-            new ValuableDefinition("black_injector", 1, 1, 1, 5, 3),
-            new ValuableDefinition("rare_electronic", 1, 3, 1, 1, 1),
-            new ValuableDefinition("module_extractor_advanced", 1, 4, 1, 1, 3),
-            new ValuableDefinition("printer_chip_pistol_double", 1, 2, 1, 1, 2),
-            new ValuableDefinition("printer_chip_heavy_handmade_pistol_frame", 1, 2, 1, 1, 2),
-            new ValuableDefinition("printer_chip_combat_machete", 1, 2, 1, 1, 3),
-            new ValuableDefinition("printer_chip_gun_part", 1, 3, 1, 2, 2),
-            new ValuableDefinition("printer_chip_10_mag_ext", 1, 2, 1, 1, 3),
-            new ValuableDefinition("revolver", 2, 1, 1, 1, 3),
-            new ValuableDefinition("stun_gun", 2, 1, 1, 1, 3),
-            new ValuableDefinition("smg", 1, 1, 1, 1, 2),
-            new ValuableDefinition("shotgun", 1, 1, 1, 1, 2),
-            new ValuableDefinition("combat_machete", 2, 3, 2, 3, 4),
-            new ValuableDefinition("stun_baton", 2, 3, 1, 2, 3),
-            new ValuableDefinition("advanced_flux_agent", 1, 2, 1, 1, 2),
-            new ValuableDefinition("large_purple_injector", 1, 1, 2, 4, 1),
-            new ValuableDefinition("glock_receiver", 1, 1, 1, 1, 3),
-            new ValuableDefinition("heavy_handmade_pistol", 1, 1, 1, 1, 3),
-            new ValuableDefinition("surgery_tool", 1, 1, 1, 4, 1),
-            new ValuableDefinition("module_extractor", 1, 3, 1, 1, 1),
-            new ValuableDefinition("packet_red_cigarette", 1, 1, 3, 1, 1),
-            new ValuableDefinition("wine_yeast_infinite", 1, 2, 1, 1, 1),
+            // 顺序固定：gate, scrap, refuse, med, weapons, electronics, vehicles, water。
+            // 前五列是既有值，逐字保留；后三列是新区域的映射，全部大于 0。
+            new ValuableDefinition("blue_blood_bag", 2, 1, 3, 4, 1, 1, 1, 1),
+            new ValuableDefinition("water_filter_adv", 2, 1, 3, 1, 2, 1, 1, 5),
+            new ValuableDefinition("portable_water_purifier", 1, 1, 3, 1, 2, 1, 1, 5),
+            new ValuableDefinition("bottled_water_premium", 2, 1, 3, 1, 2, 1, 1, 5),
+            new ValuableDefinition("black_injector", 1, 1, 1, 5, 3, 1, 1, 1),
+            new ValuableDefinition("rare_electronic", 1, 3, 1, 1, 1, 5, 3, 1),
+            new ValuableDefinition("module_extractor_advanced", 1, 4, 1, 1, 3, 5, 5, 2),
+            new ValuableDefinition("printer_chip_pistol_double", 1, 2, 1, 1, 2, 2, 2, 1),
+            new ValuableDefinition("printer_chip_heavy_handmade_pistol_frame", 1, 2, 1, 1, 2, 2, 2, 1),
+            new ValuableDefinition("printer_chip_combat_machete", 1, 2, 1, 1, 3, 2, 2, 1),
+            new ValuableDefinition("printer_chip_gun_part", 1, 3, 1, 2, 2, 4, 4, 1),
+            new ValuableDefinition("printer_chip_10_mag_ext", 1, 2, 1, 1, 3, 3, 3, 1),
+            new ValuableDefinition("revolver", 2, 1, 1, 1, 3, 1, 1, 1),
+            new ValuableDefinition("stun_gun", 2, 1, 1, 1, 3, 1, 1, 1),
+            new ValuableDefinition("smg", 1, 1, 1, 1, 2, 1, 1, 1),
+            new ValuableDefinition("shotgun", 1, 1, 1, 1, 2, 1, 1, 1),
+            new ValuableDefinition("combat_machete", 2, 3, 2, 3, 4, 1, 2, 1),
+            new ValuableDefinition("stun_baton", 2, 3, 1, 2, 3, 1, 2, 1),
+            new ValuableDefinition("advanced_flux_agent", 1, 2, 1, 1, 2, 4, 3, 1),
+            new ValuableDefinition("large_purple_injector", 1, 1, 2, 4, 1, 1, 1, 1),
+            new ValuableDefinition("glock_receiver", 1, 1, 1, 1, 3, 1, 1, 1),
+            new ValuableDefinition("heavy_handmade_pistol", 1, 1, 1, 1, 3, 1, 1, 1),
+            new ValuableDefinition("surgery_tool", 1, 1, 1, 4, 1, 1, 1, 1),
+            new ValuableDefinition("module_extractor", 1, 3, 1, 1, 1, 4, 5, 2),
+            new ValuableDefinition("packet_red_cigarette", 1, 1, 3, 1, 1, 1, 1, 1),
+            new ValuableDefinition("wine_yeast_infinite", 1, 2, 1, 1, 1, 1, 1, 1),
         };
 
         /// <summary>正品免疫宁：贵重品槽位固定给这一件，次品走 InjectorBadId。</summary>
@@ -109,7 +107,8 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// Per-area valuable mix, in Region.All order (gate, scrap, refuse,
-        /// medical, weapons). 每个区都能掉到池里的全部四类，只是权重偏向本区主题。
+        /// medical, weapons, electronics, vehicles, water).
+        /// 每个区都能掉到池里的全部四类，只是权重偏向本区主题。
         /// </summary>
 
 
@@ -154,6 +153,22 @@ namespace DumpingGroundMap
                 { "toilet_paper", 25f },
                 { "full_water_test_strip_box", 31f },
                 { "full_water_purification_tablet_box", 55f },
+                { WaterSupplyPack.HalfTest, 16f },
+                { WaterSupplyPack.HalfTablets, 31f },
+                // 废泵站普通表：饮水、净水用品与容器；数值取游戏 unitValue。
+                { "bottled_water", 5f },
+                { "small_bottled_water", 4f },
+                { "large_bottled_water", 9f },
+                { "water_jug", 15f },
+                { "water_ration", 30f },
+                { "water_ration_small", 15f },
+                { "water_tablet", 6f },
+                { "water_test_strip", 3f },
+                { "water_tablet_container", 1f },
+                { "water_test_container", 1f },
+                { "hydroreed_filter", 20f },
+                { "uv_filter", 150f },
+                { "mini_bottle", 3f },
                 { "glass_shard_shiv", 8f },
                 { "box_cutter", 28f },
                 { "kitchen_knife", 45f },
@@ -274,10 +289,10 @@ namespace DumpingGroundMap
                 { "loot_crate_service", 350f },
                 { "loot_crate_medical", 500f },
                 { "loot_crate_security", 600f },
-                { "eng_keycard", 60f },
-                { "ser_keycard", 60f },
-                { "med_keycard", 60f },
-                { "sec_keycard", 60f }
+                { "eng_keycard", 75f },
+                { "ser_keycard", 40f },
+                { "med_keycard", 75f },
+                { "sec_keycard", 100f }
             };
 
     }

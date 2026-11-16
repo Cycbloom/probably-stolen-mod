@@ -5,7 +5,7 @@ namespace DumpingGroundMap
 {
     internal static class LootCalculator
     {
-        internal static EffectiveTable Build(Region region, LootSettings settings, bool perk80, float junkScale = 1f)
+        internal static EffectiveTable Build(Region region, LootSettings settings, bool perk80, float junkScale = 1f, int reputation = 0)
         {
             RegionLootTable theme = region.Loot;
             RegionLootTable vanilla = ScavLoot.Vanilla;
@@ -47,10 +47,9 @@ namespace DumpingGroundMap
 
             // 2) 垃圾概率 = 插值后的垃圾占比 × 垃圾倍率。垃圾倍率是唯一能
             //    单独调垃圾多少的旋钮，专精插值不会把它清零。
-            float vanillaJunkShare = vanilla.JunkWeight / vanillaNonJunk;
-            float themeJunkShare = theme.JunkWeight / themeNonJunk;
-            float junkPerNonJunk = (1f - specialty) * vanillaJunkShare + specialty * themeJunkShare;
-            float junkBase = junkPerNonJunk / (junkPerNonJunk + 1f);
+            // Locked previews use the distribution available when that area opens.
+            LootBalance.Apply(region, ids, weights, Math.Max(reputation, region.RequiredReputation));
+            float junkBase = LootBalance.JunkBase(region);
             float junkProb = ProbabilityMath.Clamp(junkBase * settings.JunkPercent / 100f, 0f, 0.995f);
 
             // 3) The valuable share and the 80-tier crate/keycard shares are
@@ -58,6 +57,7 @@ namespace DumpingGroundMap
             float highChance = ProbabilityMath.Clamp((perk80 ? settings.HighPercent : 0f), 0f, 30f) / 100f;
             string crateId = LootCatalog.CrateFor(region.Id);
             string cardId = LootCatalog.CardFor(region.Id);
+            SupplyEntry[] supplies = SupplyPool.For(region.Id);
             bool withCrate = crateId != null;
             bool withCard = cardId != null;
             float crateChance = withCrate && perk80 ? ProbabilityMath.Clamp(settings.CratePercent, 0f, 5f) / 100f : 0f;
@@ -75,7 +75,7 @@ namespace DumpingGroundMap
             float normalProb = Math.Max(0f, 1f - junkProb - reserved);
 
             int highCount = LootCatalog.Valuables.Length;
-            int specialCount = (withCrate ? 1 : 0) + (withCard ? 1 : 0);
+            int specialCount = supplies.Length * 2;
 
             string[] items = new string[count + highCount + specialCount];
             float[] probs = new float[count + highCount + specialCount];
@@ -104,16 +104,17 @@ namespace DumpingGroundMap
             }
 
             int slotNext = count + highCount;
-            if (withCrate)
+            int supplyTotal = 0;
+            foreach (SupplyEntry entry in supplies) supplyTotal += entry.Weight;
+            foreach (SupplyEntry entry in supplies)
             {
-                items[slotNext] = crateId;
-                probs[slotNext] = crateChance;
+                float share = entry.Weight / (float)supplyTotal;
+                items[slotNext] = entry.CrateId;
+                probs[slotNext] = crateChance * share;
                 ++slotNext;
-            }
-            if (withCard)
-            {
-                items[slotNext] = cardId;
-                probs[slotNext] = cardChance;
+                items[slotNext] = entry.CardId;
+                probs[slotNext] = cardChance * share;
+                ++slotNext;
             }
 
             // 4) Match the native event roll: scale only junk's weight, then
@@ -135,7 +136,7 @@ namespace DumpingGroundMap
             // 5) Expected value of one event-adjusted roll.
             float expected = 0f;
             for (int i = 0; i < items.Length; ++i)
-                expected += probs[i] * LootCatalog.ValueOf(items[i]);
+                expected += probs[i] * LootCatalog.ExpectedValueOf(items[i], region.Id);
 
             float finalJunk = junkIndex >= 0 ? probs[junkIndex] : 0f;
             return new EffectiveTable(items, probs, isHigh, highChance, finalJunk, expected,

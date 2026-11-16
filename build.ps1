@@ -13,6 +13,14 @@ $intermediate = Join-Path $PSScriptRoot 'obj/release'
 $binary = Join-Path $intermediate 'DumpingGroundMap.dll'
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File -Recurse | Sort-Object FullName | ForEach-Object FullName)
 if ($sources.Count -eq 0) { throw 'No C# sources found in src/.' }
+$artKeys = 'dumping_ground_map_art','dumping_ground_map_base','dumping_ground_landmarks',
+    'dumping_ground_gate','dumping_ground_scrap','dumping_ground_refuse','dumping_ground_med',
+    'dumping_ground_weapons','dumping_ground_electronics','dumping_ground_vehicles','dumping_ground_water'
+foreach ($key in $artKeys) {
+    if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot "Paper/$key.png"))) {
+        throw "Missing scene texture: $key"
+    }
+}
 foreach ($required in $managed,$compiler,(Join-Path $framework 'Facades/netstandard.dll'),(Join-Path $PSScriptRoot 'Paper/dumping_ground_map.png')) {
     if (-not (Test-Path -LiteralPath $required)) { throw "Missing build input: $required" }
 }
@@ -21,7 +29,7 @@ if ($Install) {
     if ($running) { throw 'Close Probably Stolen before installing. Building without -Install is supported while it runs.' }
 }
 $refs = 'Assembly-CSharp','0Harmony','UnityEngine','UnityEngine.CoreModule','UnityEngine.UI',
-    'Unity.TextMeshPro','UnityEngine.UIModule','UnityEngine.TextRenderingModule','UnityEngine.SharedInternalsModule'
+    'Unity.TextMeshPro','UnityEngine.InputLegacyModule','UnityEngine.UIModule','UnityEngine.TextRenderingModule','UnityEngine.SharedInternalsModule'
 $arguments = '/noconfig','/nologo','/t:library','/platform:x64','/optimize+','/codepage:65001','/nostdlib+',
     "/out:$binary","/r:$framework/mscorlib.dll","/r:$framework/System.dll",
     "/r:$framework/System.Core.dll","/r:$framework/Facades/netstandard.dll"
@@ -51,16 +59,23 @@ if ($Check) {
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 Copy-Item -LiteralPath $binary,(Join-Path $PSScriptRoot 'manifest.xml') -Destination $dist -Force
 $paper = Join-Path $PSScriptRoot 'Paper'
-$distPaper = Join-Path $dist 'Paper'
+$distPaper = Join-Path $dist 'Textures/Paper'
 New-Item -ItemType Directory -Force -Path $distPaper | Out-Null
-Copy-Item -LiteralPath (Join-Path $paper 'dumping_ground_map.png') -Destination $distPaper -Force
+Get-ChildItem -LiteralPath $paper -Filter '*.png' -File | Copy-Item -Destination $distPaper -Force
+foreach ($key in $artKeys) {
+    $sourceHash = (Get-FileHash -LiteralPath (Join-Path $paper "$key.png")).Hash
+    if ($sourceHash -ne (Get-FileHash -LiteralPath (Join-Path $distPaper "$key.png")).Hash) {
+        throw "Packaged scene texture differs: $key"
+    }
+}
+Write-Output ('PASS: ' + $artKeys.Count + ' scene/map textures packaged in Textures/Paper (native ModLoader path)')
 
 if ($Install) {
     $destination = Join-Path $root 'Mods/DumpingGroundMap'
-    $destinationPaper = Join-Path $destination 'Paper'
+    $destinationPaper = Join-Path $destination 'Textures/Paper'
     New-Item -ItemType Directory -Force -Path $destinationPaper | Out-Null
     Copy-Item -LiteralPath (Join-Path $dist 'DumpingGroundMap.dll'),(Join-Path $dist 'manifest.xml') -Destination $destination -Force
-    Copy-Item -LiteralPath (Join-Path $distPaper 'dumping_ground_map.png') -Destination $destinationPaper -Force
+    Get-ChildItem -LiteralPath $distPaper -Filter '*.png' -File | Copy-Item -Destination $destinationPaper -Force
     Write-Output "Installed to $destination"
 }
 Write-Output "Built $(Join-Path $dist 'DumpingGroundMap.dll') ($($sources.Count) source files)"

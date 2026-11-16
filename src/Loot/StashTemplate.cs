@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using HarmonyLib;
@@ -8,7 +8,7 @@ namespace DumpingGroundMap
 {
     /// <summary>
     /// 爆大奖的区域样板：按品类分组的奖池、该区匹配的贵重品、当场提示、报纸文案，
-    /// 以及中奖次日的价格修正。五个区各一条。
+    /// 以及中奖次日的价格修正。八个区各一条。
     /// 价格修正按品类挂，可以挂多条（生活废料带同时挂食品与日用品）；
     /// 某件物品若确实没有对应市场类型，就把品类数组留空，只写报纸、不真降价。
     /// </summary>
@@ -106,32 +106,23 @@ namespace DumpingGroundMap
                 "Someone dragged a chest of tools out of the trash by the main gate last night, with bundles of stock and a few pricey chips still underneath. The hardware dealer was looking sour this morning; tools and materials are likely to go cheap today.",
                 "工具倾销", "Tool Surplus"),
 
-            // 拆解堆：材料 / 工具 / 模组三组，按本区三个大类各取一组。
-            // 贵重品取打印芯片与高价材料、工具，与拆解堆的产出对路。
+            // 拆解堆：整垛原材料为主，少量拆卸工具；贵重加工材料单独抽取。
             new StashTemplate("scrap",
                 new[]
                 {
-                    new RewardGroup(2, 3, "scrap_metal", "printer_plastic", "nuts_metal", "wire",
-                        "gun_part", "common_electronic", "metal_ingot"),
-                    new RewardGroup(2, 3, "screwdriver", "turbo_booster", "wire_cutter",
-                        "welder", "module_extractor", "crowbar"),
-                    new RewardGroup(2, 3, "system_module_ruined", "system_module_corrupt",
-                        "blank_module", "random_performance_module", "random_efficiency_module",
-                        "random_quality_module", "system_module_performance",
-                        "system_module_eco", "system_module_fineness")
+                    new RewardGroup(5, 7, "scrap_metal", "printer_plastic", "nuts_metal",
+                        "metal_ingot", "kotton_fabric"),
+                    new RewardGroup(1, 2, "screwdriver", "wire_cutter", "welder", "crowbar")
                 },
-                new[] { "printer_chip_pistol_double", "printer_chip_heavy_handmade_pistol_frame",
-                        "printer_chip_combat_machete", "printer_chip_gun_part",
-                        "printer_chip_10_mag_ext", "advanced_flux_agent",
-                        "module_extractor_advanced", "rare_electronic" },
-                new[] { 6, 3, 2, 60, 6, 60, 12, 12 },
+                new[] { "printer_chip_combat_machete", "printer_chip_gun_part", "advanced_flux_agent" },
+                new[] { 3, 30, 30 },
                 new[] { "MATERIAL" }, new[] { -20 },
-                "你在{0}翻出材料、工具和模组！\n今天继续在本区拾荒，每次多得1件物品。",
-                "Tools, stock and modules {0}!\nSearch here again today: +1 item per search.",
+                "你在{0}翻出整垛原材料和拆卸工具！\n今天继续在本区拾荒，每次多得1件物品。",
+                "Raw stock and dismantling tools {0}!\nSearch here again today: +1 item per search.",
                 "拆解堆出了整垛料和几箱工具",
-                "Stock, Tools and Modules From the Scrap Pile",
-                "拆解堆昨夜出了怪事：有人从塌掉的夹层里拖出整垛还没回炉的金属和塑料，外加一箱工具和几块完好的模组，里头还夹着值钱的芯片。消息传开，收料的开价一个比一个低，今天材料怕是要贱卖。",
-                "Something odd happened at the scrap pile last night: someone hauled a whole stack of unmelted metal and plastic out of a collapsed cavity, plus a box of tools, a few intact modules and some pricey chips. Word got around, and the buyers are already undercutting each other — materials will probably sell cheap today.",
+                "Raw Stock and Tools From the Scrap Pile",
+                "拆解堆昨夜有人从塌掉的夹层里拖出整垛还没回炉的金属、塑料和成卷布料，外加几把拆卸工具和加工用的值钱货。消息传开，收料的开价一个比一个低，今天材料怕是要贱卖。",
+                "Someone hauled stacks of unmelted metal, plastic and fabric out of a collapsed cavity in the scrap pile, with dismantling tools and valuable manufacturing supplies. Buyers are undercutting each other; materials will likely sell cheap today.",
                 "材料过剩", "Material Glut"),
 
             // 生活废料带：食品一组、日用品一组，价格修正仍是 FOOD + HOUSEHOLD_GOOD 两条。
@@ -211,7 +202,69 @@ namespace DumpingGroundMap
                 "An Arms Crate in the Weapon Dump",
                 "有人昨夜在废武器堆撬开一只军械箱，抱走成把的子弹和两三支还能打响的枪，连枪上的配件和几件值钱货都拆下来带走了。枪铺今天大概要被迫让价。",
                 "Someone cracked open an arms crate in the weapon dump last night and walked off with fistfuls of rounds, two or three working guns, and the mods and valuables stripped off them. The gun shop will likely be forced to cut prices today.",
-                "军械流入市场", "Arms Flood the Market")
+                "军械流入市场", "Arms Flood the Market"),
+
+            // 电子垃圾坡：电子件 / 工具 / 模组三组，对应本区三个非垃圾大类。
+            // 贵重品偏电子与模组；价格修正只挂已存在的 MATERIAL / TOOL。
+            new StashTemplate("electronics",
+                new[]
+                {
+                    new RewardGroup(3, 4, "common_electronic", "wire", "flux_agent"),
+                    new RewardGroup(1, 2, "screwdriver", "wire_cutter", "module_extractor"),
+                    new RewardGroup(2, 3, "system_module_ruined", "system_module_corrupt",
+                        "blank_module", "random_performance_module",
+                        "random_efficiency_module", "random_quality_module",
+                        "system_module_performance")
+                },
+                new[] { "rare_electronic", "module_extractor_advanced", "module_extractor" },
+                new[] { 18, 18, 60 },
+                new[] { "MATERIAL", "TOOL" }, new[] { -20, -20 },
+                "你在{0}翻出整箱电子件和模组！\n今天继续在本区拾荒，每次多得1件物品。",
+                "A crate of electronics and modules {0}!\nSearch here again today: +1 item per search.",
+                "电子垃圾坡的整箱元件",
+                "A Crate of Components at the E-Waste Slope",
+                "有人昨夜在电子垃圾坡的烧穿配电柜后面拖出整箱还能用的电子元件和几块完好模组，连工具也一并带走。货一早上了摊，今天电子件和工具多半要一起跌。",
+                "Someone dragged a crate of still-working components and a few intact modules out from behind a burnt-out switchgear cabinet on the e-waste slope last night, tools included. The lot hit the stalls at dawn, so electronics and tools will likely both go cheap today.",
+                "电子件倾销", "Electronics Surplus"),
+
+            // 报废车场：工具箱为主，少量机械材料与零件，贵重工具单独抽取。
+            new StashTemplate("vehicles",
+                new[]
+                {
+                    new RewardGroup(1, 2, "scrap_metal", "nuts_metal", "wire", "metal_ingot"),
+                    new RewardGroup(4, 5, "screwdriver", "wire_cutter", "welder",
+                        "turbo_booster", "box_cutter", "crowbar"),
+                    new RewardGroup(1, 2, "gun_part", "internal_springs")
+                },
+                new[] { "module_extractor_advanced", "module_extractor", "printer_chip_gun_part" },
+                new[] { 18, 60, 35 },
+                new[] { "MATERIAL", "TOOL" }, new[] { -20, -20 },
+                "你在{0}拆出一车工具和金属件！\n今天继续在本区拾荒，每次多得1件物品。",
+                "A cart of tools and metal parts {0}!\nSearch here again today: +1 item per search.",
+                "报废车场拆出的整箱工具",
+                "A Tool Chest From the Vehicle Graveyard",
+                "报废车场昨夜有人把一辆压扁的车壳整个拆开，拖出成箱工具、整捆金属件和几块还能用的零件。废料商和五金铺同时收到货，今天材料与工具怕是要一起掉价。",
+                "Someone cut open a crushed car shell at the vehicle graveyard last night and hauled out a chest of tools, bundles of metal parts, and a few salvageable components. The scrap dealers and the hardware shop both got stock at once; materials and tools will likely fall together today.",
+                "拆车件涌入", "Salvage Flood"),
+
+            // 废泵站：批量奖励只给净水耗材、检测用品和设备，不给水容器。
+            new StashTemplate("water",
+                new[]
+                {
+                    new RewardGroup(3, 4, WaterSupplyPack.HalfTablets, "full_water_purification_tablet_box"),
+                    new RewardGroup(3, 4, "hydroreed_filter", "water_filter", "uv_filter"),
+                    new RewardGroup(2, 3, WaterSupplyPack.HalfTest, "full_water_test_strip_box")
+                },
+                new[] { "water_filter_adv", "portable_water_purifier" },
+                new[] { 15, 18 },
+                new[] { "HOUSEHOLD_GOOD" }, new[] { -20 },
+                "你在{0}翻出整箱净水用品！\n今天继续在本区拾荒，每次多得1件物品。",
+                "A crate of water supplies {0}!\nSearch here again today: +1 item per search.",
+                "废泵站的整箱净水物资",
+                "A Crate of Water Supplies at the Pump Station",
+                "废泵站昨夜有人从锈死的泵房里拖出整箱净水药片、滤芯和水质检测用品，还找到了能用的净水设备。消息传开后，日用品摊主今早都在压价。",
+                "Someone dragged crates of purification tablets, filter cartridges, and water-testing supplies out of a rusted-shut pump house last night, along with working purification equipment. Word spread fast, and the household stalls were undercutting each other this morning.",
+                "净水物资涌入", "Water Supplies Flood In")
         };
 
         internal static StashTemplate For(string regionId)
