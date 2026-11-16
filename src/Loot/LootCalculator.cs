@@ -33,6 +33,9 @@ namespace DumpingGroundMap
             string[] ids = idList.ToArray();
             int junkIndex = Array.IndexOf(ids, "junk");
             float[] weights = new float[count];
+            // vanillaFraction[i]：这一槽有多大比例来自「非专精」分支（原版表那份）。
+            // 声望倾斜对单个物品是整体缩放，不改变这个比例。
+            float[] vanillaFraction = new float[count];
             float otherTotal = 0f;
             for (int i = 0; i < count; ++i)
             {
@@ -41,8 +44,10 @@ namespace DumpingGroundMap
                 int vanillaIndex = vanilla.IndexOf(ids[i]);
                 float themeWeight = themeIndex >= 0 ? theme.Weights[themeIndex] / themeNonJunk : 0f;
                 float vanillaWeight = vanillaIndex >= 0 ? vanilla.Weights[vanillaIndex] / vanillaNonJunk : 0f;
-                float weight = (1f - specialty) * vanillaWeight + specialty * themeWeight;
+                float vanillaBranch = (1f - specialty) * vanillaWeight;
+                float weight = vanillaBranch + specialty * themeWeight;
                 weights[i] = weight;
+                vanillaFraction[i] = weight > 0f ? vanillaBranch / weight : 0f;
                 otherTotal += weight;
             }
 
@@ -89,8 +94,10 @@ namespace DumpingGroundMap
             }
             if (foreignCount == 0) foreignChance = 0f;
 
-            if (otherTotal <= 0f) junkProb = Math.Max(0f, 1f - reserved - foreignChance);
-            float normalProb = Math.Max(0f, 1f - junkProb - reserved - foreignChance);
+            // 普通槽扣掉外来份额之前的总量；外来份额在 3c 里按「非专精优先」
+            // 从垃圾与普通槽里扣，扣完总量仍然是 1。
+            if (otherTotal <= 0f) junkProb = Math.Max(0f, 1f - reserved);
+            float normalProb = Math.Max(0f, 1f - junkProb - reserved);
 
             int highCount = LootCatalog.Valuables.Length;
             int specialCount = supplies.Length * 2;
@@ -107,6 +114,47 @@ namespace DumpingGroundMap
                 if (i == junkIndex) probs[i] = junkProb;
                 else probs[i] = otherTotal > 0f ? normalProb * (weights[i] / otherTotal) : 0f;
                 isJunk[i] = i == junkIndex;
+            }
+
+            // 3c) 外来份额优先从「非专精」部分出：垃圾，加上普通物品里由原版表
+            //     插值来的那一份；两者按各自占比等比压缩，专精物品最后才动。
+            //     非专精不够时（例如专精 100% 且垃圾关闭）才从专精部分按比例扣。
+            if (foreignCount > 0 && foreignChance > 0f)
+            {
+                float[] vanillaPart = new float[count];
+                float[] specialtyPart = new float[count];
+                float nonSpecialty = junkIndex >= 0 ? junkProb : 0f;
+                float specialtyTotal = 0f;
+                for (int i = 0; i < count; ++i)
+                {
+                    if (i == junkIndex) continue;
+                    vanillaPart[i] = probs[i] * vanillaFraction[i];
+                    specialtyPart[i] = probs[i] - vanillaPart[i];
+                    nonSpecialty += vanillaPart[i];
+                    specialtyTotal += specialtyPart[i];
+                }
+                float taken = Math.Min(foreignChance, nonSpecialty);
+                if (taken > 0f && nonSpecialty > 0f)
+                {
+                    float scale = taken / nonSpecialty;
+                    if (junkIndex >= 0) junkProb -= junkProb * scale;
+                    for (int i = 0; i < count; ++i)
+                    {
+                        if (i == junkIndex) continue;
+                        probs[i] -= vanillaPart[i] * scale;
+                    }
+                }
+                float rest = foreignChance - taken;
+                if (rest > 0f && specialtyTotal > 0f)
+                {
+                    float scale = Math.Min(1f, rest / specialtyTotal);
+                    for (int i = 0; i < count; ++i)
+                    {
+                        if (i == junkIndex) continue;
+                        probs[i] -= specialtyPart[i] * scale;
+                    }
+                }
+                if (junkIndex >= 0) probs[junkIndex] = junkProb;
             }
 
             {

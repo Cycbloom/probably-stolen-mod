@@ -209,12 +209,63 @@ internal static class RulesTests
             false, 1f, 0, large);
         Check(off.ForeignCount == 0, "Zero cap disables the pool");
         Near(off.Ev, baseline.Ev, "Zero cap restores baseline EV");
+
+        // 专精 0%：普通物品全部来自原版分支，份额由「垃圾 + 普通」等比承担。
+        LootSettings none = new LootSettings(100f, 0f, 0f, 0f, 0f, 5f);
+        EffectiveTable noneBase = LootCalculator.Build(region, new LootSettings(100f, 0f, 0f, 0f, 0f), false, 1f, 0);
+        EffectiveTable noneTable = LootCalculator.Build(region, none, false, 1f, 0, large);
+        Near(noneTable.JunkChance, noneBase.JunkChance * 0.95f,
+            "At 0% specialty junk pays its proportional share of the foreign slice");
+        Near(OrdinaryProb(noneTable, "scrap_metal"), OrdinaryProb(noneBase, "scrap_metal") * 0.95f,
+            "At 0% specialty ordinary items pay the rest of the foreign slice");
+        Near(SumProbs(noneTable), 1f, "Non-specialty deduction keeps total probability at 1");
+
+        // 专精 100%：普通物品全在专精分支，外来份额只能从垃圾里出，
+        // 这些物品的概率一件都不许变。
+        LootSettings full = new LootSettings(100f, 0f, 100f, 0f, 0f, 5f);
+        EffectiveTable fullTable = LootCalculator.Build(region, full, false, 1f, 0, large);
+        Near(fullTable.JunkChance, baseline.JunkChance - 0.05f,
+            "At full specialty the foreign slice comes out of junk");
+        Near(OrdinaryProb(fullTable, "scrap_metal"), OrdinaryProb(baseline, "scrap_metal"),
+            "At full specialty specialty items keep their chance");
+        Near(SumProbs(fullTable), 1f, "Full specialty deduction keeps total probability at 1");
+
+        // 专精 100% 且垃圾关闭：非专精部分为空，只能从专精物品等比补足。
+        LootSettings dry = new LootSettings(0f, 0f, 100f, 0f, 0f, 5f);
+        EffectiveTable dryBase = LootCalculator.Build(region, new LootSettings(0f, 0f, 100f, 0f, 0f), false, 1f, 0);
+        EffectiveTable dryTable = LootCalculator.Build(region, dry, false, 1f, 0, large);
+        Near(dryTable.JunkChance, 0f, "Junk stays empty when it was disabled");
+        Near(OrdinaryProb(dryTable, "scrap_metal"), OrdinaryProb(dryBase, "scrap_metal") * 0.95f,
+            "Specialty items cover the foreign slice only when non-specialty is empty");
+        Near(SumProbs(dryTable), 1f, "Specialty fallback keeps total probability at 1");
+
+        // 专精 50%：主题表独有的物品走专精分支，概率不动；原版独有与垃圾下降。
+        LootSettings half = new LootSettings(100f, 0f, 50f, 0f, 0f, 5f);
+        EffectiveTable halfBase = LootCalculator.Build(region, new LootSettings(100f, 0f, 50f, 0f, 0f), false, 1f, 0);
+        EffectiveTable halfTable = LootCalculator.Build(region, half, false, 1f, 0, large);
+        Check(OrdinaryProb(halfBase, "metal_ingot") > 0f, "Theme-only item is part of the base table");
+        Near(OrdinaryProb(halfTable, "metal_ingot"), OrdinaryProb(halfBase, "metal_ingot"),
+            "Theme-only items are untouched while non-specialty still covers the slice");
+        Check(OrdinaryProb(halfTable, "kotton_fabric") < OrdinaryProb(halfBase, "kotton_fabric"),
+            "Vanilla-only items give up part of their chance");
+        Check(halfTable.JunkChance < halfBase.JunkChance,
+            "Junk gives up part of its chance alongside the vanilla branch");
+        Near(SumProbs(halfTable), 1f, "Mixed-specialty deduction keeps total probability at 1");
     }
 
     private static float SumProbs(EffectiveTable table)
     {
         float sum = 0f;
         for (int i = 0; i < table.Count; ++i) sum += table.Probs[i];
+        return sum;
+    }
+
+    /// <summary>普通槽里某个 id 的概率合计（贵重品/箱卡分区不算）。</summary>
+    private static float OrdinaryProb(EffectiveTable table, string id)
+    {
+        float sum = 0f;
+        for (int i = 0; i < table.HighStart; ++i)
+            if (table.Items[i] == id) sum += table.Probs[i];
         return sum;
     }
 

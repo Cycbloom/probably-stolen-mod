@@ -55,12 +55,13 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// 其它模组加进原版拾荒组的物品。设置值是每次拾荒的上限份额，实际
-        /// 取它与「这些条目在原版组里的自然占比」的较小值。
+        /// 取它与「这些条目在原版组里的自然占比」的较小值；份额优先从非专精
+        /// 部分（垃圾 + 普通物品的原版分支）扣，不够才动专精物品。
         /// </summary>
         internal const string ForeignEnabledKey = "foreign_loot_enabled";
         internal const bool DefaultForeignEnabled = true;
         internal const string ForeignPercentKey = "foreign_loot_percent";
-        internal const float DefaultForeignPercent = 2f;
+        internal const float DefaultForeignPercent = 5f;
         internal const float ForeignPercentMin = 0f;
         internal const float ForeignPercentMax = 8f;
         /// <summary>顺带纳入本模组表没收录的原版物品（排查遗漏用）。</summary>
@@ -640,8 +641,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "每次拾荒里，外来条目最多占多少概率。\n这是上限而不是固定摊派：如果它们在原版表里本来只占 0.8%，就按 0.8% 出。\n份额从非垃圾普通物品里扣除，和补给箱、钥匙卡同一套算法。\n0% 等于关闭；超过 3% 时，值钱的外来物品会明显抬高单次收益。\n默认 2%。",
-                            "Upper bound on how much of one haul foreign entries may take.\nThis is a cap, not a fixed allotment: if they naturally hold 0.8% of the native table, they get 0.8%.\nThe share is taken from non-junk ordinary items, the same way crates and keycards are.\n0% disables it; above 3% valuable foreign items noticeably raise per-search returns.\nDefault 2%.");
+                            "每次拾荒里，外来条目最多占多少概率。\n这是上限而不是固定摊派：如果它们在原版表里本来只占 0.8%，就按 0.8% 出。\n份额优先从非专精部分扣除（垃圾，以及普通物品里由原版表插值来的那份），专精物品最后才动。\n0% 等于关闭；值钱的外来物品越多，单次收益抬得越明显。\n默认 5%。",
+                            "Upper bound on how much of one haul foreign entries may take.\nThis is a cap, not a fixed allotment: if they naturally hold 0.8% of the native table, they get 0.8%.\nThe share comes out of the non-specialty part first (junk, plus the vanilla half of ordinary items); specialty items are touched last.\n0% disables it; the more valuable the foreign items, the more they raise per-search returns.\nDefault 5%.");
                     },
                     false);
 
