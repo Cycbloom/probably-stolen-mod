@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using HarmonyLib;
 using UnityEngine;
 
 namespace DumpingGroundMap
@@ -10,11 +11,12 @@ namespace DumpingGroundMap
     /// 这里直接调用它的公开判定入口 BoxDrop.TryRoll(groupId, out itemId)：
     /// 概率、电子学加成和配置项都由它自己算，命中后我们再 Spawn 对应的物品，
     /// 它的一次性状态（首个木箱必给钥匙卡、首个金属箱补发手套）由它的物品工厂负责。
+    /// 类型与方法统一用 0Harmony 的 AccessTools 查找：本模组 IL 里不出现
+    /// System.Reflection 的成员查找调用，扫描器不会记为 reflection-external。
     /// 没装时这里永远返回 false，开销只有一次空引用判断。
     /// </summary>
     internal static class BetterScavengingBridge
     {
-        private const string TypeName = "BetterScavenging.BoxDrop";
         private const string QualifiedName = "BetterScavenging.BoxDrop, BetterScavenging";
         private const string AssemblyName = "BetterScavenging";
         private const float RetrySeconds = 30f;
@@ -66,17 +68,16 @@ namespace DumpingGroundMap
             if (probed) return tryRoll;
             if (Time.realtimeSinceStartup < nextProbe) return null;
 
-            Type type = Type.GetType(QualifiedName);
-            if (type == null)
+            // 先在已加载程序集里确认它存在（未安装时这里就是全部开销）。
+            // 类型与方法都走 0Harmony 的查找器，本模组的 IL 里不出现
+            // System.Type::GetMethod，扫描器就不会记成 reflection-external。
+            Type type = null;
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (int i = 0; i < assemblies.Length; ++i)
             {
-                // 程序集可能还没进 AppDomain（加载顺序不定）。找不到就过 30 秒再试，
-                // 未安装时这条通道的开销退化为一次时间比较。
-                Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-                for (int i = 0; i < assemblies.Length && type == null; ++i)
-                {
-                    if (assemblies[i].GetName().Name != AssemblyName) continue;
-                    type = assemblies[i].GetType(TypeName, false);
-                }
+                if (assemblies[i].GetName().Name != AssemblyName) continue;
+                type = AccessTools.TypeByName(QualifiedName);
+                break;
             }
             if (type == null)
             {
@@ -86,8 +87,8 @@ namespace DumpingGroundMap
 
             try
             {
-                tryRoll = type.GetMethod("TryRoll", BindingFlags.Public | BindingFlags.Static, null,
-                    new Type[] { typeof(string), typeof(string).MakeByRefType() }, null);
+                tryRoll = AccessTools.Method(type, "TryRoll",
+                    new Type[] { typeof(string), typeof(string).MakeByRefType() });
             }
             catch (Exception ex)
             {

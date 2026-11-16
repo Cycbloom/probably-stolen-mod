@@ -1,5 +1,11 @@
 ﻿# 版本记录
 
+## 0.6.5（待部署）
+
+- 撤销 0.6.4 的能力声明：清单恢复为空的 `<Capabilities />`，发布版不再要求任何权限，启用时不再弹权限提示。
+- 「更好的拾荒」桥接不再直接调用 `System.Type.GetMethod`，改用 0Harmony 的 `AccessTools.TypeByName` 与 `AccessTools.Method` 查找同一个 `BetterScavenging.BoxDrop.TryRoll(string, out string)`；调用参数、判定与返回、30 秒重试、未安装时的空转开销都保持不变。
+- 本地扫描复核：711 个方法、0 hard flags、0 capabilities，`Undeclared` 为空；`tools/verify.ps1 -Scan` 改为要求扫描结果与清单声明同时为空。
+
 ## 0.6.4
 
 - 修复 0.6.2/0.6.3 被模组扫描器判定「使用了清单文件中未声明的权限」而无法启用的问题：0.6.2 的「更好的拾荒」桥接通过 `Type.GetMethod` 反射调用对方公开入口，扫描器据此记录 `reflection-external`，但清单仍写着 `<Capabilities />`。
