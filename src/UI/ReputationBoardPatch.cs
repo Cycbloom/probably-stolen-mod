@@ -224,7 +224,7 @@ namespace DumpingGroundMap
         /// 100 才用五角星作为最高档标记；未解锁 alpha 0.35。
         /// 预制体自带的 PerkElement 在 Init 前记进 before，Init 后移除，
         /// 这样五个图标的归属不依赖子物体索引（0.3.24 曾因此错位）。
-        /// 每个图标挂上自己的 tooltip 组件，未解锁也能悬停预览。
+        /// 图标只做展示；悬停由 DgmPerkHover 写下方说明区，不弹浮动提示框。
         /// </summary>
         private static void StylePerks(GameObject row, int points,
             ReputationUIManager manager, List<PerkElement> before)
@@ -266,12 +266,13 @@ namespace DumpingGroundMap
                 Color color = perk.image.color;
                 color.a = points >= threshold ? 1f : 0.35f;
                 perk.image.color = color;
+                // 悬停只喂下方说明区、不弹浮动提示框：恢复射线检测与自定义悬停组件，
+                // 同时停用原生 PerkElement，避免它写入原生 Referral / Active 文案。
                 perk.image.raycastTarget = true;
                 perk.enabled = false;
-
-                DgmPerkTooltip tip = perk.gameObject.GetComponent<DgmPerkTooltip>();
-                if (tip == null) tip = perk.gameObject.AddComponent<DgmPerkTooltip>();
-                tip.Setup(manager, threshold, points >= threshold);
+                DgmPerkHover hover = perk.gameObject.GetComponent<DgmPerkHover>();
+                if (hover == null) hover = perk.gameObject.AddComponent<DgmPerkHover>();
+                hover.Setup(manager, threshold, points >= threshold);
 
                 layout += (i == 0 ? "" : " ") + threshold + "@" + Y(perk).ToString("F1")
                     + "/s1.00";
