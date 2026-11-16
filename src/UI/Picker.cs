@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
+using System.Text;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
@@ -301,18 +302,82 @@ namespace DumpingGroundMap
 
         internal static string ItemName(string identifier)
         {
+            if (string.IsNullOrEmpty(identifier)) return "";
             if (identifier == WaterSupplyPack.HalfTest)
                 return ItemName("full_water_test_strip_box") + Copy.Text("（半盒 · 5张）", " (half pack, 5 strips)");
             if (identifier == WaterSupplyPack.HalfTablets)
                 return ItemName("full_water_purification_tablet_box") + Copy.Text("（半瓶 · 5颗）", " (half bottle, 5 tablets)");
+
+            string cached;
+            if (ResolvedNames.TryGetValue(identifier, out cached)) return cached;
+
+            // 先按游戏自己的取名途径：物品目录或预构建工厂里的 GameItem 已经带着
+            // 本地化后的 name，其它模组的物品也是这样注册的。
+            string name = GameItemName(identifier);
+            if (name == null) name = LocalizedName(identifier);
+            // 查不到就把 id 尾段整理成可读文本，不把 mod.item_id 原样丢给玩家。
+            if (name == null) return FallbackName(identifier);
+
+            ResolvedNames[identifier] = name;
+            return name;
+        }
+
+        /// <summary>已解析的显示名，避免告示牌每次刷新都重新构造物品对象。</summary>
+        private static readonly Dictionary<string, string> ResolvedNames =
+            new Dictionary<string, string>(StringComparer.Ordinal);
+
+        /// <summary>
+        /// 用游戏自己的物品目录/预构建工厂取显示名（生成物品时走的也是这条途径），
+        /// 查不到或名字不可用时返回 null。
+        /// </summary>
+        private static string GameItemName(string identifier)
+        {
+            GameItem item = null;
+            try
+            {
+                Dictionary<string, Func<GameItem>> prebuilt = PreBuiltItemHelper.preBuiltItems;
+                Func<GameItem> factory;
+                if (prebuilt != null && prebuilt.TryGetValue(identifier, out factory) && factory != null)
+                    item = factory();
+                if (item == null)
+                    item = DirectoryMaster.Create<GameItem>(identifier);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+            if (item == null) return null;
+
+            string name = item.name;
+            if (string.IsNullOrEmpty(name) || name == identifier) return null;
+            string table, missingKey;
+            if (LocHelper.TryParseMissingTranslation(name, out table, out missingKey)) return null;
+            return name;
+        }
+
+        /// <summary>
+        /// 目录里没有这个 id 时退回词条约定：先试完整 id，再试去掉模组前缀的尾段。
+        /// </summary>
+        private static string LocalizedName(string identifier)
+        {
+            string name = LocalizeItemKey(identifier);
+            if (name != null) return name;
+            int dot = identifier.LastIndexOf('.');
+            if (dot > 0 && dot + 1 < identifier.Length)
+                return LocalizeItemKey(identifier.Substring(dot + 1));
+            return null;
+        }
+
+        private static string LocalizeItemKey(string identifier)
+        {
             string key;
             if (!NameKeys.TryGetValue(identifier, out key))
                 key = "item_" + identifier + "_name";
 
             string name = LocHelper.GetLocalizedItem(key);
+            if (string.IsNullOrEmpty(name)) return null;
             string table, missingKey;
-            if (string.IsNullOrEmpty(name) || LocHelper.TryParseMissingTranslation(name, out table, out missingKey))
-                return FallbackName(identifier);
+            if (LocHelper.TryParseMissingTranslation(name, out table, out missingKey)) return null;
             return name;
         }
 
@@ -330,7 +395,30 @@ namespace DumpingGroundMap
             if (identifier == "loot_crate_service") return Copy.Text("服务箱", "Service Crate");
             if (identifier == "loot_crate_medical") return Copy.Text("医疗箱", "Medical Crate");
             if (identifier == "loot_crate_security") return Copy.Text("安保箱", "Security Crate");
-            return identifier;
+            return PrettyIdentifier(identifier);
+        }
+
+        /// <summary>
+        /// 兜底显示名：去掉模组前缀，把 id 尾段的下划线拆成空格并首字母大写，
+        /// 例如 better_scavenging.searchlight_battery → Searchlight Battery。
+        /// </summary>
+        private static string PrettyIdentifier(string identifier)
+        {
+            string tail = identifier;
+            int dot = tail.LastIndexOf('.');
+            if (dot > 0 && dot + 1 < tail.Length) tail = tail.Substring(dot + 1);
+            string[] parts = tail.Split(new char[] { '_' }, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 0) return identifier;
+
+            StringBuilder text = new StringBuilder(tail.Length);
+            for (int i = 0; i < parts.Length; ++i)
+            {
+                if (i > 0) text.Append(' ');
+                string part = parts[i];
+                text.Append(char.ToUpperInvariant(part[0]));
+                if (part.Length > 1) text.Append(part, 1, part.Length - 1);
+            }
+            return text.ToString();
         }
 
         internal static string Percent(float probability)
