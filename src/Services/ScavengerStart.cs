@@ -115,12 +115,12 @@ namespace DumpingGroundMap
             {
                 return Copy.Text(
                     "在导师找到你之前，你是一名拾荒客，虽一贫如洗但口碑可靠。"
-                    + "纵然学了新本事，你依旧不忘老本行——盘下一家店铺后，全部家当只有一间简易储藏区、"
+                    + "纵然学了新本事，你依旧不忘老本行——盘下一家店铺后，全部家当只有一间储藏区、"
                     + "一只儿童背包和一套用旧了的工具，都是当年的旧行头。"
                     + "你清楚哪堆废料底下压着值钱货，也明白在这一行里，名声比什么都重要。",
                     "Before The Mentor found you, you were a scavenger, poor but with a solid reputation. "
                     + "Despite your training, you never forgot your past: your store now holds nothing but "
-                    + "a makeshift storage bay, a kid's backpack and a set of worn tools, all of it your old gear. "
+                    + "a storage bay, a kid's backpack and a set of worn tools, all of it your old gear. "
                     + "You know which piles hide something worth carrying home, and you know a scavenger's name "
                     + "is earned one haul at a time.");
             };
@@ -133,8 +133,8 @@ namespace DumpingGroundMap
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("额外设备（简易储藏区）",
-                    "Additional equipment (Makeshift Storage Bay)");
+                return Copy.Text("额外设备（储藏区）",
+                    "Additional equipment (Storage Bay)");
             });
             scenario.startWithProviders.Add(delegate
             {
@@ -177,7 +177,7 @@ namespace DumpingGroundMap
                     return;
                 }
                 GameGridInventory inv = entry.invElement;
-                Add(inv, "makeshift_storage_bay", "storage_bay");
+                Add(inv, "storage_bay", null);
                 Add(inv, "kids_backpack", "satchel");
 
                 GameItem toolbox = Add(inv, "toolbox", null);
