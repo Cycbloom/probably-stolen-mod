@@ -153,6 +153,7 @@ namespace DumpingGroundMap
         private static float liveCard;
         private static float liveMinor;
         private static float liveMinorValue;
+        private static float liveForeign;
         private static bool initialized;
 
         private static float EntryJunk()
@@ -420,7 +421,7 @@ namespace DumpingGroundMap
         /// </summary>
         internal static float ForeignPercent
         {
-            get { return ForeignEnabled ? EntryForeignPercent() : 0f; }
+            get { return ForeignEnabled ? (hasLive ? liveForeign : EntryForeignPercent()) : 0f; }
         }
 
         /// <summary>是否把本模组表未收录的原版物品也当外来条目（默认关）。</summary>
@@ -489,6 +490,14 @@ namespace DumpingGroundMap
             if (float.IsNaN(value)) return DefaultStashCap;
             value = Mathf.Round(Mathf.Clamp(value, StashCapMin, StashCapMax) * 10f) / 10f;
             return Mathf.Clamp(value, StashCapMin, StashCapMax);
+        }
+
+        /// <summary>按 0.1 步进吸附并夹在 0–8。</summary>
+        internal static float ClampForeignPercent(float value)
+        {
+            if (float.IsNaN(value)) return DefaultForeignPercent;
+            value = Mathf.Round(Mathf.Clamp(value, ForeignPercentMin, ForeignPercentMax) * 10f) / 10f;
+            return Mathf.Clamp(value, ForeignPercentMin, ForeignPercentMax);
         }
 
         internal static float StashCap
@@ -978,6 +987,14 @@ namespace DumpingGroundMap
             Invalidated();
         }
 
+        /// <summary>外来条目份额上限滑条预览（0–8%，内存态）。</summary>
+        internal static void SetForeignPercentLive(float value)
+        {
+            EnsureLive();
+            liveForeign = ClampForeignPercent(value);
+            Invalidated();
+        }
+
         private static void EnsureLive()
         {
             if (hasLive) return;
@@ -988,6 +1005,7 @@ namespace DumpingGroundMap
             liveCard = EntryKeycardPercent();
             liveMinor = EntryMinorPercent();
             liveMinorValue = EntryMinorValue();
+            liveForeign = EntryForeignPercent();
             liveGroundWidth = EntryGroundWidth();
             liveGroundHeight = EntryGroundHeight();
         }
@@ -1005,6 +1023,7 @@ namespace DumpingGroundMap
             float card = liveCard;
             float minor = liveMinor;
             float minorValue = liveMinorValue;
+            float foreign = liveForeign;
             int groundWidth = liveGroundWidth;
             int groundHeight = liveGroundHeight;
             hasLive = false;
@@ -1015,6 +1034,8 @@ namespace DumpingGroundMap
             if (minorEntry != null && minorEntry.Value != minor) minorEntry.Set(minor);
             if (minorValueEntry != null && minorValueEntry.Value != minorValue)
                 minorValueEntry.Set(minorValue);
+            if (foreignPercentEntry != null && foreignPercentEntry.Value != foreign)
+                foreignPercentEntry.Set(foreign);
             if (groundWidthEntry != null && groundWidthEntry.Value != groundWidth)
                 groundWidthEntry.Set(groundWidth);
             if (groundHeightEntry != null && groundHeightEntry.Value != groundHeight)

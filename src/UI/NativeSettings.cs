@@ -38,6 +38,7 @@ namespace DumpingGroundMap
         private static CustomUIElement minorValue;
         private static CustomUIElement minorCrateValue;
         private static CustomUIElement stashCapValue, stashCapSlider;
+        private static CustomUIElement foreignValue;
         private static CustomUIElement debugValue;
         private static CustomUIElement groundWidthValue, groundHeightValue;
         private static CustomUIElement specialtyDropdown;
@@ -47,6 +48,7 @@ namespace DumpingGroundMap
         private static CustomUIElement crateSlider, cardSlider;
         private static CustomUIElement minorSlider;
         private static CustomUIElement minorCrateSlider;
+        private static CustomUIElement foreignSlider;
         private static CustomUIElement debugSlider;
         private static CustomUIElement groundWidthSlider, groundHeightSlider;
         private static bool dragging;
@@ -92,6 +94,7 @@ namespace DumpingGroundMap
             return key == KeyJunk || key == KeyHigh
                 || key == KeyCrate || key == KeyCard || key == KeyMinor
                 || key == KeyMinorValue || key == Tuning.StashCapKey
+                || key == Tuning.ForeignPercentKey
                 || key == KeyGroundWidth || key == KeyGroundHeight
                 || key == KeyGroundAlign
                 || key == Tuning.SpecialtyKey
@@ -112,6 +115,7 @@ namespace DumpingGroundMap
                     && buildingKey != KeyCrate && buildingKey != KeyCard
                     && buildingKey != KeyMinor && buildingKey != KeyMinorValue
                     && buildingKey != Tuning.StashCapKey
+                    && buildingKey != Tuning.ForeignPercentKey
                     && buildingKey != KeyGroundWidth && buildingKey != KeyGroundHeight
                     && buildingKey != Tuning.DebugPointsKey) return;
                 if (!ReferenceEquals(element, building.Last)) return;
@@ -141,6 +145,7 @@ namespace DumpingGroundMap
                 else if (key == KeyMinor) minorValue = label;
                 else if (key == KeyMinorValue) minorCrateValue = label;
                 else if (key == Tuning.StashCapKey) stashCapValue = label;
+                else if (key == Tuning.ForeignPercentKey) foreignValue = label;
                 else if (key == KeyGroundWidth) groundWidthValue = label;
                 else if (key == KeyGroundHeight) groundHeightValue = label;
                 else debugValue = label;
@@ -205,6 +210,11 @@ namespace DumpingGroundMap
                             Refresh();
                         });
                     }
+                }
+                else if (key == Tuning.ForeignPercentKey)
+                {
+                    foreignSlider = HookSlider(window, key, 9);
+                    foreignValue = EnsureValueLine(b, key, foreignValue);
                 }
                 else if (key == KeyGroundAlign)
                 {
@@ -331,12 +341,20 @@ namespace DumpingGroundMap
                 b.AddLabel("", "dgm_ev_" + i);
                 evLabels[i] = b.Last;
                 Picker.Size(evLabels[i], -1, 66);
+                // 标签预制的宽度只有约 400px，第二行「基础 + 贵重增益 + 箱卡增益 +
+                // 今日事件增益」会被省略号截断。让它在纵向布局里按内容区的可用宽度
+                // 伸展（flexibleWidth），允许收缩（minWidth 0），并关掉省略号，
+                // 整条等式完整显示。
+                LayoutElement layout = evLabels[i].root.GetComponent<LayoutElement>();
+                if (layout == null) layout = evLabels[i].root.AddComponent<LayoutElement>();
+                layout.minWidth = 0f;
+                layout.flexibleWidth = 1f;
                 if (evLabels[i].text != null)
                 {
                     evLabels[i].text.richText = true;
                     evLabels[i].text.fontSize = 18;
                     evLabels[i].text.enableWordWrapping = false;
-                    evLabels[i].text.overflowMode = TextOverflowModes.Ellipsis;
+                    evLabels[i].text.overflowMode = TextOverflowModes.Overflow;
                     evLabels[i].text.alignment = TextAlignmentOptions.MidlineLeft;
                 }
             }
@@ -544,6 +562,8 @@ namespace DumpingGroundMap
                 minorCrateValue.SetText(SliderValue(minorCrateSlider, Tuning.MinorValue).ToString("0", CultureInfo.InvariantCulture));
             if (stashCapValue != null)
                 stashCapValue.SetText(SliderValue(stashCapSlider, Tuning.StashCap).ToString("0.0", CultureInfo.InvariantCulture) + "%");
+            if (foreignValue != null)
+                foreignValue.SetText(SliderValue(foreignSlider, Tuning.ForeignPercent).ToString("0.0", CultureInfo.InvariantCulture) + "%");
             if (debugValue != null)
                 debugValue.SetText(SliderValue(debugSlider, Tuning.DebugPoints).ToString("0.0", CultureInfo.InvariantCulture));
             if (groundWidthValue != null)
@@ -709,6 +729,14 @@ namespace DumpingGroundMap
                 Tuning.SetGroundHeightLive((int)snapped);
                 LogSlide(8, value, Tuning.GroundHeight);
             }
+            else if (kind == 9)
+            {
+                BeginDrag(9, Tuning.ForeignPercent);
+                float snapped = Mathf.Round(value * 10f) / 10f;
+                SyncSlider(foreignSlider, snapped);
+                Tuning.SetForeignPercentLive(snapped);
+                LogSlide(9, value, Tuning.ForeignPercent);
+            }
         }
 
         private static void ApplyPreset(int preset)
@@ -815,6 +843,8 @@ namespace DumpingGroundMap
             minorCrateValue = null;
             stashCapValue = null;
             stashCapSlider = null;
+            foreignValue = null;
+            foreignSlider = null;
             debugValue = null;
             groundWidthValue = null;
             groundHeightValue = null;

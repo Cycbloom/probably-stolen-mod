@@ -1,10 +1,12 @@
 ﻿# 版本记录
 
-## 0.6.5（待部署）
+## 0.6.5
 
 - 撤销 0.6.4 的能力声明：清单恢复为空的 `<Capabilities />`，发布版不再要求任何权限，启用时不再弹权限提示。
 - 「更好的拾荒」桥接不再直接调用 `System.Type.GetMethod`，改用 0Harmony 的 `AccessTools.TypeByName` 与 `AccessTools.Method` 查找同一个 `BetterScavenging.BoxDrop.TryRoll(string, out string)`；调用参数、判定与返回、30 秒重试、未安装时的空转开销都保持不变。
-- 本地扫描复核：711 个方法、0 hard flags、0 capabilities，`Undeclared` 为空；`tools/verify.ps1 -Scan` 改为要求扫描结果与清单声明同时为空。
+- 本地扫描复核：713 个方法、0 hard flags、0 capabilities，`Undeclared` 为空；`tools/verify.ps1 -Scan` 改为要求扫描结果与清单声明同时为空。
+- 设置页「外来条目份额上限（%，0–8）」补上滑条右侧的数值回显（一位小数加 %），并支持拖动时实时预览期望收益。
+- 设置页「单次主掉落期望收益」的分解行改为按内容区可用宽度伸展并取消省略号，「基础 + 贵重增益 + 箱卡增益 + 今日事件增益」整条等式不再被截断。
 
 ## 0.6.4
 
