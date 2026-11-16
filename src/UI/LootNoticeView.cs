@@ -274,7 +274,7 @@ namespace DumpingGroundMap
             }
 
             int points = Reputation.Points;
-            bool tier80 = points >= PerkCatalog.Perk80Threshold;
+            bool suppliesUnlocked = points >= PerkCatalog.Perk100Threshold;
 
             string crateId = LootCatalog.CrateFor(region.Id);
             string cardId = LootCatalog.CardFor(region.Id);
@@ -288,8 +288,8 @@ namespace DumpingGroundMap
                 showMinor ? StashFind.PreviewMinorPercent(region) : 0f,
                 RewardExpectation.MeanJackpotValue(StashTemplate.For(region.Id)),
                 StashFind.MinorBox.ExpectedValue(region.Id, Tuning.MinorValue));
-            bool showCrate = tier80 && crate > 0f;
-            bool showCard = tier80 && card > 0f;
+            bool showCrate = suppliesUnlocked && crate > 0f;
+            bool showCard = suppliesUnlocked && card > 0f;
             SetBoardSpecial(0, showJackpot, Copy.Text("大奖", "Jackpot"), rewards.JackpotProbability * 100f);
             SetBoardSpecial(1, showMinor, Copy.Text("小奖", "Minor find"), rewards.MinorProbability * 100f);
             if (showJackpot)
@@ -320,8 +320,8 @@ namespace DumpingGroundMap
             foreach (BoardItem item in boardSupplyItems)
             {
                 float probability = table.Probs[item.Slot];
-                item.Row.SetVisible(tier80 && probability > 0f);
-                if (tier80 && probability > 0f) item.Row.SetText(Picker.ItemName(item.Id), BoardPercent(probability));
+                item.Row.SetVisible(suppliesUnlocked && probability > 0f);
+                if (suppliesUnlocked && probability > 0f) item.Row.SetText(Picker.ItemName(item.Id), BoardPercent(probability));
             }
             if (boardBonusHeader != null)
                 boardBonusHeader.SetVisible(showJackpot || showMinor || showCrate || showCard);

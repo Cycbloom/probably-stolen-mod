@@ -1,0 +1,44 @@
+[h1]Scrapyard Expansion: Regional Scavenging & Reputation[/h1]
+
+Choose where to scavenge in an expanded scrapyard. Explore eight distinct areas for materials, tools, food, medicine, electronics or water-treatment supplies, and build reputation through scavenging.
+
+[h2]Main Features[/h2]
+[list]
+[*]Click the overview map to select an area, with responsive landmarks, regional artwork and distinct loot preferences.
+[*]Weekly regional events provide different bonuses. Active events appear on the map and notice board.
+[*]Jackpots and minor rewards have separate adaptive odds: jackpots grow by day, minor rewards by search, and wins reduce their odds.
+[*]The notice board shows item probabilities and separate expected-value contributions from basic loot, valuables, crates/keycards, events and rewards.
+[*]Find water-filled containers at the Abandoned Pump Station, with varied fill levels, water quality and remaining equipment uses.
+[*]Optional Scavenger starting scenario with a standard Storage Bay, tools and two extra searches per visit.
+[*]Default/Enhanced presets and configurable loot, rewards and regional specialization.
+[/list]
+
+[h2]Reputation & Unlocks[/h2]
+[h3]Area Unlocks[/h3]
+0: Main Gate and Refuse Lane.
+20: Scrap Pile and Abandoned Pump Station.
+40: Vehicle Graveyard and Medical Waste.
+60: E-Waste Slope and Weapon Dump.
+80: Valuable drops unlock.
+100: Supply crates, matching keycards and the next-day outing service unlock.
+
+[h3]Base Rewards & Outing Service[/h3]
+At 20/40/60 reputation, all open areas gain cumulative base-reward targets of +10%/+20%/+30%. Jackpots and minor rewards are separate. Earlier areas improve alongside progression, so you can keep choosing destinations for the supplies you need.
+At 100 reputation, the outing service costs 20 credits for two extra searches and protection from minor and major scavenging wounds on the following day.
+
+[h2]How to Play[/h2]
+After subscribing and downloading, enable the mod in the game's Mods menu and restart. Visit the dump at night and select your area. Scavenger is an optional new-game start; existing saves can use area selection and reputation progression.
+Uses the native mod loader. No required mods. Remove a manually installed copy with the same mod ID so it does not override the Workshop version.
+
+[h2]Compatibility[/h2]
+Compatible with the following mods:
+[list]
+[*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832421605]Better Scavenging[/url]
+[*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]Reputation Pop[/url]
+[/list]
+Both are optional; this mod can also be used on its own.
+[h3]Saves & Game Version[/h3]
+This mod changes scavenging balance and saves reputation, event and reward progress. Keep a save backup; disabling it does not undo items or money already gained. Target game version: 0.46D.
+
+[h2]Author & Artwork[/h2]
+Author: Cycbloom. Added scene artwork and cover are AI-assisted.

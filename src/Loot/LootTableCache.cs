@@ -8,6 +8,7 @@ namespace DumpingGroundMap
         private readonly Dictionary<string, EffectiveTable> tables = new Dictionary<string, EffectiveTable>();
         private LootSettings settings;
         private bool unlocked;
+        private bool supplyUnlocked;
         private bool initialized;
         private float junkScale;
         private int stage;
@@ -28,7 +29,9 @@ namespace DumpingGroundMap
         {
             eventJunkScale = ProbabilityMath.NormalizeJunkScale(eventJunkScale);
             int nextStage = LootBalance.Stage(reputation);
+            bool nextSupplyUnlocked = perk80 && reputation >= PerkCatalog.Perk100Threshold;
             bool reset = !initialized || !snapshot.Equals(settings) || unlocked != perk80 || junkScale != eventJunkScale || stage != nextStage
+                || supplyUnlocked != nextSupplyUnlocked
                 || !ReferenceEquals(foreignLoot, foreign);
             if (reset)
             {
@@ -44,6 +47,7 @@ namespace DumpingGroundMap
                 tables.Clear();
                 settings = snapshot;
                 unlocked = perk80;
+                supplyUnlocked = nextSupplyUnlocked;
                 junkScale = eventJunkScale;
                 stage = nextStage;
                 foreign = foreignLoot;

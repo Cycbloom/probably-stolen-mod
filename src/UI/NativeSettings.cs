@@ -14,7 +14,7 @@ namespace DumpingGroundMap
     /// A postfix on ModConfigWindow.BuildEntry hooks the native sliders, and a patch
     /// on CustomUIElement.SetFixedWidth appends a value label to the same row, right
     /// of the slider, so the number sits where the thumb is instead of on its own
-    /// line. Below the last entry the area value block and the preset buttons
+    /// line. Below the last entry the reputation value block and the preset buttons
     /// are appended. Dragging only changes Tuning's in-memory values and the labels;
     /// the config file is written on PointerUp or when Apply is pressed.
     /// </summary>
@@ -44,6 +44,7 @@ namespace DumpingGroundMap
         private static CustomUIElement specialtyDropdown;
         private static CustomUIElement groundAlignDropdown;
         private static CustomUIElement[] evLabels;
+        private static readonly ReputationExpectationPreview reputationPreview = new ReputationExpectationPreview();
         private static CustomUIElement junkSlider, highSlider;
         private static CustomUIElement crateSlider, cardSlider;
         private static CustomUIElement minorSlider;
@@ -322,27 +323,31 @@ namespace DumpingGroundMap
         private static void AddEvBlock(CustomUIBuilder b)
         {
             b.AddSpace(6);
-            b.AddLabel(Copy.Text("—— 单次主掉落期望收益（信用点，实时刷新） ——",
-                "— Expected value per main drop (credits, live) —"), "dgm_ev_header");
+            b.AddLabel(Copy.Text("—— 各声望档主掉落期望（信用点/件，实时刷新） ——",
+                "— Main-drop value by reputation (credits/item, live) —"), "dgm_ev_header");
             CustomUIElement header = b.Last;
             if (header.text != null) header.text.color = Picker.Accent;
             Picker.Size(header, -1, 26);
 
-            // Fixed yardstick above the area rows: the untouched vanilla tables.
+            // Fixed yardstick above the reputation rows: the untouched vanilla tables.
             b.AddLabel("", "dgm_ev_reference");
             CustomUIElement reference = b.Last;
             Picker.Size(reference, -1, 24);
             reference.SetText(ReferenceLine());
             if (reference.text != null) reference.text.color = Picker.Ink;
 
-            evLabels = new CustomUIElement[Region.All.Length + 1];
+            b.AddLabel(Copy.Text("按各档已开放区域平均；常态无事件，大小奖另算。",
+                "Average of areas open at each tier; no events. Rewards separate."), "dgm_ev_basis");
+            Picker.Size(b.Last, -1, 24);
+
+            evLabels = new CustomUIElement[ReputationExpectationPreview.Milestones.Length];
             for (int i = 0; i < evLabels.Length; ++i)
             {
                 b.AddLabel("", "dgm_ev_" + i);
                 evLabels[i] = b.Last;
-                Picker.Size(evLabels[i], -1, 66);
-                // 标签预制的宽度只有约 400px，第二行「基础 + 贵重增益 + 箱卡增益 +
-                // 今日事件增益」会被省略号截断。让它在纵向布局里按内容区的可用宽度
+                Picker.Size(evLabels[i], -1, 48);
+                // 标签预制的宽度只有约 400px，第二行的三项分解会被省略号截断。
+                // 让它在纵向布局里按内容区的可用宽度
                 // 伸展（flexibleWidth），允许收缩（minWidth 0），并关掉省略号，
                 // 整条等式完整显示。
                 LayoutElement layout = evLabels[i].root.GetComponent<LayoutElement>();
@@ -580,35 +585,22 @@ namespace DumpingGroundMap
                 (Mathf.Clamp(tier, 0, 3) + 1) * 25f,
                 SliderValue(crateSlider, Tuning.CratePercent),
                 SliderValue(cardSlider, Tuning.KeycardPercent),
-                Tuning.ForeignPercent);
-            MainExpectation average = new MainExpectation();
-            int openCount = 0;
-            for (int i = 0; i < Region.All.Length; ++i)
+                Tuning.ForeignEnabled ? SliderValue(foreignSlider, Tuning.ForeignPercent) : 0f);
+            ForeignLootTable foreign = preview.ForeignPercent > 0f
+                ? ForeignLoot.Snapshot(Tuning.ForeignVanilla) : ForeignLootTable.Empty;
+            int currentTier = 0;
+            for (int i = 1; i < ReputationExpectationPreview.Milestones.Length; ++i)
+                if (Reputation.Points >= ReputationExpectationPreview.Milestones[i]) currentTier = i;
+            for (int i = 0; i < evLabels.Length; ++i)
             {
-                Region region = Region.All[i];
-                if (!region.Unlocked)
-                {
-                    evLabels[i].SetText(region.Name + Copy.Text("　未开放，需要声望 ", "  Locked; reputation ") + region.RequiredReputation);
-                    continue;
-                }
-                EffectiveTable table = Tuning.PreviewTableFor(region, preview);
-                MainExpectation parts = MainExpectation.From(table, region.Id);
-                average.Base += parts.Base;
-                average.Valuable += parts.Valuable;
-                average.Supply += parts.Supply;
-                average.Event += parts.Event;
-                average.Total += parts.Total;
-                ++openCount;
-                SetEvLine(evLabels[i], region.Name, parts);
+                int points = ReputationExpectationPreview.Milestones[i];
+                string name = string.Format(CultureInfo.InvariantCulture,
+                    Copy.Text("声望 {0}（{1}区平均）", "Reputation {0} ({1}-area average)"),
+                    points, ReputationExpectationPreview.OpenCount(points));
+                if (i == currentTier) name += Copy.Text(" · 当前档", " · Current tier");
+                SetEvLine(evLabels[i], name, reputationPreview.Get(i, preview, foreign));
+                evLabels[i].SetTextColor(i == currentTier ? Picker.Accent : Picker.Ink);
             }
-            float count = Math.Max(1, openCount);
-            average.Base /= count;
-            average.Valuable /= count;
-            average.Supply /= count;
-            average.Event /= count;
-            average.Total /= count;
-            SetEvLine(evLabels[Region.All.Length], Copy.Text("已开放区域平均", "Open-area average"), average);
-            evLabels[Region.All.Length].SetTextColor(Picker.Accent);
 
         }
 
@@ -654,13 +646,12 @@ namespace DumpingGroundMap
             string total = parts.Total.ToString("0.00", CultureInfo.InvariantCulture);
             string components = Copy.Text("基础 ", "Base ") + parts.Base.ToString("0.00", CultureInfo.InvariantCulture)
                 + Copy.Text(" + 贵重增益 ", " + rare uplift ") + parts.Valuable.ToString("0.00", CultureInfo.InvariantCulture)
-                + Copy.Text(" + 箱卡增益 ", " + crates/cards ") + parts.Supply.ToString("0.00", CultureInfo.InvariantCulture)
-                + "\n" + Copy.Text("+ 今日事件增益 ", "+ Today's event ") + parts.Event.ToString("0.00", CultureInfo.InvariantCulture);
+                + Copy.Text(" + 箱卡增益 ", " + crates/cards ") + parts.Supply.ToString("0.00", CultureInfo.InvariantCulture);
             label.SetText(name + Copy.Text("　合计 ≈ ", "  Total ≈ ") + total
                 + "\n<size=15>" + components + "</size>");
             label.SetTooltip(name + "\n" + components + " ≈ " + total
-                + Copy.Text(" 信用点/件\n基础、贵重和箱卡按同日无区域事件的情况拆分；事件项为今日区域事件的净增益，全场原版事件已计入。大奖、小奖、工具和额外收获另算。",
-                    " credits/item\nBase/rare/crates use the same day without regional effects; event is the net regional uplift. Native yard-wide events are included. Jackpots, minor rewards, tools and extra finds are separate."));
+                + Copy.Text(" 信用点/件\n使用当前设置，取该声望档已开放区域的等权平均；按无全场/区域事件的常态计算。80声望加入贵重品，100声望再加入补给箱与钥匙卡。同行服务不改变单件期望。大奖、小奖、工具和额外收获另算；外来物品缺少估值时按0计，显示值可能偏低。",
+                    " credits/item\nCurrent settings; equal-weight average of areas open at this tier, without native or regional events. Valuables unlock at 80; crates/cards unlock at 100. The outing does not change per-item value. Jackpots, minor rewards, tools and extra finds are separate. Unpriced foreign items count as zero, so estimates may be low."));
         }
 
         private static void OnSlide(int kind, float value)

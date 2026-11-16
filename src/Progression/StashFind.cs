@@ -293,7 +293,7 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 80 档补给箱与钥匙卡的当场提示。箱子走「翻出一个上锁的…」，
+        /// 100 档补给箱与钥匙卡的当场提示。箱子走「翻出一个上锁的…」，
         /// 卡走「摸到一张…」；物品名一律走本地化词条（Picker.ItemName）。
         /// </summary>
         internal static void NoticeSpecialFind(string itemId)

@@ -18,7 +18,7 @@ namespace DumpingGroundMap
         internal const float DefaultHighPercent = 3f;
         internal const int DefaultSpecialtyTier = 2;
 
-        /// <summary>80 档：补给箱与钥匙卡的绝对概率，各自一个设置项（默认 1%、范围 0–5%）。</summary>
+        /// <summary>100 档：补给箱与钥匙卡的绝对概率，各自一个设置项（默认 1%、范围 0–5%）。</summary>
         internal const string CratePercentKey = "crate_percent";
         internal const string KeycardPercentKey = "keycard_percent";
         internal const float DefaultSpecialPercent = 1f;
@@ -397,7 +397,7 @@ namespace DumpingGroundMap
 
         internal static float HighPercent { get { return hasLive ? liveHigh : EntryHigh(); } }
 
-        /// <summary>80 档补给箱概率（%，0–5，0.1 步进）。</summary>
+        /// <summary>100 档补给箱概率（%，0–5，0.1 步进）。</summary>
         internal static float CratePercent
         {
             get { return hasLive ? liveCrate : EntryCratePercent(); }
@@ -579,8 +579,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "声望达到80后，每次主掉落出补给箱的总概率。\n默认1%，范围0–5%，按0.1吸附；0%不出。\n八区均有箱子，具体箱型按本区权重分配。\n箱子种类增多不会叠加总概率；份额从非垃圾普通物品中扣除。",
-                            "Total supply-crate chance per main roll, active at 80 reputation.\nDefault 1%, range 0-5%, 0.1 steps; 0% disables it.\nAll eight areas have regional crate-type weights.\nMore types share this total; they replace non-junk ordinary items.");
+                            "声望达到100后，每次主掉落出补给箱的总概率。\n默认1%，范围0–5%，按0.1吸附；0%不出。\n八区均有箱子，具体箱型按本区权重分配。\n箱子种类增多不会叠加总概率；份额从非垃圾普通物品中扣除。",
+                            "Total supply-crate chance per main roll, active at 100 reputation.\nDefault 1%, range 0-5%, 0.1 steps; 0% disables it.\nAll eight areas have regional crate-type weights.\nMore types share this total; they replace non-junk ordinary items.");
                     },
                     false);
 
@@ -590,8 +590,8 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return Copy.Text(
-                            "声望达到80后，每次主掉落出钥匙卡的总概率。\n默认1%，范围0–5%，按0.1吸附；0%不出。\n八区均有卡片，类型权重与本区箱型配套。\n箱子、卡片独立掉落；份额从非垃圾普通物品中扣除。",
-                            "Total keycard chance per main roll, active at 80 reputation.\nDefault 1%, range 0-5%, 0.1 steps; 0% disables it.\nCard-type weights match each area's native crate locks.\nCrates and cards roll independently and replace non-junk ordinary items.");
+                            "声望达到100后，每次主掉落出钥匙卡的总概率。\n默认1%，范围0–5%，按0.1吸附；0%不出。\n八区均有卡片，类型权重与本区箱型配套。\n箱子、卡片独立掉落；份额从非垃圾普通物品中扣除。",
+                            "Total keycard chance per main roll, active at 100 reputation.\nDefault 1%, range 0-5%, 0.1 steps; 0% disables it.\nCard-type weights match each area's native crate locks.\nCrates and cards roll independently and replace non-junk ordinary items.");
                     },
                     false);
 

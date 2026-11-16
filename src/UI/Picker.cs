@@ -390,7 +390,7 @@ namespace DumpingGroundMap
             if (identifier == "random_performance_module") return Copy.Text("随机性能模组", "Random Performance Module");
             if (identifier == "random_efficiency_module") return Copy.Text("随机效率模组", "Random Efficiency Module");
             if (identifier == "random_quality_module") return Copy.Text("随机品质模组", "Random Quality Module");
-            // 80 档的补给箱是预构建容器，没有独立词条，沿用同类箱子的叫法。
+            // 100 档的补给箱是预构建容器，没有独立词条，沿用同类箱子的叫法。
             if (identifier == "loot_crate_engineering") return Copy.Text("工程箱", "Engineering Crate");
             if (identifier == "loot_crate_service") return Copy.Text("服务箱", "Service Crate");
             if (identifier == "loot_crate_medical") return Copy.Text("医疗箱", "Medical Crate");

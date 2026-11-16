@@ -29,12 +29,12 @@ namespace DumpingGroundMap
         internal const string Perk60NameZh = "眼力毒辣";
         internal const string Perk60NameEn = "Keen Eye";
 
-        /// <summary>80 档：贵重品出现率 80 门控，高级区可翻到补给箱与对应钥匙卡。</summary>
+        /// <summary>80 档：开放贵重品。</summary>
         internal const int Perk80Threshold = 80;
         internal const string Perk80NameZh = "识货行家";
         internal const string Perk80NameEn = "Connoisseur";
 
-        /// <summary>100 档：信物与次日同行夜间服务。</summary>
+        /// <summary>100 档：补给箱、钥匙卡、信物与次日同行夜间服务。</summary>
         internal const int Perk100Threshold = 100;
         internal const string Perk100NameZh = "自己人";
         internal const string Perk100NameEn = "One of Us";
@@ -52,11 +52,11 @@ namespace DumpingGroundMap
                 "电子垃圾坡、废武器堆开放；所有区域的基础收益目标比起步提高30%。隐藏储藏与小奖机会提高，奖励收益另算。",
                 "E-Waste Slope and Weapon Dump open. All areas gain a +30% base reward target. Hidden-stash and minor-reward chances improve separately."),
             new PerkDefinition(Perk80Threshold, Perk80NameZh, Perk80NameEn,
-                "拾荒时可能遇到贵重品。偶尔还能翻到补给箱和对应的钥匙卡。",
-                "While scavenging you may come across valuable goods. Now and then you can even turn up a supply crate and its matching keycard."),
+                "拾荒时可能遇到贵重品。",
+                "While scavenging you may come across valuable goods."),
             new PerkDefinition(Perk100Threshold, Perk100NameZh, Perk100NameEn,
-                "拾荒者把你当成自己人，并送来一枚信物。解锁夜间服务「与拾荒客同行」：每次 20 信用点，次日当天多 2 次拾荒，拾荒时不会受轻伤或重伤。",
-                "The scavengers welcome you as one of their own with a token. Unlocks Scavenger Outing: pay 20 credits for 2 extra searches and no minor or major scavenging wounds the next day."),
+                "拾荒时可翻到补给箱与对应钥匙卡。拾荒者把你当成自己人，并送来一枚信物。解锁夜间服务「与拾荒客同行」：每次 20 信用点，次日当天多 2 次拾荒，拾荒时不会受轻伤或重伤。",
+                "Supply crates and matching keycards can now be found while scavenging. The scavengers welcome you as one of their own with a token. Unlocks Scavenger Outing: pay 20 credits for 2 extra searches and no minor or major scavenging wounds the next day."),
         };
 
         internal static PerkDefinition For(int threshold)

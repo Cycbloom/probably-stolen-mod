@@ -6,7 +6,7 @@ namespace DumpingGroundMap
     internal static class LootCatalog
     {
         /// <summary>
-        /// 80档区域补给池的主箱型；实际分布使用SupplyPool的全部条目。
+        /// 100档区域补给池的主箱型；实际分布使用SupplyPool的全部条目。
         /// 用 PreBuiltItemHelper 的 loot_crate_* id，ItemSpawner 会自动走预构建满箱。
         /// </summary>
         internal static string CrateFor(string regionId)
@@ -15,7 +15,7 @@ namespace DumpingGroundMap
             return entries.Length > 0 ? entries[0].CrateId : null;
         }
 
-        /// <summary>80 档：与箱子同区出现的对应钥匙卡。</summary>
+        /// <summary>100 档：与箱子同区出现的对应钥匙卡。</summary>
         internal static string CardFor(string regionId)
         {
             SupplyEntry[] entries = SupplyPool.For(regionId);
@@ -284,7 +284,7 @@ namespace DumpingGroundMap
                 { "wine_yeast_red", 8f },
                 { "wine_superyeast", 20f },
                 { "wine_yeast_infinite", 250f },
-                // 80 档补给箱按满箱内容估的均价，只用于界面的期望价值。
+                // 100 档补给箱按满箱内容估的均价，只用于界面的期望价值。
                 { "loot_crate_engineering", 450f },
                 { "loot_crate_service", 350f },
                 { "loot_crate_medical", 500f },

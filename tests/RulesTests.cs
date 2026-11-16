@@ -95,6 +95,7 @@ internal static class RulesTests
         PumpWaterRules();
         ReputationBalanceRules();
         ExpectedRewardBreakdownRules();
+        ReputationPreviewRules();
         RegionalSupplyRules();
         SettingsProfileRules();
         RegionalEventRulesTests();
@@ -421,10 +422,56 @@ internal static class RulesTests
                 "Industrial jackpot batches preserve material/tool identity: " + id + "/" + item);
     }
 
+    private static void ReputationPreviewRules()
+    {
+        ReputationExpectationPreview preview = new ReputationExpectationPreview();
+        int[] counts = { 2, 4, 6, 8, 8, 8 };
+        LootSettings settings = LootPreset.For(0).Settings;
+        MainExpectation previous = null;
+        for (int i = 0; i < counts.Length; ++i)
+        {
+            int points = ReputationExpectationPreview.Milestones[i];
+            Check(ReputationExpectationPreview.OpenCount(points) == counts[i], "Preview averages only areas open at its hypothetical reputation");
+            MainExpectation row = preview.Get(i, settings);
+            float independentTotal = 0f;
+            foreach (Region region in Region.All)
+                if (region.RequiredReputation <= points)
+                    independentTotal += LootCalculator.Build(region, settings, points >= 80, 1f, points).Ev;
+            Near(row.Total, independentTotal / counts[i], "Milestone EV equals the open-area mean at the requested reputation");
+            Near(row.Total, row.Base + row.Valuable + row.Supply, "Milestone breakdown sums to the displayed total");
+            Near(row.Event, 0f, "Permanent progression comparison excludes calendar events");
+            if (points < 80)
+            {
+                Near(row.Valuable, 0f, "Future rare unlock never leaks into lower reputation previews");
+                Near(row.Supply, 0f, "Future supply unlock never leaks into lower reputation previews");
+            }
+            else
+            {
+                Check(row.Valuable > 0f, "80-point preview includes valuable uplift");
+                if (points < 100) Near(row.Supply, 0f, "80-point preview keeps supplies locked");
+                else Check(row.Supply > 0f, "100-point preview includes supply uplift");
+            }
+            if (i > 0) Check(row.Total > previous.Total, "Progression preview shows higher permanent rewards");
+            previous = row;
+        }
+        Near(preview.Get(4, settings).Base, preview.Get(5, settings).Base, "100-point supplies preserve the base EV target");
+        MainExpectation original = preview.Get(0, settings);
+        Check(ReferenceEquals(original, preview.Get(0, settings)), "Unchanged settings reuse all milestone calculations");
+        LootSettings lessJunk = new LootSettings(50f, 3f, 75f, 1f, 1f);
+        Check(preview.Get(0, lessJunk).Total > original.Total, "Live junk slider recomputes the milestone preview");
+        Near(preview.Get(0, settings).Total, original.Total, "Restoring defaults restores the preview values");
+        LootSettings foreignSettings = new LootSettings(100f, 3f, 75f, 1f, 1f, 5f);
+        MainExpectation withoutForeign = preview.Get(0, foreignSettings, ForeignLootTable.Empty);
+        ForeignLootTable foreign = new ForeignLootTable(new[] { "foreign_preview_item" }, new[] { 1f }, 0.05f);
+        MainExpectation withForeign = preview.Get(0, foreignSettings, foreign);
+        Check(!ReferenceEquals(withoutForeign, withForeign), "Changed foreign pool invalidates milestone cache");
+        Check(withForeign.Total < withoutForeign.Total, "Unpriced foreign items use the same conservative estimate as actual drops");
+    }
+
     private static void ExpectedRewardBreakdownRules()
     {
         foreach (Region region in Region.All)
-        foreach (int points in new[] { 0, 60, 80 })
+        foreach (int points in new[] { 0, 60, 80, 100 })
         foreach (float junk in new[] { 0f, 50f, 100f, 150f })
         foreach (float scale in new[] { 0.5f, 1f, 2f })
         {
@@ -478,7 +525,18 @@ internal static class RulesTests
             }
             Check(totalWeight == 100 && supplies.Length > 0, "Every area has a complete weighted crate/card pool");
             Check(crateProfiles.Add(profile), "Every area's supply type distribution is distinct");
-            EffectiveTable table = LootCalculator.Build(region, new LootSettings(100f, 0f, 100f, 0.5f, 0.5f), true, 1f, 80);
+            foreach (int points in new[] { 79, 80, 99, 100, 101 })
+            {
+                EffectiveTable tier = LootCalculator.Build(region, new LootSettings(100f, 3f, 75f, 1f, 1f),
+                    points >= 80, 1f, points);
+                Near(tier.ProbabilityOf(LootKind.Valuable), points >= 80 ? 0.03f : 0f,
+                    "Valuables retain the 80-point gate independently of supplies");
+                Near(tier.ProbabilityOf(LootKind.SupplyCrate), points >= 100 ? 0.01f : 0f,
+                    "Supply crates unlock exactly at 100 reputation");
+                Near(tier.ProbabilityOf(LootKind.Keycard), points >= 100 ? 0.01f : 0f,
+                    "Matching keycards unlock exactly at 100 reputation");
+            }
+            EffectiveTable table = LootCalculator.Build(region, new LootSettings(100f, 0f, 100f, 0.5f, 0.5f), true, 1f, 100);
             Near(table.ProbabilityOf(LootKind.SupplyCrate), 0.005f, "More crate types do not multiply the configured total chance");
             Near(table.ProbabilityOf(LootKind.Keycard), 0.005f, "More card types do not multiply the configured total chance");
             foreach (SupplyEntry entry in supplies)
@@ -671,7 +729,7 @@ internal static class RulesTests
             foreach (bool unlocked in new[] { false, true })
             {
                 LootSettings settings = new LootSettings(junk, high, specialty, 5f, 5f);
-                EffectiveTable table = LootCalculator.Build(region, settings, unlocked);
+                EffectiveTable table = LootCalculator.Build(region, settings, unlocked, 1f, unlocked ? 100 : 0);
                 float sum = 0f;
                 HashSet<int> shown = new HashSet<int>();
                 foreach (LootNoticeGroup group in LootNoticeModel.Groups(table))
@@ -740,6 +798,17 @@ internal static class RulesTests
         Check(!ReferenceEquals(locked, unlocked), "80-point threshold invalidates cache");
         Check(unlocked.ProbabilityOf(LootKind.Valuable) > 0f, "Unlock applied");
         Check(cache.Get(region, original, false).ProbabilityOf(LootKind.Valuable) == 0f, "Reload below threshold");
+        EffectiveTable at99 = cache.Get(region, original, true, 1f, 99);
+        Check(ReferenceEquals(at99, cache.Get(region, original, true, 1f, 80)), "80 to 99 reuses the same no-supply table");
+        EffectiveTable at100 = cache.Get(region, original, true, 1f, 100);
+        Check(!ReferenceEquals(at99, at100), "100-point supply unlock invalidates the cache despite unchanged base tier");
+        Check(at100.ProbabilityOf(LootKind.SupplyCrate) > 0f && at100.ProbabilityOf(LootKind.Keycard) > 0f,
+            "Refreshed 100-point table contains both supplies");
+        Check(ReferenceEquals(at100, cache.Get(region, original, true, 1f, 101)), "Above 100 reuses the unlocked supply table");
+        EffectiveTable reload99 = cache.Get(region, original, true, 1f, 99);
+        Check(!ReferenceEquals(at100, reload99), "Loading a lower-reputation save removes cached supply unlock");
+        Near(reload99.ProbabilityOf(LootKind.SupplyCrate), 0f, "Reloaded 99-point table has no crates");
+        Near(reload99.ProbabilityOf(LootKind.Keycard), 0f, "Reloaded 99-point table has no keycards");
         foreach (LootSettings changed in new[] {
             new LootSettings(49f,3f,75f,0.5f,0.5f), new LootSettings(50f,4f,75f,0.5f,0.5f),
             new LootSettings(50f,3f,100f,0.5f,0.5f), new LootSettings(50f,3f,75f,1f,0.5f),

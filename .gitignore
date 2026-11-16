@@ -1,6 +1,12 @@
 ﻿# 构建产物（由 build.ps1 生成，不入库）
 dist/
 obj/
+workshop/releases/
+workshop/upload.vdf
+workshop/description-update*.vdf
+workshop/latest-release.txt
+workshop/gallery/screenshots/Workshop-Screenshots-*.zip
+workshop/gallery/screenshots/latest-archive.txt
 *.pdb
 *.mdb
 

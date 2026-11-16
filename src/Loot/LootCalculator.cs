@@ -58,7 +58,7 @@ namespace DumpingGroundMap
             float junkBase = LootBalance.JunkBase(region);
             float junkProb = ProbabilityMath.Clamp(junkBase * settings.JunkPercent / 100f, 0f, 0.995f);
 
-            // 3) The valuable share and the 80-tier crate/keycard shares are
+            // 3) The 80-tier valuable share and 100-tier crate/keycard shares are
             //    carved out of the non-junk items only.
             float highChance = ProbabilityMath.Clamp((perk80 ? settings.HighPercent : 0f), 0f, 30f) / 100f;
             string crateId = LootCatalog.CrateFor(region.Id);
@@ -66,8 +66,9 @@ namespace DumpingGroundMap
             SupplyEntry[] supplies = SupplyPool.For(region.Id);
             bool withCrate = crateId != null;
             bool withCard = cardId != null;
-            float crateChance = withCrate && perk80 ? ProbabilityMath.Clamp(settings.CratePercent, 0f, 5f) / 100f : 0f;
-            float cardChance = withCard && perk80 ? ProbabilityMath.Clamp(settings.KeycardPercent, 0f, 5f) / 100f : 0f;
+            bool supplyUnlocked = perk80 && reputation >= PerkCatalog.Perk100Threshold;
+            float crateChance = withCrate && supplyUnlocked ? ProbabilityMath.Clamp(settings.CratePercent, 0f, 5f) / 100f : 0f;
+            float cardChance = withCard && supplyUnlocked ? ProbabilityMath.Clamp(settings.KeycardPercent, 0f, 5f) / 100f : 0f;
             float reserved = highChance + crateChance + cardChance;
             if (reserved > 0.995f - junkProb)
             {

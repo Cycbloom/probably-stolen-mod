@@ -1,0 +1,26 @@
+垃圾场拓展 / Scrapyard Expansion
+作者 / Author: Cycbloom
+版本 / Version: 0.6.9
+清单目标游戏版本 / Manifest target game version: 0.46D
+
+订阅安装：等待Steam下载，在游戏模组菜单启用并重启。
+手动安装：将本文件所在的content目录重命名为DumpingGroundMap，放进游戏Mods目录。
+manifest.xml应直接位于Mods/DumpingGroundMap内，不要多套一层content。
+工坊版与手动版不要同时保留；本地同ID版本会优先加载。
+
+夜间外出选择垃圾场，再选择区域。新档可选「拾荒客」，配标准储藏区（可放容器和机器）；更新不替换旧档开局物品。已有存档无需重开即可使用选区与声望系统。
+开放节点：0入口/生活，20拆解/泵站，40车场/医疗，60电子/武器，80贵重品，100补给箱/钥匙卡及同行服务。
+设置中的单件收益按声望档显示；地点告示牌显示当天实际概率与收益。大小奖单独结算。
+
+无强制前置；使用原生加载器，无需MelonLoader。「更好的拾荒」为可选联动。
+修改拾荒掉落、经济与声望，进度写入当前存档。卸载不会回滚已获得物品或金钱。
+新增信物和便签停用后的存档行为尚未逐项实机验证，重要存档请保留启用前备份。
+其他游戏版本/分支及全部模组组合未确认；构建与扫描通过，工坊版实机核对待完成。
+新增场景美术及封面使用AI辅助生成。
+
+Native mod loader; enable in the Mods menu and restart. No required mods.
+Choose the dump at night, then select a scavenging area. Scavenger is an optional new-game start.
+Areas unlock at 0/20/40/60 reputation; valuables at 80; supply crates/keycards and outing at 100.
+Changes scavenging balance and stores progression in saves. Disabling does not undo existing gains.
+Keep a pre-mod save backup. Other builds, mod combinations and Workshop runtime behavior are unverified.
+Added scene art and cover are AI-assisted.
