@@ -82,6 +82,11 @@ namespace DumpingGroundMap
         internal const float DebugPointsMin = 0f;
         internal const float DebugPointsMax = 200f;
 
+        /// <summary>性能日志。默认关闭；关闭时调用点只有一次布尔判断。</summary>
+        private const string PerfSection = "性能 / Performance";
+        internal const string PerfLogKey = "perf_log";
+        internal const bool DefaultPerfLog = false;
+
         /// <summary>
         /// 拾荒地面：只放大拾荒时整理战利品的那块「地面」。
         /// 12×9 是原版；默认 19×21，宽 12–19、高 9–31。
@@ -136,6 +141,7 @@ namespace DumpingGroundMap
         private static ConfigEntry<string> specialtyEntry;
         private static ConfigEntry<bool> reputationPopEntry;
         private static ConfigEntry<bool> debugEnabledEntry;
+        private static ConfigEntry<bool> perfLogEntry;
         private static ConfigEntry<float> debugPointsEntry;
         private static ConfigEntry<int> groundWidthEntry;
         private static ConfigEntry<int> groundHeightEntry;
@@ -297,6 +303,12 @@ namespace DumpingGroundMap
         internal static bool DebugEnabled
         {
             get { return debugEnabledEntry != null && debugEnabledEntry.Value; }
+        }
+
+        /// <summary>性能日志开关：关闭时所有统计点只做一次布尔判断。</summary>
+        internal static bool PerfLogEnabled
+        {
+            get { return perfLogEntry != null && perfLogEntry.Value; }
         }
 
         /// <summary>界面输入的声望点数（未取整的原始值）。</summary>
@@ -751,6 +763,16 @@ namespace DumpingGroundMap
                     if (!value) Reputation.ClearPendingDebugPoints();
                     Debug.Log("[DumpingGroundMap] debug: options " + (value ? "on" : "off"));
                 };
+
+                perfLogEntry = config.Define(PerfLogKey, DefaultPerfLog, PerfSection,
+                    delegate { return Copy.Text("性能日志", "Performance log"); },
+                    delegate
+                    {
+                        return Copy.Text(
+                            "打开后在日志里输出掉落表构建、告示牌刷新、外来池重扫和单次拾荒的耗时。\n统一前缀 [DGM][perf]，每类动作只打一条，默认关闭。",
+                            "Writes timing lines for loot-table builds, notice-board refreshes, foreign-pool rescans and single scavenges.\nPrefix [DGM][perf]; one line per action, off by default.");
+                    },
+                    false);
 
                 debugPointsEntry = config.Define(DebugPointsKey, 0f, DebugSection,
                     delegate { return Copy.Text("设置声望点数", "Set reputation points"); },

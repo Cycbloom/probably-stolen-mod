@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace DumpingGroundMap
 {
@@ -88,8 +89,15 @@ namespace DumpingGroundMap
             ForeignLootTable previous = includeVanilla ? allCache : strictCache;
             if (previous != null && Time.realtimeSinceStartup < nextRead) return previous;
 
+            bool perf = PerfLog.Enabled;
+            long startedAt = perf ? Stopwatch.GetTimestamp() : 0L;
             ForeignLootTable table = Read(includeVanilla);
             nextRead = Time.realtimeSinceStartup + ReloadSeconds;
+            if (perf)
+            {
+                PerfLog.Line("foreign rescan " + PerfLog.Ms(startedAt) + "ms entries="
+                    + table.Count + " vanilla=" + (includeVanilla ? "yes" : "no"));
+            }
             if (previous != null && previous.SameContent(table)) return previous;
 
             if (includeVanilla) allCache = table;

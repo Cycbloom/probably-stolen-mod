@@ -4,6 +4,7 @@ using System.Globalization;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace DumpingGroundMap
 {
@@ -226,7 +227,14 @@ namespace DumpingGroundMap
         internal static void RefreshIfOpen()
         {
             if (boardWindow == null || !boardWindow.IsAlive) return;
+            bool perf = PerfLog.Enabled;
+            long startedAt = perf ? Stopwatch.GetTimestamp() : 0L;
             RefreshBoard();
+            if (perf)
+            {
+                PerfLog.Line("board refresh region=" + (boardRegion == null ? "-" : boardRegion.Id)
+                    + " " + PerfLog.Ms(startedAt) + "ms");
+            }
         }
 
         private static void RefreshBoard()

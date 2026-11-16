@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using HarmonyLib;
 using UnityEngine;
+using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace DumpingGroundMap
 {
@@ -68,6 +69,9 @@ namespace DumpingGroundMap
             if (probed) return tryRoll;
             if (Time.realtimeSinceStartup < nextProbe) return null;
 
+            bool perf = PerfLog.Enabled;
+            long startedAt = perf ? Stopwatch.GetTimestamp() : 0L;
+
             // 先在已加载程序集里确认它存在（未安装时这里就是全部开销）。
             // 类型与方法都走 0Harmony 的查找器，本模组的 IL 里不出现
             // System.Type::GetMethod，扫描器就不会记成 reflection-external。
@@ -82,6 +86,8 @@ namespace DumpingGroundMap
             if (type == null)
             {
                 nextProbe = Time.realtimeSinceStartup + RetrySeconds;
+                if (perf)
+                    PerfLog.Line("better-scavenging probe " + PerfLog.Ms(startedAt) + "ms hit=no (not installed)");
                 return null;
             }
 
@@ -95,6 +101,9 @@ namespace DumpingGroundMap
                 Warn(ex);
             }
             probed = true;
+            if (perf)
+                PerfLog.Line("better-scavenging probe " + PerfLog.Ms(startedAt) + "ms hit="
+                    + (tryRoll != null ? "yes" : "no"));
             return tryRoll;
         }
 
