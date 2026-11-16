@@ -14,10 +14,20 @@ if ($Scan) {
     $allowed = [string[]]@(Get-ChildItem -LiteralPath $managed -Filter '*.dll' | ForEach-Object BaseName)
     $package = Join-Path $repo 'dist'
     $result = [ModScanner]::Scan([string[]]@($binaryPath),$allowed,$package,$true)
-    if ($result.Refused -or $result.Capabilities.Count -gt 0) {
+    # 清单允许声明 reflection-external（跨程序集反射），其它能力仍然禁止。
+    $allowedCaps = @('reflection-external')
+    $extra = @($result.Capabilities | Where-Object { $allowedCaps -notcontains $_ })
+    $manifest = [xml](Get-Content -LiteralPath (Join-Path $repo 'manifest.xml') -Raw)
+    $declared = @($manifest.Manifest.Capabilities.Capability |
+        ForEach-Object { ([string]$_).Trim().ToLowerInvariant() } |
+        Where-Object { $_ })
+    $undeclared = @([ModCapability]::Undeclared([string[]]@($result.Capabilities),[string[]]$declared))
+    if ($result.Refused -or $extra.Count -gt 0 -or $undeclared.Count -gt 0) {
         throw "ModScanner: $($result.Error) $($result.FormatFindings(30))"
     }
-    Write-Output "PASS: game ModScanner ($($result.MethodsScanned) methods, $($result.HardFlags.Count) hard flags, $($result.Capabilities.Count) capabilities; $($result.Pending.Count) guarded game-API calls)"
+    $retiring = @($result.Capabilities | Where-Object { [ModCapability]::IsDeprecated($_) })
+    $note = if ($retiring.Count -gt 0) { " (declared retiring: $($retiring -join ','))" } else { '' }
+    Write-Output "PASS: game ModScanner ($($result.MethodsScanned) methods, $($result.HardFlags.Count) hard flags, $($result.Capabilities.Count) capabilities; $($result.Pending.Count) guarded game-API calls)$note"
     return
 }
 $out = Join-Path $repo 'obj/tests'

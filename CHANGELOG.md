@@ -1,5 +1,11 @@
 ﻿# 版本记录
 
+## 0.6.4（待部署）
+
+- 修复 0.6.2/0.6.3 被模组扫描器判定「使用了清单文件中未声明的权限」而无法启用的问题：0.6.2 的「更好的拾荒」桥接通过 `Type.GetMethod` 反射调用对方公开入口，扫描器据此记录 `reflection-external`，但清单仍写着 `<Capabilities />`。
+- 清单补上 `<Capabilities><Capability>reflection-external</Capability></Capabilities>`，这是游戏认可的准确写法（元素名 `Capability`，取元素文本并转为小写）；其它能力仍不声明。该能力在当前版本只触发启用前的权限提示，不会被拒绝。
+- `tools/verify.ps1 -Scan` 改为按游戏同一套 `ModCapability.Undeclared` 校验清单声明：只放行 `reflection-external`，出现其它能力或未声明能力仍然失败，并提示该能力已被列入退休清单。
+
 ## 0.6.3
 
 - 「外来条目份额上限」默认值由 2% 提高到 5%，范围仍为 0–8，语义不变：设置值是上限，外来条目在原版组里自然占比不足时按真实占比出，超过才压到上限。配合往原版工具池加条目的模组（如「墙后挖洞」类）使用。
