@@ -32,11 +32,19 @@ namespace DumpingGroundMap
         internal readonly int HighStart;
         internal readonly int HighCount;
 
+        /// <summary>
+        /// 外来条目（其它模组注入原版组的物品）在数组里的起点与件数；没有时
+        /// ForeignStart 为 -1。它们排在贵重品之后、补给箱/钥匙卡之前。
+        /// </summary>
+        internal readonly int ForeignStart;
+        internal readonly int ForeignCount;
+
         private readonly int[] order;
 
         internal EffectiveTable(string[] items, float[] probs, bool[] isHigh,
             float highChance, float junkChance, float ev, int highStart, int highCount, Region region, float junkScale = 1f,
-            EffectiveTable withoutRegionalEvent = null, RegionalEvent regionalEvent = null, float[] values = null)
+            EffectiveTable withoutRegionalEvent = null, RegionalEvent regionalEvent = null, float[] values = null,
+            int foreignStart = -1, int foreignCount = 0)
         {
             Items = items;
             Probs = probs;
@@ -47,17 +55,24 @@ namespace DumpingGroundMap
             JunkScale = junkScale;
             HighStart = highStart;
             HighCount = highCount;
+            ForeignStart = foreignCount > 0 ? foreignStart : -1;
+            ForeignCount = foreignCount > 0 ? foreignCount : 0;
             WithoutRegionalEvent = withoutRegionalEvent;
             RegionalEvent = regionalEvent;
             eventValues = values;
             Slots = new LootSlot[items.Length];
+            int valuableEnd = highStart + highCount;
+            int foreignEnd = ForeignStart >= 0 ? ForeignStart + ForeignCount : valuableEnd;
             for (int i = 0; i < items.Length; ++i)
             {
-                LootKind kind = i < highStart ? LootKind.Ordinary
-                    : i < highStart + highCount ? LootKind.Valuable
-                    : items[i].StartsWith("loot_crate_", StringComparison.Ordinal) ? LootKind.SupplyCrate : LootKind.Keycard;
+                LootKind kind;
+                if (i < highStart) kind = LootKind.Ordinary;
+                else if (i < valuableEnd) kind = LootKind.Valuable;
+                else if (ForeignStart >= 0 && i >= ForeignStart && i < foreignEnd) kind = LootKind.Foreign;
+                else kind = items[i].StartsWith("loot_crate_", StringComparison.Ordinal) ? LootKind.SupplyCrate : LootKind.Keycard;
                 Slots[i] = new LootSlot(items[i], kind,
-                    kind == LootKind.Ordinary ? region.Loot.CategoryOf(items[i]) : -1);
+                    kind == LootKind.Ordinary ? region.Loot.CategoryOf(items[i])
+                    : kind == LootKind.Foreign ? ForeignLoot.Category : -1);
             }
 
             order = new int[items.Length];
@@ -70,6 +85,12 @@ namespace DumpingGroundMap
         }
 
         internal int Count { get { return Items.Length; } }
+
+        /// <summary>补给箱/钥匙卡在数组里的起点：外来块之后。</summary>
+        internal int SpecialStart
+        {
+            get { return ForeignStart >= 0 ? ForeignStart + ForeignCount : HighStart + HighCount; }
+        }
         internal float ExpectedValueAt(int i, string regionId)
         {
             return eventValues == null ? LootCatalog.ExpectedValueOf(Items[i], regionId) : eventValues[i];
@@ -103,6 +124,23 @@ namespace DumpingGroundMap
                 if (roll < 0f) return i;
             }
             return last;
+        }
+
+        /// <summary>外来条目生成失败时的兜底：概率最高的普通（非垃圾）槽。</summary>
+        internal int FallbackOrdinaryIndex()
+        {
+            int best = -1;
+            float bestProb = 0f;
+            for (int i = 0; i < Items.Length; ++i)
+            {
+                if (Slots[i].Kind != LootKind.Ordinary || Items[i] == "junk" || Probs[i] <= 0f) continue;
+                if (best < 0 || Probs[i] > bestProb)
+                {
+                    best = i;
+                    bestProb = Probs[i];
+                }
+            }
+            return best;
         }
 
         internal float ProbabilityOf(LootKind kind)

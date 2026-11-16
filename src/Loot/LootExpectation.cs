@@ -31,6 +31,11 @@ namespace DumpingGroundMap
                         result.Valuable += value;
                         result.ValuableProbability += p;
                         break;
+                    case LootKind.Foreign:
+                        // 外来条目多半不在估值表里（ValueOf 返回 0），单独成档，
+                        // 不参与补给箱/钥匙卡的成本抵扣。
+                        result.Base += value;
+                        break;
                     default:
                         result.Supply += value;
                         result.SupplyProbability += p;

@@ -114,7 +114,8 @@ namespace DumpingGroundMap
             int junkSlot = Array.IndexOf(original.Items, "junk");
             return new EffectiveTable(original.Items, probs, original.IsHigh, original.HighChance,
                 junkSlot >= 0 ? probs[junkSlot] : 0f, expected, original.HighStart, original.HighCount,
-                region, original.JunkScale, original, effect, values);
+                region, original.JunkScale, original, effect, values,
+                original.ForeignStart, original.ForeignCount);
         }
         private static float Dot(float[] probabilities, float[] values)
         {

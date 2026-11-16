@@ -98,6 +98,7 @@ internal static class RulesTests
         RegionalSupplyRules();
         SettingsProfileRules();
         RegionalEventRulesTests();
+        ForeignLootRules();
         Console.WriteLine("PASS: " + assertions + " assertions (loot/events, state, outings, milestones, jackpot modes/news, traffic)");
     }
 
@@ -167,6 +168,54 @@ internal static class RulesTests
     private static void Near(float actual, float expected, string message)
     {
         Check(Math.Abs(actual - expected) < 0.00002f, message + ": " + actual + " vs " + expected);
+    }
+
+    /// <summary>
+    /// 外来池：份额取「设置上限」与「自然占比」的较小值，池空/关闭时不改变
+    /// 总概率与 EV，外来块排在贵重品之后、箱卡之前。
+    /// </summary>
+    private static void ForeignLootRules()
+    {
+        Region region = Region.All[0];
+        EffectiveTable baseline = LootCalculator.Build(region, new LootSettings(100f, 0f, 100f, 0f, 0f), false, 1f, 0);
+
+        EffectiveTable empty = LootCalculator.Build(region, new LootSettings(100f, 0f, 100f, 0f, 0f, 2f),
+            false, 1f, 0, ForeignLootTable.Empty);
+        Check(empty.ForeignCount == 0, "Empty foreign pool adds no slots");
+        Check(empty.SpecialStart == empty.HighStart + empty.HighCount, "Crates start right after valuables");
+        Near(empty.Ev, baseline.Ev, "Empty pool leaves EV untouched");
+        Near(SumProbs(empty), 1f, "Empty pool keeps total probability at 1");
+
+        // 自然占比 0.5%，上限 2% → 按 0.5% 出。
+        ForeignLootTable small = new ForeignLootTable(new[] { "foreign_a" }, new[] { 1f }, 0.005f);
+        EffectiveTable smallTable = LootCalculator.Build(region, new LootSettings(100f, 0f, 100f, 0f, 0f, 2f),
+            false, 1f, 0, small);
+        Check(smallTable.ForeignCount == 1, "Small pool adds one slot");
+        Near(smallTable.ProbabilityOf(LootKind.Foreign), 0.005f, "Natural share caps the foreign slice");
+        Check(smallTable.SpecialStart == smallTable.ForeignStart + 1, "Crates move past the foreign block");
+        Near(SumProbs(smallTable), 1f, "Foreign slice keeps total probability at 1");
+
+        // 自然占比 6%，上限 2% → 压到 2%，池内按 3:1 分配。
+        ForeignLootTable large = new ForeignLootTable(new[] { "foreign_a", "foreign_b" }, new[] { 3f, 1f }, 0.06f);
+        EffectiveTable largeTable = LootCalculator.Build(region, new LootSettings(100f, 0f, 100f, 0f, 0f, 2f),
+            false, 1f, 0, large);
+        Check(largeTable.ForeignCount == 2, "Large pool adds both slots");
+        Near(largeTable.ProbabilityOf(LootKind.Foreign), 0.02f, "Configured cap wins over a larger natural share");
+        Near(largeTable.Probs[largeTable.ForeignStart + 1] * 3f, largeTable.Probs[largeTable.ForeignStart],
+            "Pool keeps the native 3:1 weight ratio");
+        Near(SumProbs(largeTable), 1f, "Capped foreign slice keeps total probability at 1");
+
+        EffectiveTable off = LootCalculator.Build(region, new LootSettings(100f, 0f, 100f, 0f, 0f, 0f),
+            false, 1f, 0, large);
+        Check(off.ForeignCount == 0, "Zero cap disables the pool");
+        Near(off.Ev, baseline.Ev, "Zero cap restores baseline EV");
+    }
+
+    private static float SumProbs(EffectiveTable table)
+    {
+        float sum = 0f;
+        for (int i = 0; i < table.Count; ++i) sum += table.Probs[i];
+        return sum;
     }
 
     private static void PumpWaterRules()

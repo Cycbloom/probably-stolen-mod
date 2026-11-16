@@ -5,22 +5,24 @@ namespace DumpingGroundMap
     /// <summary>Inputs to probability calculation, independent of config and UI state.</summary>
     internal struct LootSettings : IEquatable<LootSettings>
     {
-        internal readonly float JunkPercent, HighPercent, SpecialtyPercent, CratePercent, KeycardPercent;
+        internal readonly float JunkPercent, HighPercent, SpecialtyPercent, CratePercent, KeycardPercent,
+            ForeignPercent;
 
-        internal LootSettings(float junk, float high, float specialty, float crate, float card)
+        internal LootSettings(float junk, float high, float specialty, float crate, float card, float foreign = 0f)
         {
             JunkPercent = junk;
             HighPercent = high;
             SpecialtyPercent = specialty;
             CratePercent = crate;
             KeycardPercent = card;
+            ForeignPercent = foreign;
         }
 
         public bool Equals(LootSettings other)
         {
             return JunkPercent == other.JunkPercent && HighPercent == other.HighPercent
                 && SpecialtyPercent == other.SpecialtyPercent && CratePercent == other.CratePercent
-                && KeycardPercent == other.KeycardPercent;
+                && KeycardPercent == other.KeycardPercent && ForeignPercent == other.ForeignPercent;
         }
     }
 

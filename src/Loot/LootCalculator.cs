@@ -5,7 +5,8 @@ namespace DumpingGroundMap
 {
     internal static class LootCalculator
     {
-        internal static EffectiveTable Build(Region region, LootSettings settings, bool perk80, float junkScale = 1f, int reputation = 0)
+        internal static EffectiveTable Build(Region region, LootSettings settings, bool perk80, float junkScale = 1f, int reputation = 0,
+            ForeignLootTable foreign = null)
         {
             RegionLootTable theme = region.Loot;
             RegionLootTable vanilla = ScavLoot.Vanilla;
@@ -71,16 +72,34 @@ namespace DumpingGroundMap
                 cardChance *= scale;
                 reserved = highChance + crateChance + cardChance;
             }
-            if (otherTotal <= 0f) junkProb = 1f - reserved;
-            float normalProb = Math.Max(0f, 1f - junkProb - reserved);
+            // 3b) 外来条目：设置值是上限，实际份额取「上限」与「这些条目在原版组
+            //     里自然占的比例」中的较小值。池空时份额归零，概率不留空洞。
+            int foreignCount = 0;
+            float foreignChance = 0f;
+            if (foreign != null && !foreign.IsEmpty)
+            {
+                float cap = ProbabilityMath.Clamp(settings.ForeignPercent, 0f, 8f) / 100f;
+                if (cap > 0f)
+                {
+                    foreignChance = Math.Min(cap, foreign.NaturalShare);
+                    float room = Math.Max(0f, 0.995f - junkProb - reserved);
+                    foreignChance = Math.Min(foreignChance, room);
+                    if (foreignChance > 0f) foreignCount = foreign.Count;
+                }
+            }
+            if (foreignCount == 0) foreignChance = 0f;
+
+            if (otherTotal <= 0f) junkProb = Math.Max(0f, 1f - reserved - foreignChance);
+            float normalProb = Math.Max(0f, 1f - junkProb - reserved - foreignChance);
 
             int highCount = LootCatalog.Valuables.Length;
             int specialCount = supplies.Length * 2;
+            int foreignStart = count + highCount;
 
-            string[] items = new string[count + highCount + specialCount];
-            float[] probs = new float[count + highCount + specialCount];
-            bool[] isHigh = new bool[count + highCount + specialCount];
-            bool[] isJunk = new bool[count + highCount + specialCount];
+            string[] items = new string[count + highCount + foreignCount + specialCount];
+            float[] probs = new float[count + highCount + foreignCount + specialCount];
+            bool[] isHigh = new bool[count + highCount + foreignCount + specialCount];
+            bool[] isJunk = new bool[count + highCount + foreignCount + specialCount];
 
             for (int i = 0; i < count; ++i)
             {
@@ -103,7 +122,18 @@ namespace DumpingGroundMap
                 }
             }
 
-            int slotNext = count + highCount;
+            if (foreignCount > 0)
+            {
+                float poolTotal = foreign.Total;
+                for (int j = 0; j < foreignCount; ++j)
+                {
+                    int slot = foreignStart + j;
+                    items[slot] = foreign.Ids[j];
+                    probs[slot] = poolTotal > 0f ? foreignChance * foreign.Weights[j] / poolTotal : 0f;
+                }
+            }
+
+            int slotNext = foreignStart + foreignCount;
             int supplyTotal = 0;
             foreach (SupplyEntry entry in supplies) supplyTotal += entry.Weight;
             foreach (SupplyEntry entry in supplies)
@@ -140,7 +170,7 @@ namespace DumpingGroundMap
 
             float finalJunk = junkIndex >= 0 ? probs[junkIndex] : 0f;
             return new EffectiveTable(items, probs, isHigh, highChance, finalJunk, expected,
-                count, highCount, region, junkScale);
+                count, highCount, region, junkScale, null, null, null, foreignStart, foreignCount);
         }
 
     }

@@ -53,6 +53,20 @@ namespace DumpingGroundMap
         internal const string StashWindowKey = "stash_window_enabled";
         internal const bool DefaultStashWindow = true;
 
+        /// <summary>
+        /// 其它模组加进原版拾荒组的物品。设置值是每次拾荒的上限份额，实际
+        /// 取它与「这些条目在原版组里的自然占比」的较小值。
+        /// </summary>
+        internal const string ForeignEnabledKey = "foreign_loot_enabled";
+        internal const bool DefaultForeignEnabled = true;
+        internal const string ForeignPercentKey = "foreign_loot_percent";
+        internal const float DefaultForeignPercent = 2f;
+        internal const float ForeignPercentMin = 0f;
+        internal const float ForeignPercentMax = 8f;
+        /// <summary>顺带纳入本模组表没收录的原版物品（排查遗漏用）。</summary>
+        internal const string ForeignVanillaKey = "foreign_loot_vanilla";
+        internal const bool DefaultForeignVanilla = false;
+
         private const string SectionName = "拾荒掉落 / Loot";
         private const string IntegrationSection = "声望飘字 / Reputation Pop";
         private const string DebugSection = "调试 / Debug";
@@ -115,6 +129,9 @@ namespace DumpingGroundMap
         private static ConfigEntry<float> minorValueEntry;
         private static ConfigEntry<float> stashCapEntry;
         private static ConfigEntry<bool> stashWindowEntry;
+        private static ConfigEntry<bool> foreignEnabledEntry;
+        private static ConfigEntry<float> foreignPercentEntry;
+        private static ConfigEntry<bool> foreignVanillaEntry;
         private static ConfigEntry<string> specialtyEntry;
         private static ConfigEntry<bool> reputationPopEntry;
         private static ConfigEntry<bool> debugEnabledEntry;
@@ -175,6 +192,25 @@ namespace DumpingGroundMap
         {
             if (minorValueEntry == null) return DefaultMinorValue;
             return ClampMinorValue(minorValueEntry.Value);
+        }
+
+        private static bool EntryForeignEnabled()
+        {
+            return foreignEnabledEntry == null ? DefaultForeignEnabled : foreignEnabledEntry.Value;
+        }
+
+        /// <summary>份额上限（%），夹在 0–8 并吸附到 0.1。</summary>
+        private static float EntryForeignPercent()
+        {
+            if (foreignPercentEntry == null) return DefaultForeignPercent;
+            float value = foreignPercentEntry.Value;
+            if (float.IsNaN(value)) return DefaultForeignPercent;
+            return Mathf.Round(Mathf.Clamp(value, ForeignPercentMin, ForeignPercentMax) * 10f) / 10f;
+        }
+
+        private static bool EntryForeignVanilla()
+        {
+            return foreignVanillaEntry == null ? DefaultForeignVanilla : foreignVanillaEntry.Value;
         }
 
         private static int EntrySpecialtyTier()
@@ -371,6 +407,27 @@ namespace DumpingGroundMap
             get { return hasLive ? liveMinorValue : EntryMinorValue(); }
         }
 
+        /// <summary>其它模组注入原版拾荒组的物品是否参与掉落。</summary>
+        internal static bool ForeignEnabled
+        {
+            get { return EntryForeignEnabled(); }
+        }
+
+        /// <summary>
+        /// 外来条目的份额上限（%）。实际份额取它与「这些条目在原版组里的自然
+        /// 占比」的较小值；关闭时返回 0。
+        /// </summary>
+        internal static float ForeignPercent
+        {
+            get { return ForeignEnabled ? EntryForeignPercent() : 0f; }
+        }
+
+        /// <summary>是否把本模组表未收录的原版物品也当外来条目（默认关）。</summary>
+        internal static bool ForeignVanilla
+        {
+            get { return EntryForeignVanilla(); }
+        }
+
         /// <summary>小奖实际生效概率上限（%）；窗口当前概率由StashFind读取。</summary>
         internal static float EffectiveMinorPercent
         {
@@ -564,6 +621,37 @@ namespace DumpingGroundMap
                         return Copy.Text(
                             "大奖概率的上限。\n启用拥塞窗口时，概率动态增长到这个上限；关闭时，每次直接使用这个概率。\n声望不到 60 时，实际生效的上限仍压到 0.1%。\n适用于配置了储藏样板的全部八个区域。每趟最多中一次大奖。",
                             "Jackpot chance cap.\nWith the adaptive window enabled, the chance grows toward this cap; when disabled, every roll uses it directly.\nThe effective cap is still limited to 0.1% below 60 reputation.\nApplies to all eight areas with stash templates. At most one jackpot per visit.");
+                    },
+                    false);
+
+                foreignEnabledEntry = config.Define(ForeignEnabledKey, DefaultForeignEnabled, SectionName,
+                    delegate { return Copy.Text("允许其它模组的拾荒物品出现", "Allow other mods' scavenge items"); },
+                    delegate
+                    {
+                        return Copy.Text(
+                            "本模组按区域接管了拾荒掉落，其它模组加进原版拾荒表的物品默认不会出现。\n开启后，这些外来条目会按它们在原版表里的相对权重参与掉落。\n只读取原版表组，不修改任何模组的数据。\n外来条目在告示板里单列一组「外来条目（其它模组）」。",
+                            "This mod takes over scavenging per region, so items other mods added to the native loot tables would never drop.\nWhen enabled, those entries join the roll with the relative weights they have in the native group.\nThe native tables are only read, never modified.\nNeeds a scene reload to take effect after installing or removing such a mod.");
+                    },
+                    false);
+
+                foreignPercentEntry = config.Define(ForeignPercentKey, DefaultForeignPercent, SectionName,
+                    delegate { return Copy.Text("外来条目份额上限（%，0–8）", "Foreign item share cap (%, 0-8)"); },
+                    ForeignPercentMin, ForeignPercentMax,
+                    delegate
+                    {
+                        return Copy.Text(
+                            "每次拾荒里，外来条目最多占多少概率。\n这是上限而不是固定摊派：如果它们在原版表里本来只占 0.8%，就按 0.8% 出。\n份额从非垃圾普通物品里扣除，和补给箱、钥匙卡同一套算法。\n0% 等于关闭；超过 3% 时，值钱的外来物品会明显抬高单次收益。\n默认 2%。",
+                            "Upper bound on how much of one haul foreign entries may take.\nThis is a cap, not a fixed allotment: if they naturally hold 0.8% of the native table, they get 0.8%.\nThe share is taken from non-junk ordinary items, the same way crates and keycards are.\n0% disables it; above 3% valuable foreign items noticeably raise per-search returns.\nDefault 2%.");
+                    },
+                    false);
+
+                foreignVanillaEntry = config.Define(ForeignVanillaKey, DefaultForeignVanilla, SectionName,
+                    delegate { return Copy.Text("外来条目也纳入未收录的原版物品", "Also include vanilla items this mod omits"); },
+                    delegate
+                    {
+                        return Copy.Text(
+                            "默认关闭：只有其它模组新增的条目算外来。\n开启后，本模组各区域表里没收录的原版物品也会进入外来池。\n用于排查遗漏，可能把刻意剔除的原版物品放回来，日常不建议开。",
+                            "Off by default: only entries added by other mods count as foreign.\nWhen on, vanilla items missing from this mod's regional tables also join the pool.\nUseful for auditing omissions; it can reintroduce items that were excluded on purpose, so it is not recommended for normal play.");
                     },
                     false);
 
@@ -959,7 +1047,7 @@ namespace DumpingGroundMap
         {
             Init();
             return PreviewTableFor(region, new LootSettings(JunkPercent, HighPercent, SpecialtyPercent,
-                CratePercent, KeycardPercent));
+                CratePercent, KeycardPercent, ForeignPercent));
         }
 
         internal static EffectiveTable PreviewTableFor(Region region, LootSettings settings)
@@ -968,8 +1056,11 @@ namespace DumpingGroundMap
             bool perk80 = Reputation.Points >= PerkCatalog.Perk80Threshold;
             AfterhourLocation location = AfterhourLocation.Get("dumping_ground");
             float modifier = location == null ? 0f : location.GetModifier("junk_chance");
+            ForeignLootTable foreign = settings.ForeignPercent > 0f
+                ? ForeignLoot.Snapshot(ForeignVanilla)
+                : ForeignLootTable.Empty;
             return cache.Get(region, settings, perk80, ProbabilityMath.JunkScaleFromModifier(modifier), Reputation.Points,
-                RegionalEvents.ActiveFor(region));
+                RegionalEvents.ActiveFor(region), foreign);
         }
 
         /// <summary>

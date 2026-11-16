@@ -1,6 +1,6 @@
 ﻿namespace DumpingGroundMap
 {
-    internal enum LootKind { Ordinary, Valuable, SupplyCrate, Keycard }
+    internal enum LootKind { Ordinary, Valuable, Foreign, SupplyCrate, Keycard }
 
     /// <summary>Slot identity includes its kind; identical item IDs may occur in two pools.</summary>
     internal sealed class LootSlot

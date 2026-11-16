@@ -119,6 +119,7 @@ namespace DumpingGroundMap
                 group.High = source.Valuable;
                 group.Name = source.Valuable
                     ? Copy.Text("贵重品（80 档 + 贵重品出现率）", "Valuables (tier 80 + valuable chance)")
+                    : source.Foreign ? Copy.Text("外来条目（其它模组）", "Foreign (other mods)")
                     : source.Category >= 0 ? region.Loot.CategoryName(source.Category)
                     : Copy.Text("其他（低专精混入的原版物品）", "Other (vanilla items at lower specialty)");
                 foreach (int slot in source.Slots)
@@ -159,7 +160,7 @@ namespace DumpingGroundMap
             {
                 boardSpecial[i] = AddRow(b, "board_special_" + i);
             }
-            for (int i = table.HighStart + table.HighCount; i < table.Count; ++i)
+            for (int i = table.SpecialStart; i < table.Count; ++i)
             {
                 BoardItem item = new BoardItem();
                 item.Id = table.Items[i];
@@ -351,6 +352,11 @@ namespace DumpingGroundMap
                     + Copy.Text("；实际概率：", "; effective chance: ") + BoardPercentValue(rewards.MinorProbability * 100f)
                     + Copy.Text("\n奖励期望按每次搜索、当前概率计算；小奖已计入大奖优先及1–12件限制。大奖后的后续额外收获、工具、额外主掉落和市场效果另算。",
                         "\nBonus EV is per search at current odds; minor rewards include jackpot precedence and the 1-12 item limit. Later extra finds, tools, extra main rolls and market effects are separate.");
+                if (table.ForeignCount > 0)
+                {
+                    valueNote += Copy.Text("\n外来条目（其它模组）没有可用的估值，按 0 信用点计入，所以上面的合计比实际收益偏低。",
+                        "\nForeign (other mods) entries have no value data and count as 0 credits, so the total above understates real returns.");
+                }
                 boardEv.SetTooltip(valueNote);
             }
         }

@@ -559,7 +559,8 @@ namespace DumpingGroundMap
                 SliderValue(highSlider, Tuning.HighPercent),
                 (Mathf.Clamp(tier, 0, 3) + 1) * 25f,
                 SliderValue(crateSlider, Tuning.CratePercent),
-                SliderValue(cardSlider, Tuning.KeycardPercent));
+                SliderValue(cardSlider, Tuning.KeycardPercent),
+                Tuning.ForeignPercent);
             MainExpectation average = new MainExpectation();
             int openCount = 0;
             for (int i = 0; i < Region.All.Length; ++i)
