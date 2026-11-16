@@ -15,11 +15,14 @@ namespace DumpingGroundMap
     internal static class BetterScavengingBridge
     {
         private const string TypeName = "BetterScavenging.BoxDrop";
+        private const string QualifiedName = "BetterScavenging.BoxDrop, BetterScavenging";
         private const string AssemblyName = "BetterScavenging";
+        private const float RetrySeconds = 30f;
 
         private static MethodInfo tryRoll;
         private static bool probed;
         private static bool warned;
+        private static float nextProbe;
 
         /// <summary>可用时返回 true，避免每趟都做类型查找。</summary>
         internal static bool Available
@@ -61,12 +64,13 @@ namespace DumpingGroundMap
         private static MethodInfo Resolve()
         {
             if (probed) return tryRoll;
+            if (Time.realtimeSinceStartup < nextProbe) return null;
 
-            Type type = Type.GetType(TypeName + ", " + AssemblyName);
+            Type type = Type.GetType(QualifiedName);
             if (type == null)
             {
-                // 程序集可能还没进 AppDomain（加载顺序不定），逐帧调用也无所谓，
-                // 只有拾荒时才会走到这里。
+                // 程序集可能还没进 AppDomain（加载顺序不定）。找不到就过 30 秒再试，
+                // 未安装时这条通道的开销退化为一次时间比较。
                 Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
                 for (int i = 0; i < assemblies.Length && type == null; ++i)
                 {
@@ -74,7 +78,11 @@ namespace DumpingGroundMap
                     type = assemblies[i].GetType(TypeName, false);
                 }
             }
-            if (type == null) return null;
+            if (type == null)
+            {
+                nextProbe = Time.realtimeSinceStartup + RetrySeconds;
+                return null;
+            }
 
             try
             {
