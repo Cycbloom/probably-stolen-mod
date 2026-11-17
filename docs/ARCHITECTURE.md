@@ -8,7 +8,7 @@
 | src/Progression | 声望、奖励门槛、大奖状态、存档归属与临时状态恢复 |
 | src/UI | 地图选择、掉落告示板、设置控件、声望行与 tooltip |
 | src/Services | 开局物资、地面尺寸/布局、付费搬运、同行夜间服务 |
-| src/Compatibility | 原生掉落事件适配、可选 Reputation Pop 联动 |
+| src/Compatibility | 原生掉落事件及可选 Reputation Pop / Better Scavenging / Scavenging Expansion 联动 |
 | src/Patches | Harmony 接入点，调用具体服务 |
 | tests、tools | 进程内规则检查、游戏扫描器检查；不打进发布包 |
 
@@ -33,6 +33,8 @@ flowchart LR
 最终表始终保留潜在贵重品、箱子、钥匙卡槽位；未解锁或概率为零时权重为零。这样滑条变化不需要重建窗口，零概率也不会参与抽取。箱子和钥匙卡在告示板单独列出。
 
 `LootFactory` 统一普通物品和奖品的生成、虚拟 ID、真伪、注射器状态与武器成色。只有主掉落经过 `NativeLootEvents`；奖品保持既有的奖励规则，不新增掉落事件。
+
+1.0.1起，ScavengingExpansionBridge通过原生RollInternal接入可选拾荒拓展技能。RegionalRollScope只为当前同步抽取提供本区同类普通物品快照，不改全局表；预选结果消费后停止覆盖，finally恢复父作用域。参见[接入说明和验证边界](COMPATIBILITY-SCAVENGING-EXPANSION.md)。
 
 ## 状态与生命周期
 

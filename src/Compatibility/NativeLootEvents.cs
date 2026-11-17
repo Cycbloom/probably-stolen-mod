@@ -9,6 +9,15 @@ namespace DumpingGroundMap
     {
         private static readonly MethodInfo fireLootRolled =
             AccessTools.Method(typeof(ModHook), "FireOnLootRolled");
+        private static readonly MethodInfo eventModifier =
+            AccessTools.Method(typeof(ScavHelper), "EventModifier");
+
+        internal static float JunkModifier()
+        {
+            if (eventModifier != null) return (float)eventModifier.Invoke(null, new object[] { "junk_chance" });
+            AfterhourLocation location = AfterhourLocation.Get("dumping_ground");
+            return location == null ? 0f : location.GetModifier("junk_chance");
+        }
 
         internal static string Resolve(string token)
         {

@@ -33,10 +33,12 @@ Uses the native mod loader. No required mods. Remove a manually installed copy w
 [h2]Compatibility[/h2]
 Compatible with the following mods:
 [list]
+[*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832768562]Scavenging Expansion: Backpacks, Skills & More[/url]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832421605]Better Scavenging[/url]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]Reputation Pop[/url]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611]Shop Convenience Upgrades: Backpack Hooks / Desktop Toolbox / NPC Appraisal[/url]
 [/list]
+Scavenging Expansion integration: bonus draws use the current area, and Keen Eye expands candidates within the matching supply category. Native XP capture and skill-loot/reputation ordering are integrated. Backpack and furnace features retain the native UI entry points. Third-party skill effects are not separately itemized on the loot notice board.
 These mods are optional; this mod can also be used on its own.
 [h3]Saves & Game Version[/h3]
 This mod changes scavenging balance and saves reputation, event and reward progress. Keep a save backup; disabling it does not undo items or money already gained. Target game version: 0.46D.

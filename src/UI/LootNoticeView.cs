@@ -177,6 +177,15 @@ namespace DumpingGroundMap
             Picker.Size(b.Last, -1, 42);
             ConfigureText(b.Last, 16, true);
             b.Last.SetTooltip(b.Last.GetText());
+            if (ModHelper.IsModRunning(ScavengingExpansionBridge.ModId))
+            {
+                b.AddLabel(Copy.Text("拾荒拓展的技能会进一步改变候选物品与实际收益，并可能追加奖励；上表未单列这些技能效果。",
+                    "Scavenging Expansion skills can change candidates and rewards or add extra loot; these skill effects are not listed separately above."),
+                    "board_skill_note");
+                Picker.Size(b.Last, -1, 56);
+                ConfigureText(b.Last, 16, true);
+                b.Last.SetTooltip(b.Last.GetText());
+            }
             b.End();
 
             b.Show();

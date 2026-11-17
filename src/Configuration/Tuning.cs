@@ -1098,8 +1098,9 @@ namespace DumpingGroundMap
         {
             Init();
             bool perk80 = Reputation.Points >= PerkCatalog.Perk80Threshold;
-            AfterhourLocation location = AfterhourLocation.Get("dumping_ground");
-            float modifier = location == null ? 0f : location.GetModifier("junk_chance");
+            // Use the native access point so optional skill mods can adjust
+            // junk weight during the current search, just as in vanilla.
+            float modifier = NativeLootEvents.JunkModifier();
             ForeignLootTable foreign = settings.ForeignPercent > 0f
                 ? ForeignLoot.Snapshot(ForeignVanilla)
                 : ForeignLootTable.Empty;

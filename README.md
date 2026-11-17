@@ -1,4 +1,4 @@
-﻿# 垃圾场拓展 · 1.0.0
+﻿# 垃圾场拓展 · 1.0.1
 
 夜间外出，在城市地图选「垃圾场」并点「前往」，先选择一个作业区域，再进入拾荒。本次停留内连续拾荒沿用该区域；离开后重新选择。
 
@@ -91,7 +91,7 @@
 
 模块复用原有受伤、空手、拾荒次数、工具和背包流程。主掉落先发送 OnLootRolled，再按事件最终返回的物品 ID 生成物品。第三方替换 ID 时采用新 ID，保留原 ID 时保留本模组的真伪/状态变体。奖励仍只走奖励自身的生成规则。
 
-可选联动：更好的拾荒、Reputation Pop、[店铺便捷升级：背包挂钩/桌面工具箱/NPC鉴别](https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611)、势力声望面板重制。没有强制前置。涉及同一拾荒入口的其他 Mod 仍需组合试玩。模组 ID、开局 ID、既有存档键和配置键沿用旧版。
+可选联动：[拾荒拓展：背包、技能与焚化炉](https://steamcommunity.com/sharedfiles/filedetails/?id=3832768562)、更好的拾荒、Reputation Pop、[店铺便捷升级：背包挂钩/桌面工具箱/NPC鉴别](https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611)、势力声望面板重制。没有强制前置。涉及同一拾荒入口的其他 Mod 仍需组合试玩。模组 ID、开局 ID、既有存档键和配置键沿用旧版。
 
 工坊发布资料、干净打包与上传脚本见 [发布说明](workshop/README.md)。正式署名为 Cycbloom，保留 `local.dumping_ground_map` 作为持久ID。
 

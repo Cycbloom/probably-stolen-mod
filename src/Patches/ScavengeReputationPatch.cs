@@ -26,6 +26,9 @@ namespace DumpingGroundMap
             return method;
         }
 
+        // Count skill-added loot after Scavenging Expansion finishes the list.
+        [HarmonyPriority(Priority.Last)]
+        [HarmonyAfter(ScavengingExpansionBridge.HarmonyId)]
         private static void Postfix(List<GameItem> __result)
         {
             if (!Core.Enabled) return;

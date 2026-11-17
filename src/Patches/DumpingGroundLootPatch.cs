@@ -17,6 +17,10 @@ namespace DumpingGroundMap
     [HarmonyPatch(typeof(ScavHelper), "SpawnDumpingGroundLoot")]
     internal static class DumpingGroundLootPatch
     {
+        // DiscoveryLoot needs its ref __state prefix before we skip the native
+        // roll. This must be independent of the two mods' load order.
+        [HarmonyPriority(Priority.Last)]
+        [HarmonyAfter(ScavengingExpansionBridge.HarmonyId)]
         private static bool Prefix(ref GameItem __result)
         {
             if (!Core.Enabled) return true;
@@ -47,7 +51,7 @@ namespace DumpingGroundMap
 
                 path = table.Slots[index].Kind == LootKind.Foreign ? "foreign" : "table";
                 // Match vanilla: subscribers can replace/cancel the ID before spawning.
-                string resolved = NativeLootEvents.Resolve(table.Items[index]);
+                string resolved = ScavengingExpansionBridge.Resolve(table, index);
                 __result = LootFactory.Create(resolved, region.Id, RegionalEvents.ActiveFor(region) != null);
 
                 // 外来条目可能没有可用的生成数据：回退到普通槽重掷一次，
@@ -58,7 +62,7 @@ namespace DumpingGroundMap
                     int fallback = table.FallbackOrdinaryIndex();
                     if (fallback >= 0)
                     {
-                        resolved = NativeLootEvents.Resolve(table.Items[fallback]);
+                        resolved = ScavengingExpansionBridge.Resolve(table, fallback);
                         __result = LootFactory.Create(resolved, region.Id, RegionalEvents.ActiveFor(region) != null);
                     }
                 }

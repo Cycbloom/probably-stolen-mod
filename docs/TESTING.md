@@ -1,5 +1,7 @@
 # 验证与试玩
 
+1.0.1：新增733项拾荒拓展兼容检查，包括实际原生接口与模拟技能前后缀的两种Harmony加载顺序、分区/类别快照、相对概率、一次性掉落事件、变体/取消和嵌套异常恢复。完整规则测试共1,186,573项断言。第三方DLL未执行，游戏内背包/焚化炉/暂存/一键操作仍需组合试玩，见[拾荒拓展兼容说明](COMPATIBILITY-SCAVENGING-EXPANSION.md)。
+
 0.3.93：新增五组画布尺寸的地图比例、边距、操作区完整显示和四倍显示面积检查。原版 level1 场景核对得到 --ScavScene → DumpingGround（SpriteRenderer，原图 dumping_ground），原先在根节点 GetComponent 返回 null；现改查子层级并在 ShowStage 后应用。运行时应核对 `[DGM-ART] Applied region` 五区对应关系、世界尺寸不变、离场恢复和连续拾荒保持背景。新版本的实际画面仍需游戏内确认，不能用 Paper sprite loaded 代替场景切换验证。
 
 0.3.92：修复 ModLoader 实际读取的 Textures/Paper 路径；构建逐一检查六张素材存在及发布副本哈希。实际游戏启动日志已确认运行 v0.3.92，并逐一出现总览与五区新图的 `[ModLoader] Paper sprite loaded`，共七张（含旧图后备）。0.3.91 的构建和规则测试并未验证运行时路径，其游戏内生效结论无效。加载已验证，实际界面布局和五区切换仍需目视确认。

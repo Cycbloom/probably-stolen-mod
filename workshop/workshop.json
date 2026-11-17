@@ -4,7 +4,7 @@
   "title": "垃圾场拓展：分区拾荒与声望成长 / Scrapyard Expansion",
   "author": "Cycbloom",
   "visibility": 2,
-  "changeNote": "1.0.0：统一版本，补充店铺便捷升级兼容说明，中英文工坊介绍分别发布，并添加分类标签。玩法、数值与存档格式沿用0.6.9。 / Version 1.0.0, Shop Convenience Upgrades compatibility notes, separate Chinese/English Workshop descriptions and category tags. Features, balance and save format remain unchanged from 0.6.9.",
+  "changeNote": "1.0.1：兼容拾荒拓展的技能初始化、分区加抽、精挑细选、慧眼识珠和物品结算顺序；保留原生背包、焚化炉及暂存入口。新增733项兼容检查。 / Scavenging Expansion integration: regional bonus draws, Selective Search, Keen Eye and skill-loot/reputation ordering. Native backpack, furnace and overflow entry points are retained; 733 compatibility checks added.",
   "tags": [
     "Mod",
     "Gameplay",

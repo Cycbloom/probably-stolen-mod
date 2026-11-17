@@ -100,6 +100,7 @@ internal static class RulesTests
         SettingsProfileRules();
         RegionalEventRulesTests();
         ForeignLootRules();
+        assertions += ScavengingCompatibilityTests.Run();
         Console.WriteLine("PASS: " + assertions + " assertions (loot/events, state, outings, milestones, jackpot modes/news, traffic)");
     }
 
