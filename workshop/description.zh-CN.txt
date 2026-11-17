@@ -45,3 +45,6 @@
 
 [h2]作者与美术[/h2]
 作者：Cycbloom。新增场景美术与封面使用AI辅助制作。
+
+[h2]源码[/h2]
+源码以 MIT 许可公开：[url]https://github.com/Cycbloom/probably-stolen-mod[/url]

@@ -85,3 +85,10 @@ verify.ps1 -Scan   PASS: 760 methods, 0 hard flags, 0 capabilities, 0 guarded ga
 
 本次只改文档与许可文件，未改源码，未部署。
 
+## 八、推送
+
+- 公开仓库：<https://github.com/Cycbloom/probably-stolen-mod>（public）
+- 推送内容：`main` 分支与全部本地 tag（含 `v1.0.5-public`），未强推、未改历史
+- 工坊说明已补充「源码」小节：`workshop/description.zh-CN.txt`、`description.en.txt`、`description.bbcode.txt`、`description.bilingual.txt`、`description-short.txt`
+
+

@@ -45,3 +45,6 @@ This mod changes scavenging balance and saves reputation, event and reward progr
 
 [h2]Author & Artwork[/h2]
 Author: Cycbloom. Added scene artwork and cover are AI-assisted.
+
+[h2]Source[/h2]
+Source code is released under the MIT license: [url]https://github.com/Cycbloom/probably-stolen-mod[/url]

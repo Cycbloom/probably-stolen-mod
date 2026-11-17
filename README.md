@@ -112,6 +112,7 @@ Scrapyard Expansion for *Probably Stolen*: eight scavenging areas with distinct 
 
 ## 源码与许可
 
+- 公开仓库：<https://github.com/Cycbloom/probably-stolen-mod>
 - 代码：`src/`（补丁、掉落、声望、UI）；规则与兼容检查：`tests/`；构建：`build.ps1`；游戏安全扫描：`tools/verify.ps1 -Scan`。
 - 模块边界与调用顺序见 [架构说明](docs/ARCHITECTURE.md)，分支与发布流程见 [构建与发布](docs/DEVELOPMENT.md)。
 - 许可：MIT，见 [LICENSE](LICENSE)。该许可只覆盖本仓库的代码与自制素材；游戏本体、游戏 DLL、第三方模组及其资源不在许可范围内，也未随仓库分发。

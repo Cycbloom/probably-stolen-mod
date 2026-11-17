@@ -46,6 +46,9 @@
 [h2]作者与美术[/h2]
 作者：Cycbloom。新增场景美术与封面使用AI辅助制作。
 
+[h2]源码[/h2]
+源码以 MIT 许可公开：[url]https://github.com/Cycbloom/probably-stolen-mod[/url]
+
 [hr][/hr]
 
 [h1]Scrapyard Expansion: Regional Scavenging & Reputation[/h1]
@@ -95,3 +98,6 @@ This mod changes scavenging balance and saves reputation, event and reward progr
 
 [h2]Author & Artwork[/h2]
 Author: Cycbloom. Added scene artwork and cover are AI-assisted.
+
+[h2]Source[/h2]
+Source code is released under the MIT license: [url]https://github.com/Cycbloom/probably-stolen-mod[/url]
