@@ -22,6 +22,9 @@ workshop/gallery/screenshots/latest-archive.txt
 __pycache__/
 *.py[cod]
 
+# 本地工作笔记（不随公开发布）
+docs/PROBABLY-STOLEN-MODDING-研读笔记.md
+
 # 临时文件与日志
 *.log
 *.tmp

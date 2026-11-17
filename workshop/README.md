@@ -105,4 +105,4 @@ SteamCMD回填后的VDF还会备份到对应release目录。丢失主VDF时，�
 - [Valve的SteamCMD工坊接口说明](https://partner.steamgames.com/doc/features/workshop/implementation#SteamCmd_Integration)
 - [游戏模组社区规范](https://github.com/dragonpan2/probably-stolen-modding/blob/main/CodeOfConduct.md)
 
-代码和素材的开源/再分发许可尚未另行选择；本包不代作者指定开源协议，也不把其他模组或游戏的DLL一起分发。
+代码与自制素材以 MIT 许可公开，见仓库根目录`LICENSE`；本包不代作者指定第三方模组或游戏本体的许可，也不把其他模组或游戏的DLL一起分发。

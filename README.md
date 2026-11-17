@@ -1,4 +1,8 @@
-﻿# 垃圾场拓展 · 1.0.3
+﻿# 垃圾场拓展 · 1.0.5
+
+Probably Stolen 的拾荒拓展模组：八区域垃圾场、分区物资、声望成长、每周区域事件与独立大小奖。源码以 MIT 许可公开，构建、安装与兼容说明见下文。
+
+Scrapyard Expansion for *Probably Stolen*: eight scavenging areas with distinct loot, reputation progression, weekly regional events and adaptive rewards. Source is released under the MIT license.
 
 夜间外出，在城市地图选「垃圾场」并点「前往」，先选择一个作业区域，再进入拾荒。本次停留内连续拾荒沿用该区域；离开后重新选择。
 
@@ -105,3 +109,21 @@
 - [0.3.81 开发历史](docs/history/README-0.3.81.md)
 
 构建：./build.ps1 -Check。游戏路径可用 -GameRoot 指定。关闭游戏后，加 -Install 部署到本地 Mods。
+
+## 源码与许可
+
+- 代码：`src/`（补丁、掉落、声望、UI）；规则与兼容检查：`tests/`；构建：`build.ps1`；游戏安全扫描：`tools/verify.ps1 -Scan`。
+- 模块边界与调用顺序见 [架构说明](docs/ARCHITECTURE.md)，分支与发布流程见 [构建与发布](docs/DEVELOPMENT.md)。
+- 许可：MIT，见 [LICENSE](LICENSE)。该许可只覆盖本仓库的代码与自制素材；游戏本体、游戏 DLL、第三方模组及其资源不在许可范围内，也未随仓库分发。
+- 仓库不包含反编译源码；兼容层只按公开的类型与方法名调用第三方接口，未安装对应模组时走原生路径。
+- 不提交构建产物（`dist/`、`obj/`、发布 ZIP、SteamCMD 的 `upload.vdf` 等），规则见 `.gitignore`。
+
+## 已知限制
+
+- 目标游戏版本写在 `manifest.xml`（当前声明 `1.0.0`，覆盖 1.0.x 修订）；游戏大版本更新后需重新构建并核对钩子目标。
+- 与同样改写拾荒入口的模组组合仍需实际试玩；已适配拾荒拓展、更好的拾荒、Reputation Pop、店铺便捷升级与势力声望面板，但不保证任意组合。
+- 卸载不会回滚已获得的物品、金钱或声望；进度保存在当前存档的 modData 中。
+- 1.0.5 起调试点数改用 ModData 文件交接，1.0.4 及更早写进存档索引的待应用点数不迁移（该功能默认关闭，不影响存档内容）。
+- 本地同 ID 副本优先于工坊副本；同时测试两者时需先把本地 `Mods/DumpingGroundMap` 移出。
+- 界面位置依赖游戏原生布局，热修后可能需要重新校准；相关数值口径见 `docs/` 下的说明文档。
+
