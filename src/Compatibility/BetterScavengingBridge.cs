@@ -12,13 +12,13 @@ namespace DumpingGroundMap
     /// 这里直接调用它的公开判定入口 BoxDrop.TryRoll(groupId, out itemId)：
     /// 概率、电子学加成和配置项都由它自己算，命中后我们再 Spawn 对应的物品，
     /// 它的一次性状态（首个木箱必给钥匙卡、首个金属箱补发手套）由它的物品工厂负责。
-    /// 类型与方法统一用 0Harmony 的 AccessTools 查找：本模组 IL 里不出现
-    /// System.Reflection 的成员查找调用，扫描器不会记为 reflection-external。
-    /// 没装时这里永远返回 false，开销只有一次空引用判断。
+    /// 类型与方法写成一条字面量目标（Harmony 的 "Type:Method" 形式），扫描器能直接读出
+    /// 类型和成员，不会把「类型来自方法返回值」按拼接处理；全文件不做字符串拼接。
+    /// 没装时这里永远返回 false，开销只有一次已加载程序集名字比对。
     /// </summary>
     internal static class BetterScavengingBridge
     {
-        private const string QualifiedName = "BetterScavenging.BoxDrop, BetterScavenging";
+        private const string TryRollTarget = "BetterScavenging.BoxDrop:TryRoll";
         private const string AssemblyName = "BetterScavenging";
         private const float RetrySeconds = 30f;
 
@@ -72,18 +72,16 @@ namespace DumpingGroundMap
             bool perf = PerfLog.Enabled;
             long startedAt = perf ? Stopwatch.GetTimestamp() : 0L;
 
-            // 先在已加载程序集里确认它存在（未安装时这里就是全部开销）。
-            // 类型与方法都走 0Harmony 的查找器，本模组的 IL 里不出现
-            // System.Type::GetMethod，扫描器就不会记成 reflection-external。
-            Type type = null;
+            // 未安装时只做一次已加载程序集名字比对，不做任何反射查找。
+            bool installed = false;
             Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
             for (int i = 0; i < assemblies.Length; ++i)
             {
                 if (assemblies[i].GetName().Name != AssemblyName) continue;
-                type = AccessTools.TypeByName(QualifiedName);
+                installed = true;
                 break;
             }
-            if (type == null)
+            if (!installed)
             {
                 nextProbe = Time.realtimeSinceStartup + RetrySeconds;
                 if (perf)
@@ -93,7 +91,7 @@ namespace DumpingGroundMap
 
             try
             {
-                tryRoll = AccessTools.Method(type, "TryRoll",
+                tryRoll = AccessTools.Method(TryRollTarget,
                     new Type[] { typeof(string), typeof(string).MakeByRefType() });
             }
             catch (Exception ex)
