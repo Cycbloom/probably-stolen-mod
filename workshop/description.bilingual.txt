@@ -35,6 +35,7 @@
 [list]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832421605]更好的拾荒 Better Scavenging[/url]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]声望增加显示 Reputation Pop[/url]
+[*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611]店铺便捷升级：背包挂钩/桌面工具箱/NPC鉴别[/url]
 [/list]
 以上模组均为可选安装，本模组可独立使用。
 [h3]存档与游戏版本[/h3]
@@ -82,8 +83,9 @@ Compatible with the following mods:
 [list]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832421605]Better Scavenging[/url]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]Reputation Pop[/url]
+[*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611]Shop Convenience Upgrades: Backpack Hooks / Desktop Toolbox / NPC Appraisal[/url]
 [/list]
-Both are optional; this mod can also be used on its own.
+These mods are optional; this mod can also be used on its own.
 [h3]Saves & Game Version[/h3]
 This mod changes scavenging balance and saves reputation, event and reward progress. Keep a save backup; disabling it does not undo items or money already gained. Target game version: 0.46D.
 

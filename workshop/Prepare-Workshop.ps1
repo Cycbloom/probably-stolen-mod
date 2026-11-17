@@ -51,9 +51,13 @@ $fields = [ordered]@{
     publishedfileid = $publishedId
     contentfolder = $content
     previewfile = (Join-Path $release 'preview.jpg')
-    title = [string]$metadata.title
-    description = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'description.bbcode.txt') -Raw)
     changenote = [string]$metadata.changeNote
+}
+# Existing items keep their localized titles/descriptions. Publish these separately
+# with Update-WorkshopMetadata.ps1, which explicitly selects each Steam language.
+if ($publishedId -eq '0') {
+    $fields.title = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'title.en.txt') -Raw).Trim()
+    $fields.description = (Get-Content -LiteralPath (Join-Path $PSScriptRoot 'description.en.txt') -Raw)
 }
 # For existing items, omit visibility so uploads preserve the current Workshop setting.
 $visibility = 'preserve'

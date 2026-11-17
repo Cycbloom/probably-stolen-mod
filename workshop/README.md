@@ -5,7 +5,7 @@
 ## 已准备的资料
 
 - `description.zh-CN.txt`和`description.en.txt`：扩展后的中文版、英文版介绍，可分别粘贴到工坊对应语言栏。
-- `description.bilingual.txt`：中英合并版，与上传默认使用的`description.bbcode.txt`内容相同；均使用真实换行。`description-short.txt`保留为旧版简短备选。
+- `description.bilingual.txt`和`description.bbcode.txt`：中英合并归档备选；发布时使用独立语言文件，均使用真实换行。`description-short.txt`保留为旧版简短备选。
 - `title.zh-CN.txt`和`title.en.txt`：对应的中英文标题。
 - `assets/preview.png`：以电子垃圾坡场景为底图，加入「垃圾场拓展」「分区拾荒 · 声望成长」和Cycbloom署名的封面，同时放进模组内容作为离线预览。
 - `assets/preview.jpg`：小于1MB的上传封面，与PNG内容相同，仅做格式压缩。
@@ -33,6 +33,20 @@ Set-Location 'D:\Steam\steamapps\common\Probably Stolen\_moddev\DumpingGroundMap
 
 脚本构建并运行规则检查和扫描，按明确文件列表打包：本模组DLL、manifest、12张贴图、封面及玩家说明。不会把src、obj、.git、备份、个人配置、游戏DLL或旧根目录Paper带入上传目录。每次生成新目录，不清空旧发布包。记录每个内容文件的SHA-256。
 
+## 已有条目的推荐发布方式
+
+Steam客户端登录作者账号后，使用游戏自带Steamworks.NET接口上传，无需再次输入账号密码：
+
+```powershell
+.\Prepare-Workshop.ps1
+.\Update-WorkshopMetadata.ps1 -Mode Publish
+```
+
+Publish先校验干净发布包的文件列表及SHA-256，再上传模组内容、封面、分类标签，以及分别设置为english和schinese的标题与介绍。两次提交都确认EResultOK后，从Steam禁用缓存读回两种语言，逐字核对文案与标签，并核对可见性未改变。每次发布前后的快照和回执保存在release的steam-client-receipt目录。不会启动游戏或修改本地安装。上传前检查当前账号确为该工坊条目的作者。
+
+只查询，不写入：`.\Update-WorkshopMetadata.ps1 -Mode Query`。
+只更新两种语言的标题、介绍和分类标签，不上传文件：`.\Update-WorkshopMetadata.ps1 -Mode Metadata`。
+
 ## 首次隐藏上传
 
 SteamCMD官方工具的说明：[Valve SteamCMD](https://developer.valvesoftware.com/wiki/SteamCMD)。使用拥有游戏的Steam账号。在普通交互式终端执行，不把密码写进脚本或聊天：
@@ -59,11 +73,11 @@ SteamCMD自行提示密码或Steam Guard验证。脚本会在上传前核对内�
 
 ## 后续更新
 
-描述使用实际换行，不要把换行替换成字面字符`\n`。Prepare脚本已修正此处；现有upload.vdf的description也已同步中英合并版本，保留原条目ID及其他配置。仅修改本地文件不会立即修改网页。
+描述使用实际换行，不要把换行替换成字面字符`\n`。保留原条目ID，上传时按独立语言文件写入。仅修改本地文件不会立即修改网页。
 
 只修改介绍时，在原工坊条目进入「编辑标题与描述」即可，无需重传DLL或增加ModVersion。语言选择简体中文，复制description.zh-CN.txt并保存；再选择英语，复制description.en.txt并保存，标题也有对应文件。也可只用description.bilingual.txt作为单栏的中英对照介绍。现有条目ID为3840982832，继续沿用，不要改成0或创建新条目。
 
-当前SteamCMD配置只含一份中英合并description，未进行分语言上传。若在网页分别维护两种语言，后续上传更新时请留意本地默认文案也保持最新。
+现有条目的SteamCMD配置不再包含title/description字段，以免覆盖已维护的语言栏。新建条目使用英文初始文案；后续通过Update-WorkshopMetadata.ps1分别更新english和schinese。标签在workshop.json的tags中维护。
 
 也可以通过命令只更新描述。在workshop目录运行：
 
@@ -71,7 +85,7 @@ SteamCMD自行提示密码或Steam Guard验证。脚本会在上传前核对内�
 .\Upload-Workshop.cmd -DescriptionOnly -Account '你的Steam登录名'
 ```
 
-此模式每次读取最新description.bbcode.txt（含中英对照和兼容性链接），生成仅含appid、现有publishedfileid与description的description-update.vdf。沿用已有条目，不重传模组文件、封面，也不设置标题和可见性。当前命令上传一份中英合并介绍；分别维护简体中文与英语语言栏仍使用网页编辑方式。按SteamCMD提示完成登录和Steam Guard验证，上传后查看页面确认文本与换行。
+DescriptionOnly模式转交Update-WorkshopMetadata.ps1 -Mode Metadata，读取独立中英文标题及介绍，分别上传并读回核验，同时同步tags；不重传模组文件、封面，也不设置可见性。需Steam客户端已登录作者账号。此模式不再写入中英混排介绍。
 
 只检查这个命令，不登录或上传：
 

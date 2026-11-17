@@ -4,5 +4,11 @@
   "title": "垃圾场拓展：分区拾荒与声望成长 / Scrapyard Expansion",
   "author": "Cycbloom",
   "visibility": 2,
-  "changeNote": "1.0.0：统一模组版本与发布资料，沿用0.6.9的功能、数值和存档格式。 / Version and release metadata updated to 1.0.0. Features, balance and save format are unchanged from 0.6.9."
+  "changeNote": "1.0.0：统一版本，补充店铺便捷升级兼容说明，中英文工坊介绍分别发布，并添加分类标签。玩法、数值与存档格式沿用0.6.9。 / Version 1.0.0, Shop Convenience Upgrades compatibility notes, separate Chinese/English Workshop descriptions and category tags. Features, balance and save format remain unchanged from 0.6.9.",
+  "tags": [
+    "Mod",
+    "Gameplay",
+    "Simplified Chinese",
+    "English"
+  ]
 }
