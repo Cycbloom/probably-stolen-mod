@@ -4,7 +4,7 @@
   "title": "垃圾场拓展：分区拾荒与声望成长 / Scrapyard Expansion",
   "author": "Cycbloom",
   "visibility": 2,
-  "changeNote": "1.0.3：技能额外抽取（满载而归、废中寻宝、金属探测器连抽、布里丹驴第二抽）不再重复放大贵重品、80档补给箱和100档钥匙卡；补给箱/钥匙卡提示改到最终结算之后；地面放满文案按暂存区行为修正；焚化炉预留不再依赖扩地生效。 / Skill extra draws no longer multiply valuables, crates or keycards; crate/keycard notices now appear after final settlement; ground-full wording matches overflow storage; furnace reservation works even without ground expansion. Adds 351 checks.",
+  "changeNote": "1.0.6：无玩法改动。清单版本声明收敛为 1.0.0（0.46D 在 1.0 客户端不会匹配）；包内附 MIT 许可与更新后的版权页；工坊说明补充已知限制与源码地址。 / No gameplay changes. The manifest now declares only game version 1.0.0 (0.46D never matches 1.0 clients); the package ships the MIT LICENSE and an updated readme; the Workshop description adds known limitations and the source repository link.",
   "tags": [
     "Mod",
     "Gameplay",
