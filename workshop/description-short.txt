@@ -8,6 +8,6 @@
 • 可选「拾荒客」开局，附标准储藏区；提供默认/加强设置。
 
 使用方法：订阅后在模组菜单启用并重启，夜间前往垃圾场选区。
-无强制前置。已兼容 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832421605]更好的拾荒 Better Scavenging[/url]、[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]声望增加显示 Reputation Pop[/url] 和 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611]店铺便捷升级：背包挂钩/桌面工具箱/NPC鉴别[/url]（均为可选安装）。涉及存档与经济调整，建议保留备份。
+无强制前置。已兼容 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832421605]更好的拾荒 Better Scavenging[/url]、[url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]声望增加显示 Reputation Pop[/url] 和 [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611]店铺便捷升级：背包挂钩/桌面工具箱/NPC鉴别[/url]（均为可选安装）。目标游戏版本：1.0.x（清单声明 1.0.0）。涉及存档与经济调整，建议保留备份；与同样改写拾荒入口的模组组合仍需试玩。
 
 作者：Cycbloom。新增场景美术与封面使用AI辅助制作。源码以 MIT 许可公开：[url]https://github.com/Cycbloom/probably-stolen-mod[/url]

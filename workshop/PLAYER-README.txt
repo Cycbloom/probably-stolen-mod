@@ -1,7 +1,7 @@
 垃圾场拓展 / Scrapyard Expansion
 作者 / Author: Cycbloom
-版本 / Version: 1.0.3
-清单目标游戏版本 / Manifest target game version: 0.46D
+版本 / Version: 1.0.6
+清单目标游戏版本 / Manifest target game version: 1.0.0 (covers 1.0 revisions)
 
 订阅安装：等待Steam下载，在游戏模组菜单启用并重启。
 手动安装：将本文件所在的content目录重命名为DumpingGroundMap，放进游戏Mods目录。

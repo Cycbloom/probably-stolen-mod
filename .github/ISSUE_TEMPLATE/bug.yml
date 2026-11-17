@@ -1,0 +1,62 @@
+name: 缺陷报告
+description: 游戏出错、崩溃或功能不正常
+title: "[缺陷] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请先确认已关闭游戏再更新模组，并在模组菜单里核对版本。
+  - type: input
+    id: mod-version
+    attributes:
+      label: 模组版本
+      description: 模组菜单或 manifest 里的 ModVersion
+      placeholder: 1.0.6
+    validations:
+      required: true
+  - type: input
+    id: game-version
+    attributes:
+      label: 游戏版本
+      description: 主菜单或 Steam 属性里显示的版本
+      placeholder: 1.0.0.14
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 从进入游戏开始，尽量具体到点了哪里、选了什么区域
+      placeholder: |
+        1. 夜间前往垃圾场
+        2. 选择……
+        3. 出现……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果与实际结果
+    validations:
+      required: true
+  - type: textarea
+    id: mods
+    attributes:
+      label: 同时启用的其它模组
+      description: 列出名称与工坊 ID；只启用本模组时是否仍然发生
+      placeholder: 无 / 仅本模组时也复现
+  - type: textarea
+    id: log
+    attributes:
+      label: 日志
+      description: |
+        关闭游戏后附上 `%USERPROFILE%\AppData\LocalLow\Questing Goose Studio\Probably Stolen\Player.log` 中与 DumpingGroundMap 相关的行。
+      render: text
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: 确认
+      options:
+        - label: 已尝试只启用本模组复现
+          required: false

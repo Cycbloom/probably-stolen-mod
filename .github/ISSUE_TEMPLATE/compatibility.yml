@@ -1,0 +1,45 @@
+name: 兼容问题
+description: 与其它模组同时启用时出现的冲突
+title: "[兼容] "
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        请先只保留本模组与对方模组各测一次，确认冲突确实由组合引起。
+  - type: input
+    id: other-mod
+    attributes:
+      label: 对方模组
+      description: 名称与工坊 ID（或本地模组 ID）
+      placeholder: 拾荒拓展 / 3832768562
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: 双方版本
+      description: 本模组版本、对方模组版本、游戏版本
+      placeholder: 本模组 1.0.6 / 对方 1.2.0 / 游戏 1.0.0.14
+    validations:
+      required: true
+  - type: textarea
+    id: symptom
+    attributes:
+      label: 现象
+      description: 哪一步开始不对，涉及拾荒、声望、事件、客人还是界面
+    validations:
+      required: true
+  - type: textarea
+    id: isolation
+    attributes:
+      label: 单独启用时的结果
+      description: 只开本模组、只开对方模组分别是什么表现
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: 日志
+      description: 附 `Player.log` 中与两个模组相关的行
+      render: text

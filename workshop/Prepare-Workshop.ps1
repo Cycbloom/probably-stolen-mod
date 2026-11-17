@@ -20,7 +20,7 @@ $release = Join-Path $PSScriptRoot ('releases/' + $manifest.Manifest.ModVersion 
 $content = Join-Path $release 'content'
 $textures = Join-Path $content 'Textures/Paper'
 New-Item -ItemType Directory -Path $textures -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $repo 'dist/DumpingGroundMap.dll'),(Join-Path $repo 'manifest.xml') -Destination $content
+Copy-Item -LiteralPath (Join-Path $repo 'dist/DumpingGroundMap.dll'),(Join-Path $repo 'manifest.xml'),(Join-Path $repo 'LICENSE') -Destination $content
 $textureNames = @('dumping_ground_map','dumping_ground_map_art','dumping_ground_map_base','dumping_ground_landmarks',
     'dumping_ground_gate','dumping_ground_scrap','dumping_ground_refuse','dumping_ground_med',
     'dumping_ground_weapons','dumping_ground_electronics','dumping_ground_vehicles','dumping_ground_water')

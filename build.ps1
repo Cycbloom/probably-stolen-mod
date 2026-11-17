@@ -57,7 +57,7 @@ if ($Check) {
     & (Join-Path $PSScriptRoot 'tools/verify.ps1') -GameRoot $root -Binary $binary
 }
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
-Copy-Item -LiteralPath $binary,(Join-Path $PSScriptRoot 'manifest.xml') -Destination $dist -Force
+Copy-Item -LiteralPath $binary,(Join-Path $PSScriptRoot 'manifest.xml'),(Join-Path $PSScriptRoot 'LICENSE') -Destination $dist -Force
 $paper = Join-Path $PSScriptRoot 'Paper'
 $distPaper = Join-Path $dist 'Textures/Paper'
 New-Item -ItemType Directory -Force -Path $distPaper | Out-Null

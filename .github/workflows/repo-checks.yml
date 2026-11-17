@@ -1,0 +1,61 @@
+name: repo-checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  manifest-and-scripts:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 校验清单与仓库卫生
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [xml]$manifest = Get-Content -LiteralPath manifest.xml -Raw
+          $root = $manifest.Manifest
+          foreach ($name in 'ID', 'Name', 'Author', 'ModVersion', 'Description') {
+              if ([string]::IsNullOrWhiteSpace($root.$name)) { throw "manifest.xml: missing <$name>" }
+          }
+          if ($root.ModVersion -notmatch '^\d+\.\d+\.\d+$') { throw "manifest.xml: ModVersion '$($root.ModVersion)' is not x.y.z" }
+          $versions = @($root.GameVersions.SelectNodes('Version'))
+          if ($versions.Count -lt 1) { throw 'manifest.xml: <GameVersions> has no <Version>' }
+          foreach ($version in $versions) {
+              if ([string]::IsNullOrWhiteSpace($version.InnerText)) { throw 'manifest.xml: empty <Version>' }
+          }
+          if ($null -eq $root.Capabilities) { throw 'manifest.xml: <Capabilities/> is required' }
+          if ($root.Capabilities.ChildNodes.Count -ne 0) { throw 'manifest.xml: this mod must declare no capabilities' }
+          if ($root.Assemblies.SelectNodes('Assembly').Count -lt 1) { throw 'manifest.xml: <Assemblies> lists no DLL' }
+          if (-not (Test-Path -LiteralPath LICENSE)) { throw 'LICENSE is missing' }
+
+          $tracked = git ls-files
+          $artifacts = $tracked | Where-Object { $_ -match '(^|/)(dist|obj|releases)/' -or $_ -match '\.(dll|pdb|mdb|exe|zip|vdf|log)$' }
+          if ($artifacts) { throw "Tracked build artifacts: $($artifacts -join ', ')" }
+          Write-Output 'Manifest and repository hygiene OK.'
+
+      - name: 检查 PowerShell 脚本语法
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $failed = $false
+          Get-ChildItem -Recurse -Filter '*.ps1' -File | ForEach-Object {
+              $tokens = $null; $errors = $null
+              [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+              if ($errors.Count -gt 0) {
+                  $failed = $true
+                  foreach ($error in $errors) { Write-Error "$($_.FullName): $($error.Message)" }
+              }
+          }
+          if ($failed) { exit 1 }
+          Write-Output 'All PowerShell scripts parse.'
+
+      - name: 说明未运行的部分
+        shell: pwsh
+        run: |
+          Write-Output '完整构建与 ModScanner 需要游戏 Managed 程序集，CI 环境没有这些文件，因此 build.ps1 -Check 与 verify.ps1 -Scan 仍在本机发布前执行。'

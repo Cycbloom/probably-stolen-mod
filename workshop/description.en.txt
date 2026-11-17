@@ -41,7 +41,14 @@ Compatible with the following mods:
 Scavenging Expansion integration: bonus draws use the current area, and Keen Eye expands candidates within the matching supply category. Native XP capture and skill-loot/reputation ordering are integrated. Backpack and furnace features retain the native UI entry points, with space reserved beside the ground inventory for the furnace. Third-party skill effects are not separately itemized on the loot notice board.
 These mods are optional; this mod can also be used on its own.
 [h3]Saves & Game Version[/h3]
-This mod changes scavenging balance and saves reputation, event and reward progress. Keep a save backup; disabling it does not undo items or money already gained. Target game version: 0.46D.
+This mod changes scavenging balance and saves reputation, event and reward progress. Keep a save backup; disabling it does not undo items or money already gained. Target game version: 1.0.x (the manifest declares 1.0.0, covering 1.0 revisions).
+
+[h3]Known Limitations[/h3]
+[list]
+[*]Combining with other mods that rewrite the same scavenging entry points needs playtesting; arbitrary combinations are not guaranteed.
+[*]UI placement follows the native layout and may need an update after a game hotfix or patch.
+[*]A local copy with the same ID takes precedence over the Workshop copy; move it away when both exist.
+[/list]
 
 [h2]Author & Artwork[/h2]
 Author: Cycbloom. Added scene artwork and cover are AI-assisted.
