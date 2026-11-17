@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using System;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,6 +28,7 @@ namespace DumpingGroundMap
         private static int scavengeDepth;
         internal static bool SearchActive { get { return scavengeDepth > 0; } }
         private static bool overflowNoticed;
+        private static bool furnaceSpaceNoticed;
 
         internal static void Apply(EmporiumEntry entry)
         {
@@ -158,7 +160,16 @@ namespace DumpingGroundMap
                 : maxTop / 2f;
             top = Mathf.Clamp(top, 0f, maxTop);
 
-            x = column == 2 ? AvoidNativePanel(x, top, width, height, maxX) : x;
+            bool furnace = Picker.IsAtDump(MapUIManager.Instance)
+                && ModHelper.IsModRunning(ScavengingExpansionBridge.ModId);
+            float alignedX = x;
+            if (furnace) x = FurnaceLayoutRules.ReserveLeft(x, canvasWidth, canvasHeight, width, height, Margin);
+            x = column == 2 || furnace ? AvoidNativePanel(x, top, width, height, maxX) : x;
+            if (furnace && x > alignedX + 0.5f && !furnaceSpaceNoticed)
+            {
+                furnaceSpaceNoticed = true;
+                Debug.Log("[DGM-GROUND] Reserved Scavenging Expansion furnace space: ground left=" + x);
+            }
 
             // anchoredPosition 的 y 向下为负。
             window.rectTransform.anchoredPosition = new Vector2(x, -top);
@@ -296,6 +307,7 @@ namespace DumpingGroundMap
             scavengeDepth = 0;
             overflowNoticed = false;
             applied = false;
+            furnaceSpaceNoticed = false;
             appliedOwner = null;
             visible = false;
         }
@@ -327,6 +339,21 @@ namespace DumpingGroundMap
                     " Move items into your pockets or backpack first.");
             }
             StashFind.ShowNotice(text, "ground-full");
+        }
+    }
+
+    internal static class FurnaceLayoutRules
+    {
+        internal static float ReserveLeft(float x, float canvasWidth, float canvasHeight,
+            float groundWidth, float groundHeight, float margin)
+        {
+            // ScrapFurnace.Tick places its body to the LEFT of afterhourWindow:
+            // max width 360*scale, gap 12*scale; below 64*scale it hides the root.
+            float scale = Math.Min(canvasWidth / 1920f, canvasHeight / 1080f);
+            float furnaceWidth = Math.Min(360f * scale, groundHeight * 96f / 88f);
+            float room = Math.Max(0f, canvasWidth - groundWidth - margin);
+            float required = furnaceWidth + 12f * scale + margin;
+            return Math.Max(x, Math.Min(required, room));
         }
     }
 }

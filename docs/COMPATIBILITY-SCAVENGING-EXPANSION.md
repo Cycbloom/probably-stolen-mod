@@ -1,4 +1,4 @@
-# 拾荒拓展兼容（1.0.1）
+# 拾荒拓展兼容（1.0.1–1.0.2）
 
 目标：工坊3832768562，模组ID `eotn_scavenger_skills`。本次下载清单为1.0.24，README首行仍是1.0.22。ScavengerSkills.dll SHA256：`ECC41DEE4CD222D6C1459F2CE5533D19B413D5CF890EA60BDB0E92C7DD1DEDA7`。
 
@@ -15,9 +15,13 @@
 
 ## 已完成验证
 
-共1,186,573项规则断言，其中733项新增兼容检查。使用实际模组DLL、游戏DLL和Harmony的独立控制台进程，不执行第三方DLL：八区域/解锁状态/三类别的集合和相对概率；原生抽取接口与模拟技能前后缀的两种加载顺序；一次事件、替换/取消、变体保留、原版表缺失、嵌套和异常恢复。ModScanner：740方法、0 hard flags、0 capabilities、12 guarded game-API calls。
+共1,186,593项规则断言，其中753项兼容检查。使用实际模组DLL、游戏DLL和Harmony的独立控制台进程，不执行第三方DLL：八区域/解锁状态/三类别的集合和相对概率；原生抽取接口与模拟技能前后缀的两种加载顺序；一次事件、替换/取消、变体保留、原版表缺失、嵌套和异常恢复。ModScanner：741方法、0 hard flags、0 capabilities、12 guarded game-API calls。
 
 第三方机制来自DLL静态检查；UI和完整存档组合仍需游戏内试玩。IL证据在游戏目录2026-11-17/scavenging-compat。Harmony顺序依据：[Prefix](https://harmony.pardeike.net/v2/articles/patching-prefix.html)、[Priorities](https://harmony.pardeike.net/v2/articles/priorities.html)。
+
+## 1.0.2焚化炉布局修复
+
+反馈日志确认两个模组已加载，当前配置为左下对齐、19×21，画布1280×720、窗口531×373。对方ScrapFurnace.Tick把炉体放在地面左侧，宽度取Min(360×scale, groundLeft−12×scale, groundHeight×96/88)，小于64×scale则SetActive(false)。左贴边仅8像素，满足隐藏条件。现仅在垃圾场且对方运行时预留左侧空间；上述画布下目标地面左边距256，继续避让原生面板。不改对方DLL、不强制启用其炉体、不改库存尺寸或对齐配置。新增20项纯布局检查；实际显示仍需试玩。
 
 ## 本地试玩
 

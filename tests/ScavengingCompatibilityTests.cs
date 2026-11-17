@@ -17,6 +17,7 @@ internal static class ScavengingCompatibilityTests
     {
         ProjectionRules();
         ScopeRules();
+        FurnaceLayout();
         foreach (bool partnerFirst in new[] { true, false }) PatchRules(partnerFirst);
         Console.WriteLine("PASS: " + checks + " scavenging compatibility checks (regional snapshots, native hooks, both load orders)");
         return checks;
@@ -97,6 +98,26 @@ internal static class ScavengingCompatibilityTests
             Check(!RegionalRollScope.TrySnapshot("householdTable", out snapshot), "event listeners see the normal registry after consumption");
         }
         Check(!RegionalRollScope.TrySnapshot("householdTable", out snapshot), "scope is gone after returning");
+    }
+
+    private static void FurnaceLayout()
+    {
+        foreach (float[] size in new[] {
+            new[] {1280f, 720f}, new[] {1920f, 1080f}, new[] {2560f, 1440f},
+            new[] {960f, 540f}, new[] {1280f, 1024f}, new[] {800f, 600f} })
+        {
+            float scale = Math.Min(size[0] / 1920f, size[1] / 1080f);
+            float left = FurnaceLayoutRules.ReserveLeft(8f, size[0], size[1], 531f, 373f, 8f);
+            // Independently apply the third-party Tick visibility formula.
+            float body = Math.Min(360f * scale, Math.Min(left - 12f * scale, 373f * 96f / 88f));
+            Check(body >= 64f * scale, "left-aligned ground leaves furnace visible at " + size[0] + "x" + size[1]);
+            Check(left + 531f <= size[0] - 8f, "ground remains inside canvas after reserving furnace space");
+            float right = size[0] - 531f - 8f;
+            Check(FurnaceLayoutRules.ReserveLeft(right, size[0], size[1], 531f, 373f, 8f) == right, "sufficient right-aligned space is preserved");
+        }
+        float reported = FurnaceLayoutRules.ReserveLeft(8f, 1280f, 720f, 531f, 373f, 8f);
+        Check(Math.Abs(reported - 256f) < 0.01f, "reported 1280x720 layout reserves full furnace lane");
+        Check(FurnaceLayoutRules.ReserveLeft(8f, 500f, 300f, 490f, 250f, 8f) <= 10f, "tiny canvases never push ground outside viewport");
     }
 
     private static HarmonyMethod Method(string name) { return new HarmonyMethod(AccessTools.Method(typeof(ScavengingCompatibilityTests), name)); }

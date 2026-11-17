@@ -1,6 +1,6 @@
 垃圾场拓展 / Scrapyard Expansion
 作者 / Author: Cycbloom
-版本 / Version: 1.0.1
+版本 / Version: 1.0.2
 清单目标游戏版本 / Manifest target game version: 0.46D
 
 订阅安装：等待Steam下载，在游戏模组菜单启用并重启。
@@ -15,7 +15,7 @@ manifest.xml应直接位于Mods/DumpingGroundMap内，不要多套一层content�
 无强制前置；使用原生加载器，无需MelonLoader。「更好的拾荒」为可选联动。
 兼容「店铺便捷升级：背包挂钩/桌面工具箱/NPC鉴别」：https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611
 兼容「拾荒拓展 / Scavenging Expansion」：https://steamcommunity.com/sharedfiles/filedetails/?id=3832768562
-技能加抽沿用当前区域；慧眼识珠在对应物资类别扩展候选，经验与追加物品结算接入原生流程。背包、焚化炉和暂存区沿用对方界面。告示板不单列第三方技能效果。
+技能加抽沿用当前区域；慧眼识珠在对应物资类别扩展候选，经验与追加物品结算接入原生流程。背包、焚化炉和暂存区沿用对方界面；两模组同时启用时，地面布局自动在左侧预留焚化炉空间。告示板不单列第三方技能效果。
 修改拾荒掉落、经济与声望，进度写入当前存档。卸载不会回滚已获得物品或金钱。
 新增信物和便签停用后的存档行为尚未逐项实机验证，重要存档请保留启用前备份。
 其他游戏版本/分支及全部模组组合未确认；构建与扫描通过，工坊版实机核对待完成。

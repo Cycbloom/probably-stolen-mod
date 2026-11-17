@@ -4,7 +4,7 @@
   "title": "垃圾场拓展：分区拾荒与声望成长 / Scrapyard Expansion",
   "author": "Cycbloom",
   "visibility": 2,
-  "changeNote": "1.0.1：兼容拾荒拓展的技能初始化、分区加抽、精挑细选、慧眼识珠和物品结算顺序；保留原生背包、焚化炉及暂存入口。新增733项兼容检查。 / Scavenging Expansion integration: regional bonus draws, Selective Search, Keen Eye and skill-loot/reputation ordering. Native backpack, furnace and overflow entry points are retained; 733 compatibility checks added.",
+  "changeNote": "1.0.2：修复拾荒拓展的焚化炉因地面左对齐、左侧空间不足而隐藏；自动预留炉体空间并避让原生拾荒面板。新增20项布局回归检查。 / Fix the Scavenging Expansion furnace being hidden beside a left-aligned ground inventory. Reserve furnace space while avoiding the native scavenging panel. Adds 20 layout regression checks.",
   "tags": [
     "Mod",
     "Gameplay",
