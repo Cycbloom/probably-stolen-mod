@@ -1,6 +1,6 @@
 # 垃圾场拓展 · Steam创意工坊发布
 
-作者：Cycbloom。当前模组版本1.0.2，清单目标游戏版本0.46D。保留内部ID `local.dumping_ground_map`；不因发布改动已有存档标识。
+作者：Cycbloom。当前模组版本1.0.3，清单目标游戏版本0.46D。保留内部ID `local.dumping_ground_map`；不因发布改动已有存档标识。
 
 ## 已准备的资料
 

@@ -129,7 +129,8 @@ namespace DumpingGroundMap
         /// </summary>
         internal static void Relayout(EmporiumEntry entry)
         {
-            if (!applied || !ReferenceEquals(entry, appliedOwner)) return;
+            if (entry == null) return;
+            bool owned = applied && ReferenceEquals(entry, appliedOwner);
             PixelWindow window = entry.afterhourWindow;
             if (window == null || window.rectTransform == null) return;
 
@@ -143,6 +144,12 @@ namespace DumpingGroundMap
             int width = window.widthPixels;
             int height = window.heightPixels;
             if (width <= 0 || height <= 0) return;
+
+            bool furnace = Picker.IsAtDump(MapUIManager.Instance)
+                && ModHelper.IsModRunning(ScavengingExpansionBridge.ModId);
+            // 没扩地（玩家把地面设回 12×9，或扩地因地面已有物品被跳过）时，
+            // 仍要按实际窗口尺寸给焚化炉让位；没有炉体时保持原版/其它模组的摆位。
+            if (!owned && !furnace) return;
 
             int align = Mathf.Clamp(Tuning.GroundAlign, 0, 8);
             int column = align % 3;
@@ -160,8 +167,6 @@ namespace DumpingGroundMap
                 : maxTop / 2f;
             top = Mathf.Clamp(top, 0f, maxTop);
 
-            bool furnace = Picker.IsAtDump(MapUIManager.Instance)
-                && ModHelper.IsModRunning(ScavengingExpansionBridge.ModId);
             float alignedX = x;
             if (furnace) x = FurnaceLayoutRules.ReserveLeft(x, canvasWidth, canvasHeight, width, height, Margin);
             x = column == 2 || furnace ? AvoidNativePanel(x, top, width, height, maxX) : x;
@@ -322,15 +327,29 @@ namespace DumpingGroundMap
             EmporiumEntry entry = EmporiumEntry.Instance;
             if (entry == null || !ReferenceEquals(storage, entry.afterhourInventory)) return;
             overflowNoticed = true;
-            string text = Copy.Text(
-                "地面放满了，这次有战利品没能放进来，已经被丢掉。",
-                "The ground is full, so some loot could not be placed and was dropped.");
+            // 装了拾荒拓展时，满出来的战利品会被它整批收进暂存区，腾出空位后
+            // 再自动补到地面，并不是当场丢掉；文案按实际行为分支。
+            bool stash = ModHelper.IsModRunning(ScavengingExpansionBridge.ModId);
+            string text = stash
+                ? Copy.Text(
+                    "地面放满了，这次有战利品没能放上来；拾荒拓展会先把它们收进暂存区，整理出空位后再自动补到地面。",
+                    "The ground is full, so some loot could not be placed; Scavenging Expansion holds it in its"
+                    + " overflow storage and puts it back on the ground once there is room.")
+                : Copy.Text(
+                    "地面放满了，这次有战利品没能放进来，已经被丢掉。",
+                    "The ground is full, so some loot could not be placed and was dropped.");
             if (Reputation.Points >= PerkCatalog.Perk40Threshold)
             {
                 text += Copy.Text(
                     " 离开时可以花钱请拾荒者帮手（离场确认框里多一个按钮），他们会把地上剩下的东西按价值从高到低搬进店里；店里也装不下的仍然会被丢掉。",
                     " When you leave, you can pay a scavenger helper (an extra button on the leave confirmation)"
                     + " to carry what's left into the store, most valuable first; anything the store can't hold is still lost.");
+                if (stash)
+                {
+                    text += Copy.Text(
+                        " 暂存区里的东西帮手搬不到，会在整理后自动补位。",
+                        " The helper cannot reach the overflow storage; those items return on their own once there is room.");
+                }
             }
             else
             {

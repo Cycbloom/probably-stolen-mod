@@ -1,6 +1,6 @@
 垃圾场拓展 / Scrapyard Expansion
 作者 / Author: Cycbloom
-版本 / Version: 1.0.2
+版本 / Version: 1.0.3
 清单目标游戏版本 / Manifest target game version: 0.46D
 
 订阅安装：等待Steam下载，在游戏模组菜单启用并重启。

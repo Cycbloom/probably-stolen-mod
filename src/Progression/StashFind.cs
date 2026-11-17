@@ -298,10 +298,10 @@ namespace DumpingGroundMap
         /// </summary>
         internal static void NoticeSpecialFind(string itemId)
         {
-            if (!Core.Enabled || string.IsNullOrEmpty(itemId)) return;
+            if (!Core.Enabled) return;
 
-            bool crate = itemId.StartsWith("loot_crate_", StringComparison.Ordinal);
-            bool card = itemId.EndsWith("_keycard", StringComparison.Ordinal);
+            bool crate = IsCrate(itemId);
+            bool card = IsKeycard(itemId);
             if (!crate && !card) return;
 
             Region region = Picker.ChosenRegion;
@@ -316,6 +316,39 @@ namespace DumpingGroundMap
                     "A keycard " + talk.En[pick] + ".\n" + name);
 
             ShowNotice(text, crate ? "crate" : "keycard");
+        }
+
+        /// <summary>
+        /// 最终战利品列表确定后再提示补给箱/钥匙卡：同一次搜索里同一 id 只提示一次，
+        /// 已被技能比较丢弃的物品不会留下「有提示没物品」。
+        /// </summary>
+        internal static void NoticeSpecialFinds(List<GameItem> items)
+        {
+            if (!Core.Enabled || items == null) return;
+            List<string> seen = null;
+            for (int i = 0; i < items.Count; ++i)
+            {
+                GameItem item = items[i];
+                if (item == null) continue;
+                string id = item.identifier;
+                if (!IsCrate(id) && !IsKeycard(id)) continue;
+                if (seen == null) seen = new List<string>();
+                if (seen.Contains(id)) continue;
+                seen.Add(id);
+                NoticeSpecialFind(id);
+            }
+        }
+
+        private static bool IsCrate(string itemId)
+        {
+            return !string.IsNullOrEmpty(itemId)
+                && itemId.StartsWith("loot_crate_", StringComparison.Ordinal);
+        }
+
+        private static bool IsKeycard(string itemId)
+        {
+            return !string.IsNullOrEmpty(itemId)
+                && itemId.EndsWith("_keycard", StringComparison.Ordinal);
         }
 
         /// <summary>

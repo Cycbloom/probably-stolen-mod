@@ -1,4 +1,4 @@
-# 拾荒拓展兼容（1.0.1–1.0.2）
+# 拾荒拓展兼容（1.0.1–1.0.3）
 
 目标：工坊3832768562，模组ID `eotn_scavenger_skills`。本次下载清单为1.0.24，README首行仍是1.0.22。ScavengerSkills.dll SHA256：`ECC41DEE4CD222D6C1459F2CE5533D19B413D5CF890EA60BDB0E92C7DD1DEDA7`。
 
@@ -15,9 +15,15 @@
 
 ## 已完成验证
 
-共1,186,593项规则断言，其中753项兼容检查。使用实际模组DLL、游戏DLL和Harmony的独立控制台进程，不执行第三方DLL：八区域/解锁状态/三类别的集合和相对概率；原生抽取接口与模拟技能前后缀的两种加载顺序；一次事件、替换/取消、变体保留、原版表缺失、嵌套和异常恢复。ModScanner：741方法、0 hard flags、0 capabilities、12 guarded game-API calls。
+共1,186,944项规则断言，其中1104项兼容检查。使用实际模组DLL、游戏DLL和Harmony的独立控制台进程，不执行第三方DLL：八区域/解锁状态/三类别的集合和相对概率；原生抽取接口与模拟技能前后缀的两种加载顺序；一次事件、替换/取消、变体保留、原版表缺失、嵌套和异常恢复。ModScanner：753方法、0 hard flags、0 capabilities、12 guarded game-API calls。
 
 第三方机制来自DLL静态检查；UI和完整存档组合仍需游戏内试玩。IL证据在游戏目录2026-11-17/scavenging-compat。Harmony顺序依据：[Prefix](https://harmony.pardeike.net/v2/articles/patching-prefix.html)、[Priorities](https://harmony.pardeike.net/v2/articles/priorities.html)。
+
+## 1.0.3额外抽取、提示与预留
+
+对方的满载而归、废中寻宝、金属探测器连抽和布里丹驴第二抽都在同一次GetRandomScavengedItem内再次调用SpawnDumpingGroundLoot。本模组按调用顺序区分：第一发是基础抽取，仍走完整分区表；其后只从非贵重、非补给箱、非钥匙卡的普通/外来槽按原权重重新抽取，避免80档箱卡与贵重品按抽取次数放大。作用域只由本模组读取，不改变原版或对方的前后缀与OnLootRolled事件；对方的一次性发现状态也不会被额外抽取消费。
+
+补给箱和钥匙卡提示改到最终战利品列表结算之后：布里丹驴等技能比较并丢弃较低价值物品时，被丢掉的那件不再留下「有提示没物品」。地面放满提示在对方运行时改称战利品先收进暂存区、腾出空位后自动补到地面，40档帮手说明补充暂存区内的物品帮手搬不到。焚化炉预留不再要求扩地真的applied：玩家把地面设回12×9、或扩地因地面已有物品被跳过时，仍按实际窗口尺寸执行同样的对齐与左侧预留。
 
 ## 1.0.2焚化炉布局修复
 

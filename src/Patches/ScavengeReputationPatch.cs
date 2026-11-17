@@ -26,6 +26,19 @@ namespace DumpingGroundMap
             return method;
         }
 
+        // 一次搜索的作用域：第一发 SpawnDumpingGroundLoot 算基础抽取，
+        // 其后由技能/道具追加的抽取只出普通物品。
+        private static void Prefix(out bool __state)
+        {
+            ExtraDrawScope.BeginSearch();
+            __state = true;
+        }
+
+        private static void Finalizer(bool __state)
+        {
+            if (__state) ExtraDrawScope.EndSearch();
+        }
+
         // Count skill-added loot after Scavenging Expansion finishes the list.
         [HarmonyPriority(Priority.Last)]
         [HarmonyAfter(ScavengingExpansionBridge.HarmonyId)]
@@ -51,6 +64,9 @@ namespace DumpingGroundMap
             // event can join tomorrow, even if this was today's last search.
             RegionalEvents.Sync();
             ReputationPopBridge.Show(repValue);
+            // 特殊物品提示放到最终列表之后：布里丹驴等技能比较并丢弃较低者时，
+            // 被丢掉的那件不会再留下「有提示没物品」。
+            StashFind.NoticeSpecialFinds(__result);
             Debug.Log("[DumpingGroundMap] scavenge: items=" + count + " value=" + sum
                 + " repValue=" + repValue + " total=" + Reputation.TotalValue
                 + " points=" + Reputation.Points);

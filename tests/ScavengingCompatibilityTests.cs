@@ -16,11 +16,47 @@ internal static class ScavengingCompatibilityTests
     internal static int Run()
     {
         ProjectionRules();
+        ExtraDrawRules();
         ScopeRules();
         FurnaceLayout();
         foreach (bool partnerFirst in new[] { true, false }) PatchRules(partnerFirst);
-        Console.WriteLine("PASS: " + checks + " scavenging compatibility checks (regional snapshots, native hooks, both load orders)");
+        Console.WriteLine("PASS: " + checks + " scavenging compatibility checks (regional snapshots, extra-draw filter, native hooks, both load orders)");
         return checks;
+    }
+
+    /// <summary>
+    /// 技能额外抽取只走普通/外来槽：不能出现贵重品、80 档补给箱或 100 档钥匙卡。
+    /// </summary>
+    private static void ExtraDrawRules()
+    {
+        Check(!ExtraDrawScope.TakeExtra(), "draws outside a search stay base draws");
+        ExtraDrawScope.BeginSearch();
+        Check(!ExtraDrawScope.TakeExtra(), "first draw in a search is the base draw");
+        Check(ExtraDrawScope.TakeExtra(), "second draw in the same search is an extra draw");
+        Check(ExtraDrawScope.TakeExtra(), "later draws stay extra");
+        ExtraDrawScope.EndSearch();
+        Check(!ExtraDrawScope.TakeExtra(), "scope ends with the search");
+        ExtraDrawScope.BeginSearch();
+        ExtraDrawScope.TakeExtra();
+        ExtraDrawScope.BeginSearch();
+        Check(!ExtraDrawScope.TakeExtra(), "nested search starts its own base draw");
+        ExtraDrawScope.EndSearch();
+        Check(ExtraDrawScope.TakeExtra(), "outer search keeps counting after a nested search");
+        ExtraDrawScope.EndSearch();
+
+        foreach (Region region in Region.All)
+        {
+            EffectiveTable table = LootCalculator.Build(region, LootPreset.For(0).Settings, true, 0.5f, 100);
+            for (int step = 0; step <= 20; ++step)
+            {
+                int index = table.PickOrdinaryIndex(step / 20f);
+                Check(index >= 0, "every region has an ordinary slot for extra draws");
+                LootKind kind = table.Slots[index].Kind;
+                Check(kind == LootKind.Ordinary || kind == LootKind.Foreign,
+                    "extra draws never pick valuables, supply crates or keycards");
+            }
+            Check(table.FallbackOrdinaryIndex() >= 0, "extra draw fallback finds an ordinary slot");
+        }
     }
 
     private static void Check(bool condition, string message)

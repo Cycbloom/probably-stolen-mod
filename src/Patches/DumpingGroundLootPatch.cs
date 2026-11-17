@@ -11,6 +11,36 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 namespace DumpingGroundMap
 {
     /// <summary>
+    /// 区分「基础抽取」与技能额外抽取。一次 GetRandomScavengedItem 调用内的第一发
+    /// SpawnDumpingGroundLoot 算基础抽取；其后由金属探测器、满载而归、废中寻宝、
+    /// 布里丹驴等追加的抽取都算额外抽取，只从普通/外来槽里出东西。
+    /// 作用域只由本模组读取，原版与第三方的前后缀、事件回调不受影响。
+    /// </summary>
+    internal static class ExtraDrawScope
+    {
+        private static readonly List<int> draws = new List<int>();
+
+        internal static void BeginSearch()
+        {
+            draws.Add(0);
+        }
+
+        internal static void EndSearch()
+        {
+            if (draws.Count > 0) draws.RemoveAt(draws.Count - 1);
+        }
+
+        internal static bool TakeExtra()
+        {
+            if (draws.Count == 0) return false;
+            int last = draws.Count - 1;
+            bool extra = draws[last] > 0;
+            draws[last] = draws[last] + 1;
+            return extra;
+        }
+    }
+
+    /// <summary>
     /// Replaces the vanilla dumping-ground roll with the selected area's table.
     /// When no area is active the vanilla distributed roll still runs.
     /// </summary>
@@ -31,25 +61,30 @@ namespace DumpingGroundMap
             bool perf = PerfLog.Enabled;
             long startedAt = perf ? Stopwatch.GetTimestamp() : 0L;
             string path = "none";
+            // 每次 SpawnDumpingGroundLoot 只消费一次：首次是基础抽取，
+            // 其后都算技能/道具追加的额外抽取。
+            bool extra = ExtraDrawScope.TakeExtra();
             try
             {
                 // 「更好的拾荒」优先：它带一次性状态机（首箱钥匙卡、首箱手套），
                 // 一旦被我们的表挤掉判定，「首次」就会推迟。命中时整趟只出它的物品，
-                // 不再叠加外来池或普通槽。
+                // 不再叠加外来池或普通槽。额外抽取只出普通物品，也不能消费它的
+                // 一次性状态。
                 string exoticId;
-                if (BetterScavengingBridge.TryRoll(out exoticId))
+                if (!extra && BetterScavengingBridge.TryRoll(out exoticId))
                 {
                     path = "better-scavenging";
                     __result = LootFactory.Create(exoticId, region.Id, RegionalEvents.ActiveFor(region) != null);
-                    if (__result != null) StashFind.NoticeSpecialFind(exoticId);
                     return false;
                 }
 
                 EffectiveTable table = Tuning.TableFor(region);
-                int index = table.PickIndex();
+                int index = extra ? table.PickOrdinaryIndex() : table.PickIndex();
                 if (index < 0) return true;
 
-                path = table.Slots[index].Kind == LootKind.Foreign ? "foreign" : "table";
+                path = extra
+                    ? (table.Slots[index].Kind == LootKind.Foreign ? "extra+foreign" : "extra")
+                    : (table.Slots[index].Kind == LootKind.Foreign ? "foreign" : "table");
                 // Match vanilla: subscribers can replace/cancel the ID before spawning.
                 string resolved = ScavengingExpansionBridge.Resolve(table, index);
                 __result = LootFactory.Create(resolved, region.Id, RegionalEvents.ActiveFor(region) != null);
@@ -67,7 +102,9 @@ namespace DumpingGroundMap
                     }
                 }
 
-                if (__result != null) StashFind.NoticeSpecialFind(resolved);
+                // 特殊物品提示不在这里弹：布里丹驴等技能可能在同一次搜索里
+                // 再抽一件并丢弃较低者，提前提示会出现「有提示没物品」。
+                // 统一等最终战利品列表结算后再提示（ScavengeReputationPatch）。
                 return false;
             }
             finally

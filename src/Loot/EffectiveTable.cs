@@ -126,6 +126,43 @@ namespace DumpingGroundMap
             return last;
         }
 
+        /// <summary>
+        /// 技能额外抽取只出普通物品：排除贵重品、补给箱与钥匙卡，
+        /// 其余（普通 + 外来条目）按原权重重新归一化。基础抽取仍走 PickIndex。
+        /// </summary>
+        internal int PickOrdinaryIndex()
+        {
+            return PickOrdinaryIndex(UnityEngine.Random.value);
+        }
+
+        internal int PickOrdinaryIndex(float sample)
+        {
+            float sum = 0f;
+            for (int i = 0; i < Items.Length; ++i)
+            {
+                if (!CountsAsOrdinary(i)) continue;
+                sum += Probs[i];
+            }
+            if (sum <= 0f) return -1;
+
+            float roll = ProbabilityMath.Clamp(sample, 0f, 1f) * sum;
+            int last = -1;
+            for (int i = 0; i < Items.Length; ++i)
+            {
+                if (!CountsAsOrdinary(i)) continue;
+                last = i;
+                roll -= Probs[i];
+                if (roll < 0f) return i;
+            }
+            return last;
+        }
+
+        private bool CountsAsOrdinary(int i)
+        {
+            if (Probs[i] <= 0f) return false;
+            return Slots[i].Kind == LootKind.Ordinary || Slots[i].Kind == LootKind.Foreign;
+        }
+
         /// <summary>外来条目生成失败时的兜底：概率最高的普通（非垃圾）槽。</summary>
         internal int FallbackOrdinaryIndex()
         {
