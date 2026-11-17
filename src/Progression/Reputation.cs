@@ -23,19 +23,15 @@ namespace DumpingGroundMap
     /// - 改设置时没有存档（主菜单只有这里能打开模组设置）：不能碰
     ///   PlayerStore.Instance——getter 会新建 PlayerStore，构造函数里的
     ///   GameGridInventory/TreeNodeRender 需要 Emporium 场景，在主菜单必抛
-    ///   NullReferenceException。改为把点数存进游戏自己的 SaveFiles 索引，
+    ///   NullReferenceException。改为写进本模组自己的 ModData 目录（PendingDebugPoints），
     ///   等下一次读档/新档应用一次。
     /// - 有存档时立即调用原生 PlayerStore.SaveGame() 落盘，不等日终。
-    /// 两条路径都只用游戏自己的接口，不自己写文件。
+    /// 两条路径都不直接碰文件系统：一条走原生保存，一条走 ModHelper 的 ModDataFile 辅助方法。
     /// </summary>
     internal static class Reputation
     {
         internal const long ValuePerPoint = 100L;
         internal const string DataKey = "rep_total_value";
-        private const string PendingFlagKey = "dgm_debug_pending";
-        private const string PendingPointsKey = "dgm_debug_pending_points";
-        private const string PendingRunKey = "dgm_debug_pending_run";
-        private const string PendingSlotKey = "dgm_debug_pending_slot";
 
         /// <summary>客人卡上的来访原因（原生字段只能填类型/物品名，这里在 UI 侧改写）。</summary>
         internal static string Perk20Reason
@@ -229,44 +225,34 @@ namespace DumpingGroundMap
         }
 
         /// <summary>
-        /// 主菜单/无法立即存档时改调试点数：先存进游戏自己的 SaveFiles 索引，
+        /// 主菜单/无法立即存档时改调试点数：先写进本模组的 ModData 交接文件，
         /// 下次读档/新档时应用一次。why 只用于日志。
         /// </summary>
         internal static bool QueueDebugPoints(float points, string why, bool bindToCurrentRun = false)
         {
+            PendingDebugPoints.Record record = PendingDebugPoints.Empty();
+            record.Pending = true;
+            record.Points = points;
             try
             {
                 PlayerStore owner = bindToCurrentRun && PlayerStore.HasInstance ? PlayerStore.Instance : null;
-                SaveFiles.IndexSave<string>(PendingRunKey, owner == null ? "" : owner.runID ?? "");
-                SaveFiles.IndexSave<int>(PendingSlotKey, owner == null ? -1 : owner.saveSlotId);
-                SaveFiles.IndexSave<bool>(PendingFlagKey, true);
-                SaveFiles.IndexSave<float>(PendingPointsKey, points);
-                Debug.Log("[DumpingGroundMap] debug: queued "
-                    + points.ToString("0.##", CultureInfo.InvariantCulture)
-                    + " points for next load (" + why + ")");
-                return true;
+                record.Run = owner == null ? "" : owner.runID ?? "";
+                record.Slot = owner == null ? -1 : owner.saveSlotId;
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] debug: could not queue points: " + ex.Message);
-                return false;
+                Debug.LogWarning("[DumpingGroundMap] debug: could not read current run: " + ex.Message);
             }
+            if (!PendingDebugPoints.Write(record)) return false;
+            Debug.Log("[DumpingGroundMap] debug: queued "
+                + points.ToString("0.##", CultureInfo.InvariantCulture)
+                + " points for next load (" + why + ")");
+            return true;
         }
 
         internal static void ClearPendingDebugPoints()
         {
-            try
-            {
-                SaveFiles.IndexDeleteKey(PendingFlagKey);
-                SaveFiles.IndexDeleteKey(PendingPointsKey);
-                SaveFiles.IndexDeleteKey(PendingRunKey);
-                SaveFiles.IndexDeleteKey(PendingSlotKey);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning("[DumpingGroundMap] debug: could not clear pending points: "
-                    + ex.Message);
-            }
+            PendingDebugPoints.Clear();
         }
 
         /// <summary>
@@ -276,51 +262,21 @@ namespace DumpingGroundMap
         /// </summary>
         internal static void ApplyPendingDebugPoints(bool saveNow)
         {
-            bool pending;
-            try
-            {
-                pending = SaveFiles.IndexLoad<bool>(PendingFlagKey, false);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning("[DumpingGroundMap] debug: could not read pending flag: " + ex.Message);
-                return;
-            }
-            if (!pending) return;
+            PendingDebugPoints.Record record;
+            if (!PendingDebugPoints.TryRead(out record) || !record.Pending) return;
             if (!HasStore)
             {
                 Debug.LogWarning("[DumpingGroundMap] debug: pending points kept, no PlayerStore yet");
                 return;
             }
-            string pendingRun;
-            int pendingSlot;
-            try
-            {
-                pendingRun = SaveFiles.IndexLoad<string>(PendingRunKey, "");
-                pendingSlot = SaveFiles.IndexLoad<int>(PendingSlotKey, -1);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning("[DumpingGroundMap] debug: could not read pending owner: " + ex.Message);
-                return;
-            }
             PlayerStore current = PlayerStore.Instance;
-            if (pendingSlot >= 0 && ((current.runID ?? "") != pendingRun || current.saveSlotId != pendingSlot))
+            if (record.Slot >= 0 && ((current.runID ?? "") != record.Run || current.saveSlotId != record.Slot))
                 return;
-            float points;
-            try
-            {
-                points = SaveFiles.IndexLoad<float>(PendingPointsKey, 0f);
-            }
-            catch (Exception)
-            {
-                points = 0f;
-            }
             ClearPendingDebugPoints();
             loadedStore = StoreKey();
-            totalValue = WriteStored(ToStored(points));
+            totalValue = WriteStored(ToStored(record.Points));
             Debug.Log("[DumpingGroundMap] debug: applied queued "
-                + points.ToString("0.##", CultureInfo.InvariantCulture)
+                + record.Points.ToString("0.##", CultureInfo.InvariantCulture)
                 + " points (value=" + totalValue + " saveNow=" + (saveNow ? "yes" : "no") + ")");
             if (saveNow) DeferredSave.Run("queued");
         }

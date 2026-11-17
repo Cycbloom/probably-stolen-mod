@@ -100,6 +100,7 @@ internal static class RulesTests
         SettingsProfileRules();
         RegionalEventRulesTests();
         ForeignLootRules();
+        PendingDebugRules();
         assertions += ScavengingCompatibilityTests.Run();
         Console.WriteLine("PASS: " + assertions + " assertions (loot/events, state, outings, milestones, jackpot modes/news, traffic)");
     }
@@ -108,6 +109,65 @@ internal static class RulesTests
     {
         ++assertions;
         if (!condition) throw new Exception(message);
+    }
+
+    /// <summary>
+    /// 调试点数交接文件：读写往返、缺字段默认值、坏数据容错、不变文化。
+    /// 真实 IO 走 ModHelper，游戏外不可用，这里只覆盖纯解析/序列化部分。
+    /// </summary>
+    private static void PendingDebugRules()
+    {
+        PendingDebugPoints.Record source = PendingDebugPoints.Empty();
+        source.Pending = true;
+        source.Run = "run-abc";
+        source.Slot = 3;
+        source.Points = 12.5f;
+        string text = PendingDebugPoints.Format(source);
+
+        PendingDebugPoints.Record read = PendingDebugPoints.Parse(text);
+        Check(read.Pending, "pending debug flag survives round trip");
+        Check(read.Run == "run-abc", "pending debug run id survives round trip");
+        Check(read.Slot == 3, "pending debug slot survives round trip");
+        Check(Math.Abs(read.Points - 12.5f) < 0.0001f, "pending debug points survive round trip");
+
+        PendingDebugPoints.Record empty = PendingDebugPoints.Parse("");
+        Check(!empty.Pending && empty.Slot == -1 && empty.Run == "", "empty pending file means nothing queued");
+
+        PendingDebugPoints.Record unbound = PendingDebugPoints.Empty();
+        unbound.Pending = true;
+        unbound.Points = 7f;
+        PendingDebugPoints.Record unboundRead = PendingDebugPoints.Parse(PendingDebugPoints.Format(unbound));
+        Check(unboundRead.Pending && unboundRead.Slot == -1 && unboundRead.Run == "",
+            "unbound pending record keeps empty run and -1 slot");
+
+        PendingDebugPoints.Record crlf = PendingDebugPoints.Parse("flag=1\r\nrun=x\r\nslot=2\r\npoints=3.5\r\n");
+        Check(crlf.Pending && crlf.Run == "x" && crlf.Slot == 2 && Math.Abs(crlf.Points - 3.5f) < 0.0001f,
+            "CRLF pending file parses");
+
+        PendingDebugPoints.Record partial = PendingDebugPoints.Parse("run=y\nflag=1\nunknown=zzz\nslot=oops\n");
+        Check(partial.Pending && partial.Run == "y" && partial.Slot == -1 && partial.Points == 0f,
+            "partial pending file falls back to defaults");
+
+        PendingDebugPoints.Record off = PendingDebugPoints.Parse("flag=0\npoints=99\n");
+        Check(!off.Pending, "flag=0 pending file is ignored");
+
+        System.Globalization.CultureInfo saved = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+            PendingDebugPoints.Record culture = PendingDebugPoints.Empty();
+            culture.Pending = true;
+            culture.Points = 1.5f;
+            string german = PendingDebugPoints.Format(culture);
+            Check(german.IndexOf("points=1.5", StringComparison.Ordinal) >= 0,
+                "pending debug points use invariant decimal point");
+            Check(Math.Abs(PendingDebugPoints.Parse(german).Points - 1.5f) < 0.0001f,
+                "pending debug points parse under comma-decimal culture");
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = saved;
+        }
     }
 
     private static void OverviewLayoutRules()
