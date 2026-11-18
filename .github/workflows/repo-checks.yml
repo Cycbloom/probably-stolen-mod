@@ -43,6 +43,10 @@ jobs:
         shell: pwsh
         run: ./tools/verify-localization.ps1
 
+      - name: 检查 JSON 掉落数据
+        shell: pwsh
+        run: ./tools/prepare-loot.ps1
+
       - name: 检查 PowerShell 脚本语法
         shell: pwsh
         run: |

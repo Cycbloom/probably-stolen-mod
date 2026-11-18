@@ -1,0 +1,11 @@
+{
+  "baseline": "33c7968292f329189228598efc09224dcc739fe369a0235a841eee24661a1c2c",
+  "gate": "64d5b90567b2106a3abde4b3ec455514aa4b4cfa7501a238ae25a4acbb5ce474",
+  "scrap": "1111957c410eac9dc8eb01e43cb0b8758e0c5a91a1d1f9ac02c5b64cedd0f425",
+  "refuse": "b8bc055c49ce71122ddbfd8edeb9d619bfc8ca22f11cb7bb53da76644eed3f02",
+  "med": "bae2b14a7fa9b17024258f6d468cb14a1e26c04a8b1a60ee25eb04c9fc56c3ad",
+  "weapons": "d2af849bca4ce7efbfabd6f2b6a21b4cb618989daddaba3a734e6cd9cbe6f2e5",
+  "electronics": "4ae356570970f074bb4c3ecdf173fb0bed2f555d0536601498cc670c78715cb4",
+  "vehicles": "238501334bc2de9fac8d2569af14b7f4aa195fe6c3c54cf90128bf713e8dc2fa",
+  "water": "ad9749844cf5ec7a574cad634a1b9c38a6c79084f385d02f8d6ce8c30d9a2d03"
+}

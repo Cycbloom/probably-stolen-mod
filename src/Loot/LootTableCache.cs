@@ -10,6 +10,7 @@ namespace DumpingGroundMap
         private bool unlocked;
         private bool supplyUnlocked;
         private bool initialized;
+        private int lootRevision = -1;
         private float junkScale;
         private int stage;
         private ForeignLootTable foreign;
@@ -30,7 +31,7 @@ namespace DumpingGroundMap
             eventJunkScale = ProbabilityMath.NormalizeJunkScale(eventJunkScale);
             int nextStage = LootBalance.Stage(reputation);
             bool nextSupplyUnlocked = perk80 && reputation >= PerkCatalog.Perk100Threshold;
-            bool reset = !initialized || !snapshot.Equals(settings) || unlocked != perk80 || junkScale != eventJunkScale || stage != nextStage
+            bool reset = !initialized || lootRevision != ScavLoot.Revision || !snapshot.Equals(settings) || unlocked != perk80 || junkScale != eventJunkScale || stage != nextStage
                 || supplyUnlocked != nextSupplyUnlocked
                 || !ReferenceEquals(foreignLoot, foreign);
             if (reset)
@@ -39,6 +40,7 @@ namespace DumpingGroundMap
                 if (PerfLog.Enabled)
                 {
                     if (!initialized) resetReason = builtAny ? "设置变更" : "首次构建";
+                    else if (lootRevision != ScavLoot.Revision) resetReason = "基础掉落表变化";
                     else if (!snapshot.Equals(settings)) resetReason = "设置变更";
                     else if (!ReferenceEquals(foreignLoot, foreign)) resetReason = "外来池版本变化";
                     else if (junkScale != eventJunkScale) resetReason = "权重变更";
@@ -52,6 +54,7 @@ namespace DumpingGroundMap
                 stage = nextStage;
                 foreign = foreignLoot;
                 initialized = true;
+                lootRevision = ScavLoot.Revision;
             }
             EffectiveTable table;
             if (!tables.TryGetValue(region.Id, out table) || table.RegionalEvent != regionalEvent)

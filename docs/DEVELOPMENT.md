@@ -31,6 +31,8 @@ Windows 环境需要游戏 Managed DLL、.NET Framework 4.7.2 引用程序集及
 
 ## 资源加载完成检查
 
+静态掉落数据另见 [JSON 掉落表维护与加载](LOOT-TABLES.md)：修改 `LootTables/regions.json`，构建时生成后备数据；原生 `OnLootTablesLoaded` 后读取最终注册表快照。该事件与贴图/本地化的资源通知分开处理。
+
 `ModLifecycle` 随启停订阅/取消 `ModHook.OnModAssetsLoaded`，回调交给 `AssetDiagnostics.OnLoaded`。此通知晚于 `Init/OnEnable`，加载器已经完成贴图、声音与本地化加载；回调过滤当前模组 ID 和启用状态，不访问存档、场景或游戏 UI。
 
 检查使用 `LoadedMod.PaperSprites` 与 `Localization` 的内存快照，覆盖四张地图素材及八区背景、中英文语言表缺失/为空、空文本，以及双向键名差异。空的精灵图引用不算成功加载。附加语言不要求与中英文一致，当前也没有必需音频。此运行时检查不替代构建时的词条/占位符和文件哈希校验；它不枚举所有编译代码引用的词条。

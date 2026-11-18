@@ -37,6 +37,8 @@ $arguments = '/noconfig','/nologo','/t:library','/platform:x64','/optimize+','/c
 $arguments += @($refs | ForEach-Object { "/r:$managed/$_.dll" })
 
 New-Item -ItemType Directory -Force -Path $intermediate | Out-Null
+$lootSource = Join-Path $intermediate 'LootDefaults.cs'
+& (Join-Path $PSScriptRoot 'tools/prepare-loot.ps1') -ProjectRoot $PSScriptRoot -GeneratedSource $lootSource
 [xml]$manifest = Get-Content -LiteralPath (Join-Path $PSScriptRoot 'manifest.xml') -Raw
 $releaseVersion = [version]$manifest.Manifest.ModVersion
 $commit = 'unknown'
@@ -51,7 +53,7 @@ using System.Reflection;
 [assembly: AssemblyFileVersion("$fileVersion")]
 [assembly: AssemblyInformationalVersion("$releaseVersion+$commit")]
 "@
-& $compiler @arguments @sources $buildInfo
+& $compiler @arguments @sources $buildInfo $lootSource
 if ($LASTEXITCODE -ne 0) { throw "Compilation failed: $LASTEXITCODE" }
 
 if ($Check) {
@@ -59,6 +61,12 @@ if ($Check) {
 }
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 Copy-Item -LiteralPath $binary,(Join-Path $PSScriptRoot 'manifest.xml'),(Join-Path $PSScriptRoot 'LICENSE') -Destination $dist -Force
+$distLoot = Join-Path $dist 'LootTables'
+New-Item -ItemType Directory -Force -Path $distLoot | Out-Null
+Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'LootTables') -Filter '*.json' -File | Copy-Item -Destination $distLoot -Force
+foreach ($file in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'LootTables') -Filter '*.json' -File) {
+    if ((Get-FileHash -LiteralPath $file.FullName).Hash -ne (Get-FileHash -LiteralPath (Join-Path $distLoot $file.Name)).Hash) { throw "Packaged loot JSON differs: $($file.Name)" }
+}
 $distLocalization = Join-Path $dist 'Localization'
 New-Item -ItemType Directory -Force -Path $distLocalization | Out-Null
 foreach ($locale in 'zh','en') {
@@ -85,6 +93,9 @@ if ($Install) {
     $destinationPaper = Join-Path $destination 'Textures/Paper'
     New-Item -ItemType Directory -Force -Path $destinationPaper | Out-Null
     Copy-Item -LiteralPath (Join-Path $dist 'DumpingGroundMap.dll'),(Join-Path $dist 'manifest.xml'),(Join-Path $dist 'LICENSE') -Destination $destination -Force
+    $destinationLoot = Join-Path $destination 'LootTables'
+    New-Item -ItemType Directory -Force -Path $destinationLoot | Out-Null
+    Get-ChildItem -LiteralPath $distLoot -Filter '*.json' -File | Copy-Item -Destination $destinationLoot -Force
     $destinationLocalization = Join-Path $destination 'Localization'
     New-Item -ItemType Directory -Force -Path $destinationLocalization | Out-Null
     foreach ($locale in 'zh','en') {

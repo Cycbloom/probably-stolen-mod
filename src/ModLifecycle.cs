@@ -13,6 +13,7 @@ namespace DumpingGroundMap
             Tuning.Init();
             ScavengerStart.Hook();
             ModHook.OnModAssetsLoaded += AssetDiagnostics.OnLoaded;
+            ModHook.OnLootTablesLoaded += ScavLoot.OnTablesLoaded;
             ModHook.OnGameLoadedLate += Loaded;
             ModHook.OnNewGameStarted += NewGame;
             ModHook.OnShutterOpenedLate += ScavengerMilestones.OnShutterOpenedLate;
@@ -32,11 +33,13 @@ namespace DumpingGroundMap
 
         internal static void Disable()
         {
+            ScavLoot.Reset();
             AssetDiagnostics.Clear();
             DebugTools.Unregister();
             if (hooked)
             {
                 ModHook.OnModAssetsLoaded -= AssetDiagnostics.OnLoaded;
+                ModHook.OnLootTablesLoaded -= ScavLoot.OnTablesLoaded;
                 ModHook.OnGameLoadedLate -= Loaded;
                 ModHook.OnNewGameStarted -= NewGame;
                 ModHook.OnShutterOpenedLate -= ScavengerMilestones.OnShutterOpenedLate;

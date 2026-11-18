@@ -107,6 +107,12 @@ namespace DumpingGroundMap
         }
 
         /// <summary>丢弃缓存：读档、换场景时让下次查询重新展开原版组。</summary>
+        internal static void InvalidateCatalog()
+        {
+            ownIds = null;
+            Invalidate();
+        }
+
         internal static void Invalidate()
         {
             strictCache = null;

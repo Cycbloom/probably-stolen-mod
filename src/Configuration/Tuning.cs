@@ -856,6 +856,12 @@ namespace DumpingGroundMap
             }
         }
 
+        internal static void InvalidateLootData()
+        {
+            baseEvCache.Clear();
+            cache.Clear();
+        }
+
         private static void Invalidated()
         {
             cache.Clear();

@@ -3,7 +3,7 @@
 | 目录/入口 | 职责 |
 |---|---|
 | src/Core.cs、ModLifecycle.cs | 加载器入口；统一启停、读档、新档顺序与界面刷新订阅 |
-| src/Loot | 区域与物品定义、计算输入快照、最终概率表、奖池、物品变体与生成 |
+| LootTables、src/Loot | 原生 JSON 基础表/分类表组；区域与物品定义、计算输入快照、最终概率表、奖池、物品变体与生成 |
 | src/Configuration | 读取与迁移 ModConfig、滑条预览值、配置变更通知、概率缓存接入 |
 | src/Progression | 声望、奖励门槛、大奖状态、存档归属与临时状态恢复 |
 | src/UI | 地图选择、掉落告示板、设置控件、声望行与 tooltip |
@@ -18,7 +18,9 @@
 ```mermaid
 flowchart LR
   Config[配置快照] --> Calculator[LootCalculator]
-  Catalog[区域表与物品定义] --> Calculator
+  Json[LootTables JSON] --> Registry[原生 LootRegistry]
+  Registry -->|OnLootTablesLoaded| Catalog[基础数据快照与物品定义]
+  Catalog --> Calculator
   Progress[声望门槛] --> Calculator
   Calculator --> Table[EffectiveTable 与 LootSlot]
   Table --> Notice[LootNoticeModel / View]
@@ -55,6 +57,8 @@ flowchart LR
 游戏退出菜单时 PlayerStore 可能仍存在，所以热启用只在 Emporium 已存在时同步当前档。正常读档事件则继续在游戏原有时机重读数据。
 
 ## 扩展约定
+
+静态区域与基准掉落改在 `LootTables/regions.json` 维护，分类由原生表与表组表达。`prepare-loot.ps1` 校验并从同一数据生成后备表；原生掉落表就绪后原子换成注册表快照，同时更新概率表代次、基准 EV 与外来物品去重缓存。动态声望、设置、事件与奖品规则仍由计算器负责。详见 [JSON 掉落数据](LOOT-TABLES.md)。
 
 文案放在 `Localization/zh.csv` 与 `Localization/en.csv`，通过 `Copy.Get` 调用官方 `ModHelper.GetLocalized`。静态区域、事件、奖励和便签定义只存键名；Init/OnEnable 早于语言资产加载，取词须延迟到 provider、界面或游戏事件。热启用先恢复存档状态，同行服务文字由随后打开面板的原生钩子同步。设置分组保留稳定键，AddHeader 前缀只翻译本模组的标题；下拉框只修改显示文本，旧配置值及原生按下标应用/重置的流程保留，旧英文地面对齐值在初始化时映射回稳定值。
 

@@ -32,6 +32,16 @@ foreach ($locale in 'zh','en') {
     Copy-Item -LiteralPath $built -Destination $localization
 }
 Copy-Item -LiteralPath (Join-Path $repo 'dist/DumpingGroundMap.dll'),(Join-Path $repo 'manifest.xml'),(Join-Path $repo 'LICENSE') -Destination $content
+& (Join-Path $repo 'tools/prepare-loot.ps1') -ProjectRoot $repo
+$loot = Join-Path $content 'LootTables'
+New-Item -ItemType Directory -Force -Path $loot | Out-Null
+foreach ($source in Get-ChildItem -LiteralPath (Join-Path $repo 'LootTables') -Filter '*.json' -File) {
+    $built = Join-Path $repo ('dist/LootTables/' + $source.Name)
+    if (-not (Test-Path -LiteralPath $built) -or (Get-FileHash -LiteralPath $source.FullName).Hash -ne (Get-FileHash -LiteralPath $built).Hash) {
+        throw "Loot JSON changed since last build: $($source.Name)"
+    }
+    Copy-Item -LiteralPath $built -Destination $loot
+}
 $textureNames = @('dumping_ground_map','dumping_ground_map_art','dumping_ground_map_base','dumping_ground_landmarks',
     'dumping_ground_gate','dumping_ground_scrap','dumping_ground_refuse','dumping_ground_med',
     'dumping_ground_weapons','dumping_ground_electronics','dumping_ground_vehicles','dumping_ground_water')
