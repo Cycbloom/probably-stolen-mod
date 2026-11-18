@@ -12,6 +12,7 @@ namespace DumpingGroundMap
             if (hooked) return;
             Tuning.Init();
             ScavengerStart.Hook();
+            ModHook.OnModAssetsLoaded += AssetDiagnostics.OnLoaded;
             ModHook.OnGameLoadedLate += Loaded;
             ModHook.OnNewGameStarted += NewGame;
             ModHook.OnShutterOpenedLate += ScavengerMilestones.OnShutterOpenedLate;
@@ -32,6 +33,7 @@ namespace DumpingGroundMap
         {
             if (hooked)
             {
+                ModHook.OnModAssetsLoaded -= AssetDiagnostics.OnLoaded;
                 ModHook.OnGameLoadedLate -= Loaded;
                 ModHook.OnNewGameStarted -= NewGame;
                 ModHook.OnShutterOpenedLate -= ScavengerMilestones.OnShutterOpenedLate;

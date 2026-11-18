@@ -19,6 +19,7 @@ internal sealed class LocalizationTests : IDisposable
     private static int checks;
     private static bool ready;
     private readonly Harmony harmony = new Harmony(Owner);
+    internal Dictionary<string, Dictionary<string, string>> Tables { get { return tables; } }
 
     internal LocalizationTests()
     {

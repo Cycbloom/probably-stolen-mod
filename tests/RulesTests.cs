@@ -24,6 +24,7 @@ internal static class RulesTests
             using (var localization = new LocalizationTests())
             {
                 assertions += localization.Run();
+                assertions += AssetDiagnosticsTests.Run(localization.Tables);
                 if (args.Length > 3 && args[3] == "events") WriteRegionalEventReport(args[2]);
                 else if (args.Length > 2) WriteBalanceReport(args[2]);
                 else Run();
