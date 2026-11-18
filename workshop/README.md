@@ -1,8 +1,10 @@
 # 垃圾场拓展 · Steam创意工坊发布
 
-作者：Cycbloom。当前模组版本1.0.6，清单目标游戏版本1.0.0（覆盖 1.0 修订）。保留内部ID `local.dumping_ground_map`；不因发布改动已有存档标识。
+作者：Cycbloom。当前模组版本1.0.8，清单目标游戏版本1.0.0（覆盖 1.0 修订）。保留内部ID `local.dumping_ground_map`；不因发布改动已有存档标识。
 
 ## 已准备的资料
+
+1.0.8 起内容包必须包含 `Localization/zh.csv`、`Localization/en.csv`。准备脚本会检查它们与源码中的词条一致，再复制进发布目录；只替换 DLL 不足以更新此版本。
 
 - `description.zh-CN.txt`和`description.en.txt`：扩展后的中文版、英文版介绍，可分别粘贴到工坊对应语言栏。
 - `description.bilingual.txt`和`description.bbcode.txt`：中英合并归档备选；发布时使用独立语言文件，均使用真实换行。`description-short.txt`保留为旧版简短备选。

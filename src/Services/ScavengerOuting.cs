@@ -40,9 +40,7 @@ namespace DumpingGroundMap
         {
             get
             {
-                return Copy.Text(
-                    "花 20 信用点，约拾荒客明天一起探险。次日当天拾荒次数 +2，拾荒时不会受轻伤或重伤。每次预约只管一天，结算后自动取消勾选；想再同行，头晚重新预约。",
-                    "Pay 20 credits to explore with scavengers tomorrow. Gain 2 extra scavenging attempts and no minor or major scavenging wounds that day. Each booking lasts one day and unticks after settlement; book again the night before another outing.");
+                return Copy.Get("scavengerouting_pay_20_credits_to_explore_with_scavengers");
             }
         }
 
@@ -75,7 +73,7 @@ namespace DumpingGroundMap
                 store.storeService.Add(service);
             }
             OutingRules.Configure(service, Reputation.Points);
-            service.displayName = Copy.Text("与拾荒客同行", "Scavenger Outing");
+            service.displayName = Copy.Get("scavengerouting_scavenger_outing");
             // Native BuildServiceRow resolves tooltip through LocHelper.GetLocalizedUI.
             service.description = Description;
             return service;
@@ -96,9 +94,7 @@ namespace DumpingGroundMap
             int benefitDay = OutingRules.BenefitDay(Today());
             if (benefitDay < 0) return;
             ModHelper.SetModDataInt(Core.Id, BenefitDayKey, benefitDay);
-            store.AddNightLog(Copy.Text(
-                "已付 20 信用点约好拾荒客同行。今天多 2 次拾荒，拾荒时不会受轻伤或重伤。",
-                "Paid 20 credits for a scavenger outing. Today grants 2 extra searches and no minor or major scavenging wounds."));
+            store.AddNightLog(Copy.Get("scavengerouting_paid_20_credits_for_a_scavenger_outing"));
             Debug.Log("[DumpingGroundMap] scavenger outing booked for day " + benefitDay);
         }
 

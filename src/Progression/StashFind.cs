@@ -288,7 +288,7 @@ namespace DumpingGroundMap
 
             PlaceTalk talk = PlaceTalk.For(regionId);
             int pick = talk.Roll();
-            string place = Copy.Text(talk.Zh[pick], talk.En[pick]);
+            string place = talk.Text(pick);
             ShowNotice(string.Format(template.Notice, place), "jackpot");
         }
 
@@ -310,10 +310,8 @@ namespace DumpingGroundMap
             string name = Picker.ItemName(itemId);
 
             string text = crate
-                ? Copy.Text("你在" + talk.Zh[pick] + "翻出一个上锁的箱子。\n" + name,
-                    "A locked crate " + talk.En[pick] + ".\n" + name)
-                : Copy.Text("你在" + talk.Zh[pick] + "摸到一张钥匙卡。\n" + name,
-                    "A keycard " + talk.En[pick] + ".\n" + name);
+                ? Copy.Get("stashfind_a_locked_crate_0_1", talk.Text(pick), name)
+                : Copy.Get("stashfind_a_keycard_0_1", talk.Text(pick), name);
 
             ShowNotice(text, crate ? "crate" : "keycard");
         }
@@ -495,9 +493,7 @@ namespace DumpingGroundMap
             PlaceTalk talk = PlaceTalk.For(regionId);
             int pick = talk.Roll();
             string name = box.ItemName();
-            ShowNotice(Copy.Text(
-                "你在" + talk.Zh[pick] + "惊喜地发现：\n一整箱" + name + "！",
-                "A whole crate " + talk.En[pick] + "!\n" + name), "minor");
+            ShowNotice(Copy.Get("stashfind_a_whole_crate_0_1", talk.Text(pick), name), "minor");
         }
 
         /// <summary>
@@ -640,93 +636,26 @@ namespace DumpingGroundMap
         /// </summary>
         internal sealed class PlaceTalk
         {
-            internal readonly string[] Zh;
-            internal readonly string[] En;
+            internal readonly string[] Keys;
 
-            private PlaceTalk(string[] zh, string[] en)
-            {
-                Zh = zh;
-                En = en;
-            }
+            private PlaceTalk(string[] keys) { Keys = keys; }
+
+            internal string Text(int index) { return Copy.Get(Keys[index]); }
 
             private static readonly Dictionary<string, PlaceTalk> All =
                 new Dictionary<string, PlaceTalk>
                 {
-                    { "scrap", new PlaceTalk(
-                        new[] { "架子顶上", "抽屉缝里", "工作台底下", "掀开的铁皮板下",
-                                "锈死的柜子里", "塌了半截的车厢里", "废料堆底层",
-                                "墙角的破纸箱里", "拆开的机箱里", "堆到顶的料斗里" },
-                        new[] { "on the top shelf", "in the gap between drawers",
-                                "under a broken workbench", "under a peeled-back sheet of metal",
-                                "inside a rusted-shut cabinet", "in a half-collapsed carriage",
-                                "at the bottom of the refuse heap",
-                                "in a soggy cardboard box in the corner",
-                                "inside a stripped-open machine casing",
-                                "in an overflowing scrap hopper" }) },
-                    { "refuse", new PlaceTalk(
-                        new[] { "废料堆底层", "塌了半截的车厢里", "水槽底下", "墙角的破纸箱里",
-                                "烂了一半的冰箱里", "倒扣的洗衣篮下", "成堆的垃圾袋中间",
-                                "塌下来的隔板下" },
-                        new[] { "at the bottom of the refuse heap", "in a half-collapsed carriage",
-                                "under the sink", "in a soggy cardboard box in the corner",
-                                "inside a half-rotted fridge", "under an overturned laundry basket",
-                                "among the piled-up garbage bags", "beneath a caved-in shelf" }) },
-                    { "med", new PlaceTalk(
-                        new[] { "倒塌的隔墙后面", "锈死的药柜里", "翻倒的病床下", "拆开的急救箱里",
-                                "停用的处置台底下", "墙角的输液架旁", "拆下来的吊柜里" },
-                        new[] { "behind a collapsed partition", "inside a rusted-shut medicine cabinet",
-                                "under an overturned hospital bed", "inside a pried-open first-aid kit",
-                                "under a decommissioned treatment table",
-                                "beside a stack of IV stands in the corner",
-                                "in a detached wall cabinet" }) },
-                    { "weapons", new PlaceTalk(
-                        new[] { "锈蚀的军械箱旁", "掀开的铁皮板下", "塌了半截的车厢里",
-                                "拆开的枪柜里", "打空的弹箱底下", "塌下来的掩体后",
-                                "堆到顶的料斗里" },
-                        new[] { "beside a rusted arms crate", "under a peeled-back sheet of metal",
-                                "in a half-collapsed carriage", "inside a pried-open gun locker",
-                                "under an emptied ammo box", "behind a caved-in barricade",
-                                "in an overflowing scrap hopper" }) },
-                    { "gate", new PlaceTalk(
-                        new[] { "门口的垃圾堆里", "塌了半截的车厢里", "掀开的铁皮板下",
-                                "墙角的破纸箱里" },
-                        new[] { "in the trash heap by the gate", "in a half-collapsed carriage",
-                                "under a peeled-back sheet of metal",
-                                "in a soggy cardboard box in the corner" }) },
-                    { "electronics", new PlaceTalk(
-                        new[] { "烧穿的配电柜里", "剥开的线缆槽里", "堆到顶的电路板垛下",
-                                "拆开的机箱里", "塌了的电子货架后", "锈死的配电箱里",
-                                "压扁的服务器机柜下" },
-                        new[] { "inside a burnt-out switchgear cabinet",
-                                "in a stripped-open cable trench",
-                                "under a towering heap of circuit boards",
-                                "inside a pried-open machine casing",
-                                "behind a collapsed electronics rack",
-                                "inside a rusted-shut distribution box",
-                                "under a crushed server cabinet" }) },
-                    { "vehicles", new PlaceTalk(
-                        new[] { "翻倒的车厢底下", "拆空的后备箱里", "压扁的驾驶室里",
-                                "卸下的车门后", "油污的底盘下", "报废车轮堆里",
-                                "撬开的引擎盖下" },
-                        new[] { "under an overturned carriage", "in a stripped-out trunk",
-                                "inside a crushed cab", "behind a detached car door",
-                                "under an oil-stained chassis", "in a heap of dead wheels",
-                                "under a pried-open engine hood" }) },
-                    { "water", new PlaceTalk(
-                        new[] { "锈死的泵房里", "干涸的水池底下", "拆开的水泵旁",
-                                "塌了半截的水塔下", "积满淤泥的阀门井里",
-                                "废弃的过滤罐后面", "断裂的水管旁" },
-                        new[] { "inside the rusted-shut pump house",
-                                "at the bottom of a dry reservoir", "beside a dismantled pump",
-                                "under a half-collapsed water tower",
-                                "in a silt-filled valve pit",
-                                "behind an abandoned filter tank",
-                                "beside a burst water main" }) }
+                    { "scrap", new PlaceTalk(new[] { "place_on_the_top_shelf", "place_in_the_gap_between_drawers", "place_under_a_broken_workbench", "place_under_a_peeled_back_sheet_of_metal", "place_inside_a_rusted_shut_cabinet", "place_in_a_half_collapsed_carriage", "place_at_the_bottom_of_the_refuse_heap", "place_in_a_soggy_cardboard_box_in_the_corner", "place_inside_a_stripped_open_machine_casing", "place_in_an_overflowing_scrap_hopper" }) },
+                    { "refuse", new PlaceTalk(new[] { "place_at_the_bottom_of_the_refuse_heap", "place_in_a_half_collapsed_carriage", "place_under_the_sink", "place_in_a_soggy_cardboard_box_in_the_corner", "place_inside_a_half_rotted_fridge", "place_under_an_overturned_laundry_basket", "place_among_the_piled_up_garbage_bags", "place_beneath_a_caved_in_shelf" }) },
+                    { "med", new PlaceTalk(new[] { "place_behind_a_collapsed_partition", "place_inside_a_rusted_shut_medicine_cabinet", "place_under_an_overturned_hospital_bed", "place_inside_a_pried_open_first_aid_kit", "place_under_a_decommissioned_treatment_table", "place_beside_a_stack_of_iv_stands_in_the_corner", "place_in_a_detached_wall_cabinet" }) },
+                    { "weapons", new PlaceTalk(new[] { "place_beside_a_rusted_arms_crate", "place_under_a_peeled_back_sheet_of_metal", "place_in_a_half_collapsed_carriage", "place_inside_a_pried_open_gun_locker", "place_under_an_emptied_ammo_box", "place_behind_a_caved_in_barricade", "place_in_an_overflowing_scrap_hopper" }) },
+                    { "gate", new PlaceTalk(new[] { "place_in_the_trash_heap_by_the_gate", "place_in_a_half_collapsed_carriage", "place_under_a_peeled_back_sheet_of_metal", "place_in_a_soggy_cardboard_box_in_the_corner" }) },
+                    { "electronics", new PlaceTalk(new[] { "place_inside_a_burnt_out_switchgear_cabinet", "place_in_a_stripped_open_cable_trench", "place_under_a_towering_heap_of_circuit_boards", "place_inside_a_pried_open_machine_casing", "place_behind_a_collapsed_electronics_rack", "place_inside_a_rusted_shut_distribution_box", "place_under_a_crushed_server_cabinet" }) },
+                    { "vehicles", new PlaceTalk(new[] { "place_under_an_overturned_carriage", "place_in_a_stripped_out_trunk", "place_inside_a_crushed_cab", "place_behind_a_detached_car_door", "place_under_an_oil_stained_chassis", "place_in_a_heap_of_dead_wheels", "place_under_a_pried_open_engine_hood" }) },
+                    { "water", new PlaceTalk(new[] { "place_inside_the_rusted_shut_pump_house", "place_at_the_bottom_of_a_dry_reservoir", "place_beside_a_dismantled_pump", "place_under_a_half_collapsed_water_tower", "place_in_a_silt_filled_valve_pit", "place_behind_an_abandoned_filter_tank", "place_beside_a_burst_water_main" }) }
                 };
 
-            private static readonly PlaceTalk Fallback = new PlaceTalk(
-                new[] { "墙角的破纸箱里" },
-                new[] { "in a soggy cardboard box in the corner" });
+            private static readonly PlaceTalk Fallback = new PlaceTalk(new[] { "place_in_a_soggy_cardboard_box_in_the_corner" });
 
             internal static PlaceTalk For(string regionId)
             {
@@ -737,7 +666,7 @@ namespace DumpingGroundMap
 
             internal int Roll()
             {
-                return En.Length == 0 ? 0 : UnityEngine.Random.Range(0, En.Length);
+                return Keys.Length == 0 ? 0 : UnityEngine.Random.Range(0, Keys.Length);
             }
         }
 

@@ -83,19 +83,19 @@ namespace DumpingGroundMap
                 RegionalEvent effect = ActiveFor(region);
                 if (effect != null) names.Add(region.Name + " · " + effect.Title);
             }
-            return names.Count > 0 ? Copy.Text("今日事件：", "Today: ") + string.Join(" / ", names.ToArray())
-                : Copy.Text("今日没有区域事件", "No regional events today");
+            return names.Count > 0 ? Copy.Get("regionalevents_today_2") + string.Join(" / ", names.ToArray())
+                : Copy.Get("regionalevents_no_regional_events_today");
         }
 
         internal static string Details(Region region, EffectiveTable table)
         {
             RegionalEvent effect = table.RegionalEvent;
             if (effect == null) return "";
-            return Copy.Text("今日：", "Today: ") + effect.Title + Copy.Text("（今日结束）", " (ends today)")
+            return Copy.Get("regionalevents_today") + effect.Title + Copy.Get("regionalevents_ends_today")
                 + "\n" + effect.Description + "\n"
-                + Copy.Text("主掉落期望 ", "Main-drop EV ") + table.Ev.ToString("0.00", CultureInfo.InvariantCulture)
-                + Copy.Text("（事件 ", " (event ") + table.EventEv.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture)
-                + Copy.Text(" 信用点/件）", " credits/item)");
+                + Copy.Get("regionalevents_main_drop_ev") + table.Ev.ToString("0.00", CultureInfo.InvariantCulture)
+                + Copy.Get("regionalevents_event") + table.EventEv.ToString("+0.00;-0.00;0.00", CultureInfo.InvariantCulture)
+                + Copy.Get("regionalevents_credits_item");
         }
 
         private static int[] Parse(string raw)

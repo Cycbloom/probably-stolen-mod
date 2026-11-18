@@ -86,21 +86,13 @@ namespace DumpingGroundMap
                     ? (table.Slots[index].Kind == LootKind.Foreign ? "extra+foreign" : "extra")
                     : (table.Slots[index].Kind == LootKind.Foreign ? "foreign" : "table");
                 // Match vanilla: subscribers can replace/cancel the ID before spawning.
-                string resolved = ScavengingExpansionBridge.Resolve(table, index);
-                __result = LootFactory.Create(resolved, region.Id, RegionalEvents.ActiveFor(region) != null);
-
-                // 外来条目可能没有可用的生成数据：回退到普通槽重掷一次，
-                // 保证一次搜索仍然出一件。
-                if (__result == null && table.Slots[index].Kind == LootKind.Foreign)
-                {
-                    path = "foreign+fallback";
-                    int fallback = table.FallbackOrdinaryIndex();
-                    if (fallback >= 0)
+                bool usedFallback;
+                __result = LootRollResolver.CreateWithFallback(table, index,
+                    ScavengingExpansionBridge.Resolve, delegate(string token)
                     {
-                        resolved = ScavengingExpansionBridge.Resolve(table, fallback);
-                        __result = LootFactory.Create(resolved, region.Id, RegionalEvents.ActiveFor(region) != null);
-                    }
-                }
+                        return LootFactory.Create(token, region.Id, RegionalEvents.ActiveFor(region) != null);
+                    }, out usedFallback);
+                if (usedFallback) path = "foreign+fallback";
 
                 // 特殊物品提示不在这里弹：布里丹驴等技能可能在同一次搜索里
                 // 再抽一件并丢弃较低者，提前提示会出现「有提示没物品」。

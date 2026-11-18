@@ -38,8 +38,7 @@ namespace DumpingGroundMap
         {
             get
             {
-                return Copy.Text("被「" + PerkCatalog.Perk20NameZh + "」的名声吸引",
-                    "Drawn by a " + PerkCatalog.Perk20NameEn + "'s reputation");
+                return Copy.Get("reputation_drawn_by_a_0_s_reputation", Copy.Get(PerkCatalog.Perk20NameKey));
             }
         }
 

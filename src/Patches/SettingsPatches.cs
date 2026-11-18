@@ -9,6 +9,18 @@ using TMPro;
 
 namespace DumpingGroundMap
 {
+    // ConfigEntry.Section is immutable. Keep its stable grouping key and translate
+    // only the header text immediately before the native builder renders it.
+    [HarmonyPatch(typeof(CustomUIBuilder), "AddHeader")]
+    internal static class ModConfigHeaderPatch
+    {
+        private static void Prefix(ref string __0, string __1)
+        {
+            if (Core.Enabled && Tuning.IsSectionKey(__0) && __1 == "section_" + __0)
+                __0 = Copy.Get(__0);
+        }
+    }
+
     [HarmonyPatch(typeof(ModConfigWindow), "BuildEntry")]
     internal static class ModConfigEntryPatch
     {

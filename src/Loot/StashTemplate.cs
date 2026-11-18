@@ -21,21 +21,17 @@ namespace DumpingGroundMap
         internal readonly int[] ValuableWeights;
         internal readonly string[] ItemTypes;
         internal readonly int[] PricePercents;
-        private readonly string noticeZh;
-        private readonly string noticeEn;
-        private readonly string newsNameZh;
-        private readonly string newsNameEn;
-        private readonly string newsDescZh;
-        private readonly string newsDescEn;
-        private readonly string displayZh;
-        private readonly string displayEn;
+        private readonly string noticeKey;
+        private readonly string newsNameKey;
+        private readonly string newsDescKey;
+        private readonly string displayKey;
 
         private StashTemplate(string regionId, RewardGroup[] groups,
             string[] valuableIds, int[] valuableWeights,
             string[] itemTypes, int[] pricePercents,
-            string noticeZh, string noticeEn,
-            string newsNameZh, string newsNameEn, string newsDescZh, string newsDescEn,
-            string displayZh, string displayEn)
+            string noticeKey,
+            string newsNameKey, string newsDescKey,
+            string displayKey)
         {
             RegionId = regionId;
             Groups = groups;
@@ -43,20 +39,16 @@ namespace DumpingGroundMap
             ValuableWeights = valuableWeights;
             ItemTypes = itemTypes;
             PricePercents = pricePercents;
-            this.noticeZh = noticeZh;
-            this.noticeEn = noticeEn;
-            this.newsNameZh = newsNameZh;
-            this.newsNameEn = newsNameEn;
-            this.newsDescZh = newsDescZh;
-            this.newsDescEn = newsDescEn;
-            this.displayZh = displayZh;
-            this.displayEn = displayEn;
+            this.noticeKey = noticeKey;
+            this.newsNameKey = newsNameKey;
+            this.newsDescKey = newsDescKey;
+            this.displayKey = displayKey;
         }
 
-        internal string Notice { get { return Copy.Text(noticeZh, noticeEn); } }
-        internal string NewsName { get { return Copy.Text(newsNameZh, newsNameEn); } }
-        internal string NewsDescription { get { return Copy.Text(newsDescZh, newsDescEn); } }
-        internal string DisplayName { get { return Copy.Text(displayZh, displayEn); } }
+        internal string Notice { get { return Copy.Get(noticeKey); } }
+        internal string NewsName { get { return Copy.Get(newsNameKey); } }
+        internal string NewsDescription { get { return Copy.Get(newsDescKey); } }
+        internal string DisplayName { get { return Copy.Get(displayKey); } }
 
         /// <summary>按池内权重抽 1 件贵重品；权重缺失时退化为均匀抽。</summary>
         internal string PickValuable()
@@ -97,14 +89,12 @@ namespace DumpingGroundMap
                 new[] { "rare_electronic", "module_extractor_advanced", "printer_chip_gun_part",
                         "advanced_flux_agent" },
                 new[] { 12, 12, 50, 50 },
-                new[] { "TOOL" }, new[] { -20 },
-                "你在{0}翻出一柜工具和材料！\n今天继续在本区拾荒，每次多得1件物品。",
-                "Tools and materials {0}!\nSearch here again today: +1 item per search.",
-                "门口空地挖出的工具箱和料垛",
-                "A Tool Chest and a Stack of Stock at the Main Gate",
-                "有人昨夜在入口空地的垃圾堆里拖出一只整箱工具，底下还压着成捆的材料和几块值钱的芯片。五金铺老板今早脸色不太好——今天工具和材料多半都要便宜。",
-                "Someone dragged a chest of tools out of the trash by the main gate last night, with bundles of stock and a few pricey chips still underneath. The hardware dealer was looking sour this morning; tools and materials are likely to go cheap today.",
-                "工具倾销", "Tool Surplus"),
+                new[] { "TOOL" },
+                new[] { -20 },
+                "stash_gate_notice",
+                "stash_gate_news_title",
+                "stash_gate_news_body",
+                "stash_gate_display"),
 
             // 拆解堆：整垛原材料为主，少量拆卸工具；贵重加工材料单独抽取。
             new StashTemplate("scrap",
@@ -116,14 +106,12 @@ namespace DumpingGroundMap
                 },
                 new[] { "printer_chip_combat_machete", "printer_chip_gun_part", "advanced_flux_agent" },
                 new[] { 3, 30, 30 },
-                new[] { "MATERIAL" }, new[] { -20 },
-                "你在{0}翻出整垛原材料和拆卸工具！\n今天继续在本区拾荒，每次多得1件物品。",
-                "Raw stock and dismantling tools {0}!\nSearch here again today: +1 item per search.",
-                "拆解堆出了整垛料和几箱工具",
-                "Raw Stock and Tools From the Scrap Pile",
-                "拆解堆昨夜有人从塌掉的夹层里拖出整垛还没回炉的金属、塑料和成卷布料，外加几把拆卸工具和加工用的值钱货。消息传开，收料的开价一个比一个低，今天材料怕是要贱卖。",
-                "Someone hauled stacks of unmelted metal, plastic and fabric out of a collapsed cavity in the scrap pile, with dismantling tools and valuable manufacturing supplies. Buyers are undercutting each other; materials will likely sell cheap today.",
-                "材料过剩", "Material Glut"),
+                new[] { "MATERIAL" },
+                new[] { -20 },
+                "stash_scrap_notice",
+                "stash_scrap_news_title",
+                "stash_scrap_news_body",
+                "stash_scrap_display"),
 
             // 生活废料带：食品一组、日用品一组，价格修正仍是 FOOD + HOUSEHOLD_GOOD 两条。
             // 贵重品取净水 / 泉水与正品香烟、酵母反应器，都落在食品或日用一侧。
@@ -142,14 +130,12 @@ namespace DumpingGroundMap
                 new[] { "bottled_water_premium", "water_filter_adv", "portable_water_purifier",
                         "wine_yeast_infinite", "packet_red_cigarette" },
                 new[] { 9, 6, 9, 20, 50 },
-                new[] { "FOOD", "HOUSEHOLD_GOOD" }, new[] { -20, -20 },
-                "你在{0}翻出整车食品和日用品！\n今天继续在本区拾荒，每次多得1件物品。",
-                "A cart of food and supplies {0}!\nSearch here again today: +1 item per search.",
-                "废料带里翻出的年货",
-                "A Holiday Haul in the Refuse Lane",
-                "有拾荒客说，昨晚在生活废料带里翻出了一整车没拆封的食品和日用品，还夹着几瓶好水、一条正品烟和别的值钱货。货一到早市，摊主们就抢着压价，今天这两类东西恐怕都不值钱了。",
-                "A scavenger claims to have hauled a whole cart of sealed food and household goods out of the refuse lane last night, along with a few bottles of good water, a genuine pack of cigarettes and other valuables. By the time it reached the morning market, stallholders were already undercutting each other — both are likely to go cheap today.",
-                "食品日用品涌入", "Food and Household Surplus"),
+                new[] { "FOOD", "HOUSEHOLD_GOOD" },
+                new[] { -20, -20 },
+                "stash_refuse_notice",
+                "stash_refuse_news_title",
+                "stash_refuse_news_body",
+                "stash_refuse_display"),
 
             // 医疗废弃点：耗材 / 药品 / 器械三组，对应本区三个大类。
             // 贵重品只取医疗向的注射器、蓝血与外科器械；奖池 8 件等仍全部带 MEDICAL，价格修正不变。
@@ -165,14 +151,12 @@ namespace DumpingGroundMap
                 },
                 new[] { "blue_blood_bag", "black_injector", "large_purple_injector", "surgery_tool" },
                 new[] { 14, 6, 50, 30 },
-                new[] { "MEDICAL" }, new[] { -20 },
-                "你在{0}找到一批药品和医疗器械！\n今天继续在本区拾荒，每次多得1件物品。",
-                "A stash of medical supplies {0}!\nSearch here again today: +1 item per search.",
-                "医疗废弃点的整箱药品上了早市",
-                "Crates of Medicine Reach the Morning Market",
-                "医疗废弃点昨夜有人拖出成箱还没过期的绷带、药片和手术器械，连几支值钱的针剂也一并流了出来。天没亮就摆上了早市，开价压得比药铺进货还低。今天医疗用品怕是要跟着一起跌。",
-                "Someone dragged crates of still-unexpired bandages, pills and surgical instruments out of the medical dump last night, and a few pricey injectors went with them. They were on the morning market before dawn, priced below what the pharmacy pays wholesale. Medical supplies are likely to fall with them today.",
-                "医疗物资倾销", "Medical Supplies Dumped"),
+                new[] { "MEDICAL" },
+                new[] { -20 },
+                "stash_med_notice",
+                "stash_med_news_title",
+                "stash_med_news_body",
+                "stash_med_display"),
 
             // 废武器堆：弹药 / 配件 / 枪支三组，对应本区三个大类。
             // 贵重品取贵重枪支、贵重近战与打印配件芯片，都落在武器这一侧。
@@ -195,14 +179,12 @@ namespace DumpingGroundMap
                         "combat_machete", "stun_baton", "printer_chip_10_mag_ext",
                         "printer_chip_gun_part" },
                 new[] { 18, 16, 10, 5, 30, 40, 50, 3, 6 },
-                new[] { "AMMUNITION", "FIREARM", "GUN_MOD" }, new[] { -20, -20, -20 },
-                "你在{0}翻出枪支、弹药和配件！\n今天继续在本区拾荒，每次多得1件物品。",
-                "Guns, ammo and gun mods {0}!\nSearch here again today: +1 item per search.",
-                "废武器堆的军械箱",
-                "An Arms Crate in the Weapon Dump",
-                "有人昨夜在废武器堆撬开一只军械箱，抱走成把的子弹和两三支还能打响的枪，连枪上的配件和几件值钱货都拆下来带走了。枪铺今天大概要被迫让价。",
-                "Someone cracked open an arms crate in the weapon dump last night and walked off with fistfuls of rounds, two or three working guns, and the mods and valuables stripped off them. The gun shop will likely be forced to cut prices today.",
-                "军械流入市场", "Arms Flood the Market"),
+                new[] { "AMMUNITION", "FIREARM", "GUN_MOD" },
+                new[] { -20, -20, -20 },
+                "stash_weapons_notice",
+                "stash_weapons_news_title",
+                "stash_weapons_news_body",
+                "stash_weapons_display"),
 
             // 电子垃圾坡：电子件 / 工具 / 模组三组，对应本区三个非垃圾大类。
             // 贵重品偏电子与模组；价格修正只挂已存在的 MATERIAL / TOOL。
@@ -218,14 +200,12 @@ namespace DumpingGroundMap
                 },
                 new[] { "rare_electronic", "module_extractor_advanced", "module_extractor" },
                 new[] { 18, 18, 60 },
-                new[] { "MATERIAL", "TOOL" }, new[] { -20, -20 },
-                "你在{0}翻出整箱电子件和模组！\n今天继续在本区拾荒，每次多得1件物品。",
-                "A crate of electronics and modules {0}!\nSearch here again today: +1 item per search.",
-                "电子垃圾坡的整箱元件",
-                "A Crate of Components at the E-Waste Slope",
-                "有人昨夜在电子垃圾坡的烧穿配电柜后面拖出整箱还能用的电子元件和几块完好模组，连工具也一并带走。货一早上了摊，今天电子件和工具多半要一起跌。",
-                "Someone dragged a crate of still-working components and a few intact modules out from behind a burnt-out switchgear cabinet on the e-waste slope last night, tools included. The lot hit the stalls at dawn, so electronics and tools will likely both go cheap today.",
-                "电子件倾销", "Electronics Surplus"),
+                new[] { "MATERIAL", "TOOL" },
+                new[] { -20, -20 },
+                "stash_electronics_notice",
+                "stash_electronics_news_title",
+                "stash_electronics_news_body",
+                "stash_electronics_display"),
 
             // 报废车场：工具箱为主，少量机械材料与零件，贵重工具单独抽取。
             new StashTemplate("vehicles",
@@ -238,14 +218,12 @@ namespace DumpingGroundMap
                 },
                 new[] { "module_extractor_advanced", "module_extractor", "printer_chip_gun_part" },
                 new[] { 18, 60, 35 },
-                new[] { "MATERIAL", "TOOL" }, new[] { -20, -20 },
-                "你在{0}拆出一车工具和金属件！\n今天继续在本区拾荒，每次多得1件物品。",
-                "A cart of tools and metal parts {0}!\nSearch here again today: +1 item per search.",
-                "报废车场拆出的整箱工具",
-                "A Tool Chest From the Vehicle Graveyard",
-                "报废车场昨夜有人把一辆压扁的车壳整个拆开，拖出成箱工具、整捆金属件和几块还能用的零件。废料商和五金铺同时收到货，今天材料与工具怕是要一起掉价。",
-                "Someone cut open a crushed car shell at the vehicle graveyard last night and hauled out a chest of tools, bundles of metal parts, and a few salvageable components. The scrap dealers and the hardware shop both got stock at once; materials and tools will likely fall together today.",
-                "拆车件涌入", "Salvage Flood"),
+                new[] { "MATERIAL", "TOOL" },
+                new[] { -20, -20 },
+                "stash_vehicles_notice",
+                "stash_vehicles_news_title",
+                "stash_vehicles_news_body",
+                "stash_vehicles_display"),
 
             // 废泵站：批量奖励只给净水耗材、检测用品和设备，不给水容器。
             new StashTemplate("water",
@@ -257,14 +235,12 @@ namespace DumpingGroundMap
                 },
                 new[] { "water_filter_adv", "portable_water_purifier" },
                 new[] { 15, 18 },
-                new[] { "HOUSEHOLD_GOOD" }, new[] { -20 },
-                "你在{0}翻出整箱净水用品！\n今天继续在本区拾荒，每次多得1件物品。",
-                "A crate of water supplies {0}!\nSearch here again today: +1 item per search.",
-                "废泵站的整箱净水物资",
-                "A Crate of Water Supplies at the Pump Station",
-                "废泵站昨夜有人从锈死的泵房里拖出整箱净水药片、滤芯和水质检测用品，还找到了能用的净水设备。消息传开后，日用品摊主今早都在压价。",
-                "Someone dragged crates of purification tablets, filter cartridges, and water-testing supplies out of a rusted-shut pump house last night, along with working purification equipment. Word spread fast, and the household stalls were undercutting each other this morning.",
-                "净水物资涌入", "Water Supplies Flood In")
+                new[] { "HOUSEHOLD_GOOD" },
+                new[] { -20 },
+                "stash_water_notice",
+                "stash_water_news_title",
+                "stash_water_news_body",
+                "stash_water_display")
         };
 
         internal static StashTemplate For(string regionId)

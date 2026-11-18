@@ -55,6 +55,8 @@ flowchart LR
 
 ## 扩展约定
 
+文案放在 `Localization/zh.csv` 与 `Localization/en.csv`，通过 `Copy.Get` 调用官方 `ModHelper.GetLocalized`。静态区域、事件、奖励和便签定义只存键名；Init/OnEnable 早于语言资产加载，取词须延迟到 provider、界面或游戏事件。热启用先恢复存档状态，同行服务文字由随后打开面板的原生钩子同步。设置分组保留稳定键，AddHeader 前缀只翻译本模组的标题；下拉框只修改显示文本，旧配置值及原生按下标应用/重置的流程保留，旧英文地面对齐值在初始化时映射回稳定值。
+
 新增区域时从 Region/ScavLoot 开始，补充贵重品区域权重、箱卡映射与奖品模板，并运行规则检查。新增奖品/变体时同步 LootCatalog 估值与 LootFactory 生成路径。新增门槛与文案写在 PerkCatalog；业务用其常量，界面用其定义。
 
 类型命名空间仍是 DumpingGroundMap；源码目录变动不改变 Harmony 类的类型名。模组 ID、开局 ID、旧存档键和配置键保留。

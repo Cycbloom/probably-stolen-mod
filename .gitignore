@@ -1,6 +1,9 @@
 ﻿# 构建产物（由 build.ps1 生成，不入库）
 dist/
 obj/
+# 根目录的手动安装副本；源码素材仍在 Paper/。
+/DumpingGroundMap.dll
+/Textures/
 workshop/releases/
 workshop/upload.vdf
 workshop/description-update*.vdf

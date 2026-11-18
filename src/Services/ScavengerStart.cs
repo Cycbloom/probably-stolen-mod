@@ -48,9 +48,6 @@ namespace DumpingGroundMap
         /// <summary>工具箱解锁的格子数，正好放三件工具。</summary>
         private const int ToolboxSlots = 3;
 
-        private const string TitleZh = "拾荒客";
-        private const string TitleEn = "Scavenger";
-
         private static bool hooked;
         private static bool registered;
 
@@ -110,49 +107,37 @@ namespace DumpingGroundMap
             scenario.startType = NewGameData.StartType.MODDED;
             scenario.source = Core.Id;
             scenario.iconKey = IconKey;
-            scenario.titleProvider = delegate { return Copy.Text(TitleZh, TitleEn); };
+            scenario.titleProvider = delegate { return Copy.Get("reputation_title"); };
             scenario.descriptionProvider = delegate
             {
-                return Copy.Text(
-                    "在导师找到你之前，你是一名拾荒客，虽一贫如洗但口碑可靠。"
-                    + "纵然学了新本事，你依旧不忘老本行——盘下一家店铺后，全部家当只有一间储藏区、"
-                    + "一只儿童背包和一套用旧了的工具，都是当年的旧行头。"
-                    + "你清楚哪堆废料底下压着值钱货，也明白在这一行里，名声比什么都重要。",
-                    "Before The Mentor found you, you were a scavenger, poor but with a solid reputation. "
-                    + "Despite your training, you never forgot your past: your store now holds nothing but "
-                    + "a storage bay, a kid's backpack and a set of worn tools, all of it your old gear. "
-                    + "You know which piles hide something worth carrying home, and you know a scavenger's name "
-                    + "is earned one haul at a time.");
+                return Copy.Get("scavengerstart_before_the_mentor_found_you_you_were");
             };
-            scenario.tagProvider = delegate { return Copy.Text("标准开局", "Standard start"); };
+            scenario.tagProvider = delegate { return Copy.Get("scavengerstart_standard_start"); };
             scenario.tagTone = StartingScenario.TagTone.Positive;
 
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("拾荒客的装备与工具", "Scavenger's Gear and Tools");
+                return Copy.Get("scavengerstart_scavenger_s_gear_and_tools");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("额外设备（储藏区）",
-                    "Additional equipment (Storage Bay)");
+                return Copy.Get("scavengerstart_additional_equipment_storage_bay");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("提升初始声望（拾荒客）",
-                    "Increased starting reputation (Scavengers)");
+                return Copy.Get("scavengerstart_increased_starting_reputation_scavengers");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("降低初始信用点", "Decreased starting Credit count");
+                return Copy.Get("scavengerstart_decreased_starting_credit_count");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("增加每趟拾荒次数（+2）", "Increased scavenging attempts per trip (+2)");
+                return Copy.Get("scavengerstart_increased_scavenging_attempts_per_trip_2");
             });
             scenario.startWithProviders.Add(delegate
             {
-                return Copy.Text("夜间去垃圾场拾荒不影响次日客流",
-                    "Night trips to the dump don't cost you customers the next day");
+                return Copy.Get("scavengerstart_night_trips_to_the_dump_don_t");
             });
 
             scenario.onStart = OnStart;

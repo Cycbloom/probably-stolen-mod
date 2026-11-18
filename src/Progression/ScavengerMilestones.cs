@@ -28,8 +28,8 @@ namespace DumpingGroundMap
                     bool delivered = MilestoneDelivery.Give<GameItem>(includeToken,
                         () => DirectoryMaster.Item(TokenId, true),
                         () => PreBuiltItemHelper.CreateHandnote(
-                            Copy.Text(note.Body(true, includeToken), note.Body(false, includeToken)),
-                            Copy.Text(note.TitleZh, note.TitleEn), Copy.Text("拾荒者们", "— the scavengers"), 1),
+                            note.Body(includeToken),
+                            note.Title, Copy.Get("scavengermilestones_the_scavengers"), 1),
                         item => store.TryAddDirectSellingItemToTable(item, true, false, true, 0),
                         items => store.RemoveItemFromStoreInventory(items),
                         () => MarkReceived(note, includeToken));

@@ -4,7 +4,7 @@
   "title": "垃圾场拓展：分区拾荒与声望成长 / Scrapyard Expansion",
   "author": "Cycbloom",
   "visibility": 2,
-  "changeNote": "1.0.6：无玩法改动。清单版本声明收敛为 1.0.0（0.46D 在 1.0 客户端不会匹配）；包内附 MIT 许可与更新后的版权页；工坊说明补充已知限制与源码地址。 / No gameplay changes. The manifest now declares only game version 1.0.0 (0.46D never matches 1.0 clients); the package ships the MIT LICENSE and an updated readme; the Workshop description adds known limitations and the source repository link.",
+  "changeNote": "1.0.8：将中英文文案迁移到官方 Localization/zh.csv 与 en.csv；修复设置下拉框显示与持久配置混用，保留旧版中英文地面对齐选项；构建、部署和工坊打包同步包含词条。 / Move in-game text to native localization CSVs, separate translated setting labels from persistent values, preserve legacy alignment choices, and include translations in builds and packages.",
   "tags": [
     "Mod",
     "Gameplay",

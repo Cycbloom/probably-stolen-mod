@@ -141,7 +141,7 @@ namespace DumpingGroundMap
         private static bool NamePrefix(string id, ref string __result)
         {
             if (!Core.Enabled || id != FactionId) return true;
-            __result = Copy.Text("拾荒客", "Scavenger");
+            __result = Copy.Get("reputation_title");
             return false;
         }
 

@@ -74,10 +74,10 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// 把若干大类摊平成一张表：每类先按 Share 定总量，再按类内权重分给子项，
-        /// 取整误差补给类内权重最大的一项。namesZh / namesEn 按大类顺序给出显示名，
+        /// 取整误差补给类内权重最大的一项。nameKeys 按大类顺序给出本地化键，
         /// 告示牌用它们分组。
         /// </summary>
-        private static RegionLootTable BuildCategories(string[] namesZh, string[] namesEn,
+        private static RegionLootTable BuildCategories(string[] nameKeys,
             params Category[] categories)
         {
             Builder b = new Builder();
@@ -111,7 +111,7 @@ namespace DumpingGroundMap
                 }
             }
             RegionLootTable table = b.Build();
-            return new RegionLootTable(table.Items, table.Weights, namesZh, namesEn,
+            return new RegionLootTable(table.Items, table.Weights, nameKeys,
                 itemCategory.ToArray());
         }
 
@@ -187,9 +187,7 @@ namespace DumpingGroundMap
             Dictionary<string, RegionLootTable> result = new Dictionary<string, RegionLootTable>();
 
             // 入口空地：通用杂项。
-            result["gate"] = BuildCategories(
-                new[] { "垃圾", "材料", "食品", "日用", "医疗", "近战", "工具", "杂项" },
-                new[] { "Junk", "Materials", "Food", "Household", "Medical", "Melee", "Tools", "Misc" },
+            result["gate"] = BuildCategories(new[] { "category_junk", "category_materials", "category_food", "category_household", "category_medical", "category_melee", "category_tools", "category_misc" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 Cat(1625,
                     new[] { "scrap_metal", "printer_plastic", "nuts_metal", "wire", "gun_part",
@@ -218,9 +216,7 @@ namespace DumpingGroundMap
                     new[] { 300, 120, 30, 20, 17 }));
 
             // 拆解堆：原材料为主，少量工具与电子残件；不再产出完整模组。
-            result["scrap"] = BuildCategories(
-                new[] { "垃圾", "原材料", "拆卸工具", "电子残件" },
-                new[] { "Junk", "Raw materials", "Dismantling tools", "Electronic salvage" },
+            result["scrap"] = BuildCategories(new[] { "category_junk", "event_scrap_goods", "category_dismantling_tools", "category_electronic_salvage" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 Cat(3750,
                     new[] { "scrap_metal", "printer_plastic", "nuts_metal", "metal_ingot", "kotton_fabric" },
@@ -231,9 +227,7 @@ namespace DumpingGroundMap
                 Cat(250, new[] { "common_electronic", "system_module_ruined" }, new[] { 1, 3 }));
 
             // 生活废料带：食品 / 日用品 / 便宜药品。
-            result["refuse"] = BuildCategories(
-                new[] { "垃圾", "食品", "日用", "医疗", "空瓶" },
-                new[] { "Junk", "Food", "Household", "Medical", "Bottles" },
+            result["refuse"] = BuildCategories(new[] { "category_junk", "category_food", "category_household", "category_medical", "category_bottles" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 Cat(2367,
                     new[] { "zerochew", "processed_juice", "soda_red", "cat_bar", "processed_milk",
@@ -254,9 +248,7 @@ namespace DumpingGroundMap
                 Cat(333, new[] { "empty_beer_bottle", "wine_bottle" }, new[] { 3, 1 }));
 
             // 医疗废弃点：医疗耗材 / 药品 / 器械。
-            result["med"] = BuildCategories(
-                new[] { "垃圾", "医疗耗材", "药品", "器械" },
-                new[] { "Junk", "Medical supplies", "Medicine", "Instruments" },
+            result["med"] = BuildCategories(new[] { "category_junk", "category_medical_supplies", "category_medicine", "category_instruments" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 Cat(2847,
                     new[] { "bandage_item", "hemostatic_bandage_item", "topical_bandage_item",
@@ -273,9 +265,7 @@ namespace DumpingGroundMap
 
             // 废武器堆：垃圾 5000、材料 2000、近战 1500、子弹 480、配件 520、枪支 500。
             // 子弹与配件名义上各 5%，把 20 份从子弹挪给配件，让配件总量略高于子弹。
-            result["weapons"] = BuildCategories(
-                new[] { "垃圾", "材料", "近战", "子弹", "配件", "枪支" },
-                new[] { "Junk", "Materials", "Melee", "Ammo", "Gun mods", "Guns" },
+            result["weapons"] = BuildCategories(new[] { "category_junk", "category_materials", "category_melee", "category_ammo", "category_gun_mods", "category_guns" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 // 材料：按枪匠配方，废金属与 3D 打印耗材最高，线缆、金属螺丝压低。
                 Cat(2000,
@@ -312,9 +302,7 @@ namespace DumpingGroundMap
 
             // 电子垃圾坡：非垃圾部分 50% 电子件、35% 模组、15% 精密工具。
             // 电子件只取普通元件，不把 rare_electronic 等 80 档贵重品放进普通池。
-            result["electronics"] = BuildCategories(
-                new[] { "垃圾", "电子件", "工具", "模组" },
-                new[] { "Junk", "Electronics", "Tools", "Modules" },
+            result["electronics"] = BuildCategories(new[] { "category_junk", "category_electronics", "category_tools", "category_modules" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 Cat(2500,
                     new[] { "common_electronic", "wire", "flux_agent" },
@@ -329,9 +317,7 @@ namespace DumpingGroundMap
                     new[] { 80, 55, 40, 25, 25, 25, 25 }));
 
             // 报废车场：非垃圾部分 55% 维修工具、35% 机械材料、10% 可拆零件。
-            result["vehicles"] = BuildCategories(
-                new[] { "垃圾", "材料", "工具", "零件" },
-                new[] { "Junk", "Materials", "Tools", "Parts" },
+            result["vehicles"] = BuildCategories(new[] { "category_junk", "category_materials", "category_tools", "category_parts" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 Cat(1750,
                     new[] { "scrap_metal", "nuts_metal", "wire", "metal_ingot" },
@@ -348,9 +334,7 @@ namespace DumpingGroundMap
             // 原生容量450 / 750 / 2000 / 6000 ml；普通和大瓶占多数，按PumpWater灌水。
             // 净水耗材只出有内容的包装；water_filter_adv、portable_water_purifier、
             // bottled_water_premium 仍是 80 档贵重品池专属。
-            result["water"] = BuildCategories(
-                new[] { "垃圾", "储水容器", "净水与检测", "日用" },
-                new[] { "Junk", "Water containers", "Treatment and testing", "Household" },
+            result["water"] = BuildCategories(new[] { "category_junk", "category_water_containers", "category_treatment_and_testing", "category_household" },
                 Cat(5000, new[] { "junk" }, new[] { 1 }),
                 Cat(3100,
                     new[] { "small_bottled_water", "bottled_water", "large_bottled_water", "water_jug" },

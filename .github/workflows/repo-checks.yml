@@ -39,6 +39,10 @@ jobs:
           if ($artifacts) { throw "Tracked build artifacts: $($artifacts -join ', ')" }
           Write-Output 'Manifest and repository hygiene OK.'
 
+      - name: 检查中英文词条
+        shell: pwsh
+        run: ./tools/verify-localization.ps1
+
       - name: 检查 PowerShell 脚本语法
         shell: pwsh
         run: |

@@ -22,36 +22,33 @@ namespace DumpingGroundMap
         private readonly int[] displayOrder;
         private readonly Dictionary<string, int> indexOf = new Dictionary<string, int>();
 
-        /// <summary>大类名（中 / 英）与每件物品所属的大类下标；原版表没有大类，两者为 null。</summary>
-        private readonly string[] categoryZh;
-        private readonly string[] categoryEn;
+        /// <summary>大类名本地化键与每件物品所属的大类下标；原版表没有大类，两者为 null。</summary>
+        private readonly string[] categoryKeys;
         private readonly int[] itemCategory;
 
         internal RegionLootTable(string[] items, int[] weights)
-            : this(items, weights, null, null, null)
+            : this(items, weights, null, null)
         {
         }
 
         internal RegionLootTable(string[] items, int[] weights,
-            string[] categoryZh, string[] categoryEn, int[] itemCategory)
+            string[] categoryKeys, int[] itemCategory)
         {
             if (items == null || weights == null || items.Length == 0 || items.Length != weights.Length)
                 throw new ArgumentException("Loot items and weights must have matching non-empty lengths.");
-            if (categoryZh != null && (categoryEn == null || categoryZh.Length != categoryEn.Length
-                || itemCategory == null || itemCategory.Length != items.Length))
+            if (categoryKeys != null && (itemCategory == null || itemCategory.Length != items.Length))
                 throw new ArgumentException("Loot category metadata must cover every item.");
             HashSet<string> unique = new HashSet<string>();
             for (int i = 0; i < items.Length; ++i)
             {
                 if (string.IsNullOrEmpty(items[i]) || !unique.Add(items[i]) || weights[i] <= 0)
                     throw new ArgumentException("Invalid or duplicate loot item: " + items[i]);
-                if (categoryZh != null && (itemCategory[i] < 0 || itemCategory[i] >= categoryZh.Length))
+                if (categoryKeys != null && (itemCategory[i] < 0 || itemCategory[i] >= categoryKeys.Length))
                     throw new ArgumentException("Invalid category for " + items[i]);
             }
             Items = items;
             Weights = weights;
-            this.categoryZh = categoryZh;
-            this.categoryEn = categoryEn;
+            this.categoryKeys = categoryKeys;
             this.itemCategory = itemCategory;
             int sum = 0;
             for (int i = 0; i < weights.Length; ++i) sum += weights[i];
@@ -69,7 +66,7 @@ namespace DumpingGroundMap
         internal float ProbabilityAt(int i) { return Weights[displayOrder[i]] / (float)Total; }
 
         /// <summary>大类数量；原版表为 0。</summary>
-        internal int CategoryCount { get { return categoryZh == null ? 0 : categoryZh.Length; } }
+        internal int CategoryCount { get { return categoryKeys == null ? 0 : categoryKeys.Length; } }
 
         /// <summary>物品所属大类下标；不在主题表里时返回 -1。</summary>
         internal int CategoryOf(string itemId)
@@ -82,8 +79,8 @@ namespace DumpingGroundMap
         /// <summary>按当前语言取大类名。</summary>
         internal string CategoryName(int index)
         {
-            if (categoryZh == null || index < 0 || index >= categoryZh.Length) return null;
-            return Copy.Text(categoryZh[index], categoryEn[index]);
+            if (categoryKeys == null || index < 0 || index >= categoryKeys.Length) return null;
+            return Copy.Get(categoryKeys[index]);
         }
 
         /// <summary>垃圾自己的权重；表里没有垃圾时为 0。</summary>

@@ -14,10 +14,11 @@ namespace DumpingGroundMap
     /// 它的一次性状态（首个木箱必给钥匙卡、首个金属箱补发手套）由它的物品工厂负责。
     /// 类型与方法写成一条字面量目标（Harmony 的 "Type:Method" 形式），扫描器能直接读出
     /// 类型和成员，不会把「类型来自方法返回值」按拼接处理；全文件不做字符串拼接。
-    /// 没装时这里永远返回 false，开销只有一次已加载程序集名字比对。
+    /// 每次联动先检查运行状态；加载器停止对方后不再调用缓存的方法。
     /// </summary>
     internal static class BetterScavengingBridge
     {
+        private const string ModId = "better_scavenging";
         private const string TryRollTarget = "BetterScavenging.BoxDrop:TryRoll";
         private const string AssemblyName = "BetterScavenging";
         private const float RetrySeconds = 30f;
@@ -30,7 +31,7 @@ namespace DumpingGroundMap
         /// <summary>可用时返回 true，避免每趟都做类型查找。</summary>
         internal static bool Available
         {
-            get { return Resolve() != null; }
+            get { return ModHelper.IsModRunning(ModId) && Resolve() != null; }
         }
 
         /// <summary>
@@ -39,6 +40,7 @@ namespace DumpingGroundMap
         internal static bool TryRoll(out string itemId)
         {
             itemId = null;
+            if (!ModHelper.IsModRunning(ModId)) return false;
             MethodInfo method = Resolve();
             if (method == null) return false;
 
@@ -67,6 +69,12 @@ namespace DumpingGroundMap
         private static MethodInfo Resolve()
         {
             if (probed) return tryRoll;
+            return Probe();
+        }
+
+        // Keep the Unity clock at the probing boundary, outside cached calls.
+        private static MethodInfo Probe()
+        {
             if (Time.realtimeSinceStartup < nextProbe) return null;
 
             bool perf = PerfLog.Enabled;

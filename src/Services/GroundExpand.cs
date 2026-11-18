@@ -331,31 +331,19 @@ namespace DumpingGroundMap
             // 再自动补到地面，并不是当场丢掉；文案按实际行为分支。
             bool stash = ModHelper.IsModRunning(ScavengingExpansionBridge.ModId);
             string text = stash
-                ? Copy.Text(
-                    "地面放满了，这次有战利品没能放上来；拾荒拓展会先把它们收进暂存区，整理出空位后再自动补到地面。",
-                    "The ground is full, so some loot could not be placed; Scavenging Expansion holds it in its"
-                    + " overflow storage and puts it back on the ground once there is room.")
-                : Copy.Text(
-                    "地面放满了，这次有战利品没能放进来，已经被丢掉。",
-                    "The ground is full, so some loot could not be placed and was dropped.");
+                ? Copy.Get("groundexpand_the_ground_is_full_so_some_loot_2")
+                : Copy.Get("groundexpand_the_ground_is_full_so_some_loot");
             if (Reputation.Points >= PerkCatalog.Perk40Threshold)
             {
-                text += Copy.Text(
-                    " 离开时可以花钱请拾荒者帮手（离场确认框里多一个按钮），他们会把地上剩下的东西按价值从高到低搬进店里；店里也装不下的仍然会被丢掉。",
-                    " When you leave, you can pay a scavenger helper (an extra button on the leave confirmation)"
-                    + " to carry what's left into the store, most valuable first; anything the store can't hold is still lost.");
+                text += Copy.Get("groundexpand_when_you_leave_you_can_pay_a");
                 if (stash)
                 {
-                    text += Copy.Text(
-                        " 暂存区里的东西帮手搬不到，会在整理后自动补位。",
-                        " The helper cannot reach the overflow storage; those items return on their own once there is room.");
+                    text += Copy.Get("groundexpand_the_helper_cannot_reach_the_overflow_storage");
                 }
             }
             else
             {
-                text += Copy.Text(
-                    "先把地面的东西搬进口袋或背包。",
-                    " Move items into your pockets or backpack first.");
+                text += Copy.Get("groundexpand_move_items_into_your_pockets_or_backpack");
             }
             StashFind.ShowNotice(text, "ground-full");
         }

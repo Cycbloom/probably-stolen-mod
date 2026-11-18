@@ -11,6 +11,7 @@ $compiler = Join-Path $env:windir 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 $dist = Join-Path $PSScriptRoot 'dist'
 $intermediate = Join-Path $PSScriptRoot 'obj/release'
 $binary = Join-Path $intermediate 'DumpingGroundMap.dll'
+& (Join-Path $PSScriptRoot 'tools/verify-localization.ps1') -ProjectRoot $PSScriptRoot
 $sources = @(Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'src') -Filter '*.cs' -File -Recurse | Sort-Object FullName | ForEach-Object FullName)
 if ($sources.Count -eq 0) { throw 'No C# sources found in src/.' }
 $artKeys = 'dumping_ground_map_art','dumping_ground_map_base','dumping_ground_landmarks',
@@ -58,6 +59,15 @@ if ($Check) {
 }
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 Copy-Item -LiteralPath $binary,(Join-Path $PSScriptRoot 'manifest.xml'),(Join-Path $PSScriptRoot 'LICENSE') -Destination $dist -Force
+$distLocalization = Join-Path $dist 'Localization'
+New-Item -ItemType Directory -Force -Path $distLocalization | Out-Null
+foreach ($locale in 'zh','en') {
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Localization/$locale.csv") -Destination $distLocalization -Force
+    if ((Get-FileHash -LiteralPath (Join-Path $PSScriptRoot "Localization/$locale.csv")).Hash -ne
+        (Get-FileHash -LiteralPath (Join-Path $distLocalization "$locale.csv")).Hash) {
+        throw "Packaged localization differs: $locale.csv"
+    }
+}
 $paper = Join-Path $PSScriptRoot 'Paper'
 $distPaper = Join-Path $dist 'Textures/Paper'
 New-Item -ItemType Directory -Force -Path $distPaper | Out-Null
@@ -74,7 +84,12 @@ if ($Install) {
     $destination = Join-Path $root 'Mods/DumpingGroundMap'
     $destinationPaper = Join-Path $destination 'Textures/Paper'
     New-Item -ItemType Directory -Force -Path $destinationPaper | Out-Null
-    Copy-Item -LiteralPath (Join-Path $dist 'DumpingGroundMap.dll'),(Join-Path $dist 'manifest.xml') -Destination $destination -Force
+    Copy-Item -LiteralPath (Join-Path $dist 'DumpingGroundMap.dll'),(Join-Path $dist 'manifest.xml'),(Join-Path $dist 'LICENSE') -Destination $destination -Force
+    $destinationLocalization = Join-Path $destination 'Localization'
+    New-Item -ItemType Directory -Force -Path $destinationLocalization | Out-Null
+    foreach ($locale in 'zh','en') {
+        Copy-Item -LiteralPath (Join-Path $distLocalization "$locale.csv") -Destination $destinationLocalization -Force
+    }
     Get-ChildItem -LiteralPath $distPaper -Filter '*.png' -File | Copy-Item -Destination $destinationPaper -Force
     Write-Output "Installed to $destination"
 }

@@ -22,7 +22,9 @@ namespace DumpingGroundMap
             Tuning.Changed += RefreshViews;
             hooked = true;
             // Enabling after a save has already loaded must not retain another run's cache.
-            if (PlayerStore.HasInstance && EmporiumEntry.Instance != null) Loaded();
+            // OnEnable precedes localization asset loading. Restore run data now;
+            // the native service/UI hooks resolve their text when next opened.
+            if (PlayerStore.HasInstance && EmporiumEntry.Instance != null) RestoreRun(false);
             else ResetMemory();
         }
 
@@ -73,6 +75,11 @@ namespace DumpingGroundMap
 
         private static void Loaded()
         {
+            RestoreRun(true);
+        }
+
+        private static void RestoreRun(bool updateViews)
+        {
             DeferredSave.Cancel();
             ResetVisit();
             Reputation.Reload();
@@ -81,8 +88,11 @@ namespace DumpingGroundMap
             StashFind.SyncDailyWindow();
             RegionalEvents.ResetSession();
             RegionalEvents.Sync();
-            ScavengerOuting.Sync();
-            RefreshViews();
+            if (updateViews)
+            {
+                ScavengerOuting.Sync();
+                RefreshViews();
+            }
         }
 
         private static void NewGame(string scenarioId)

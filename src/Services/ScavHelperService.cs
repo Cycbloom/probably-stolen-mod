@@ -132,7 +132,7 @@ namespace DumpingGroundMap
             TextMeshProUGUI label = clone.GetComponentInChildren<TextMeshProUGUI>(true);
             if (label != null)
             {
-                label.text = Copy.Text("花钱请人帮忙", "Hire Help");
+                label.text = Copy.Get("scavhelperservice_hire_help");
             }
 
             Button button = clone.GetComponent<Button>();
@@ -231,9 +231,7 @@ namespace DumpingGroundMap
                     // 钱不够：留在原地不扣款，把提示写进确认框正文，玩家仍可点「离开」或「取消」。
                     if (ui != null && ui.bodyTMP != null)
                     {
-                        ui.bodyTMP.text = Copy.Text(
-                            "信用点不够，请不了拾荒者帮手。你可以自己把东西捡起来，或者直接离开。",
-                            "Not enough credits to hire a scavenger helper. Pick the items up yourself or just leave.");
+                        ui.bodyTMP.text = Copy.Get("scavhelperservice_not_enough_credits_to_hire_a_scavenger");
                     }
                     return;
                 }

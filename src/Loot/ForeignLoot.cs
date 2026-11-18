@@ -36,7 +36,8 @@ namespace DumpingGroundMap
             for (int i = 0; i < Ids.Length; ++i)
             {
                 if (Ids[i] != other.Ids[i]) return false;
-                if (Math.Abs(Weights[i] - other.Weights[i]) > 0.0001f) return false;
+                float scale = Math.Max(Math.Abs(Weights[i]), Math.Abs(other.Weights[i]));
+                if (Math.Abs(Weights[i] - other.Weights[i]) > scale * 0.000001f) return false;
             }
             return Math.Abs(NaturalShare - other.NaturalShare) <= 0.000001f;
         }
@@ -128,11 +129,14 @@ namespace DumpingGroundMap
             if (group == null || group.Count == 0) return ForeignLootTable.Empty;
 
             Dictionary<string, Accumulator> acc = new Dictionary<string, Accumulator>(StringComparer.Ordinal);
-            float all = 0f;
+            double all = 0d;
+            foreach (LootEntry entry in group)
+                if (Usable(entry)) all += entry.weight;
+            if (all <= 0d) return ForeignLootTable.Empty;
             for (int g = 0; g < group.Count; ++g)
             {
                 LootEntry entry = group[g];
-                if (entry == null || string.IsNullOrEmpty(entry.id) || entry.weight <= 0f) continue;
+                if (!Usable(entry)) continue;
 
                 List<LootEntry> table;
                 try
@@ -146,12 +150,18 @@ namespace DumpingGroundMap
                 }
                 if (table == null) continue;
 
+                // Native rolls first choose a table, then choose within it.
+                // Scaling every weight in one table must not change its share.
+                double tableTotal = 0d;
+                foreach (LootEntry item in table)
+                    if (Usable(item)) tableTotal += item.weight;
+                if (tableTotal <= 0d) continue;
+
                 for (int t = 0; t < table.Count; ++t)
                 {
                     LootEntry item = table[t];
-                    if (item == null || string.IsNullOrEmpty(item.id) || item.weight <= 0f) continue;
-                    float weight = entry.weight * item.weight;
-                    all += weight;
+                    if (!Usable(item)) continue;
+                    float weight = (float)(entry.weight / all * (item.weight / tableTotal));
 
                     Accumulator record;
                     if (!acc.TryGetValue(item.id, out record))
@@ -163,8 +173,6 @@ namespace DumpingGroundMap
                     if (!string.IsNullOrEmpty(item.sourceModId)) record.ModAdded = true;
                 }
             }
-            if (all <= 0f) return ForeignLootTable.Empty;
-
             HashSet<string> own = OwnIds();
             List<string> ids = new List<string>();
             List<float> weights = new List<float>();
@@ -196,7 +204,13 @@ namespace DumpingGroundMap
                 sortedIds[i] = ids[order[i]];
                 sortedWeights[i] = weights[order[i]];
             }
-            return new ForeignLootTable(sortedIds, sortedWeights, pool / all);
+            return new ForeignLootTable(sortedIds, sortedWeights, pool);
+        }
+
+        private static bool Usable(LootEntry entry)
+        {
+            return entry != null && !string.IsNullOrEmpty(entry.id) && entry.weight > 0f
+                && !float.IsNaN(entry.weight) && !float.IsInfinity(entry.weight);
         }
 
         /// <summary>本模组所有区表、原版副本、贵重品、箱卡与垃圾的 id 并集。</summary>

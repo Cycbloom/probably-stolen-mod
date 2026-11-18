@@ -1,20 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Reflection;
-using HarmonyLib;
-using UnityEngine;
-using UnityEngine.UI;
-using TMPro;
-
-namespace DumpingGroundMap
+﻿namespace DumpingGroundMap
 {
+    // Localization assets load after Init/OnEnable. Store keys in static data and
+    // resolve them only when a game hook, UI callback or provider needs the text.
     internal static class Copy
     {
-        internal static string Text(string zh, string en)
+        internal static string Get(string key, params object[] args)
         {
-            string locale = LocHelper.GetCurrentLocaleCode();
-            return locale != null && locale.StartsWith("zh", StringComparison.OrdinalIgnoreCase) ? zh : en;
+            return string.IsNullOrEmpty(key) ? string.Empty : ModHelper.GetLocalized(Core.Id, key, args);
         }
     }
 }

@@ -8,12 +8,13 @@ Windows 环境需要游戏 Managed DLL、.NET Framework 4.7.2 引用程序集及
 ./build.ps1 -GameRoot 'D:/Steam/steamapps/common/Probably Stolen' -Check -Install
 ```
 
-源码自动收集自 src/**/*.cs，测试不会编进 Mod。编译先写 obj/release，规则检查成功后才更新 dist；部署前检查游戏已关闭。发布内容为 DLL、清单与 Textures/Paper（源码素材目录为 Paper）。ModLoader.LoadTextures 先检查 Textures 目录，再从其中的 Paper 子目录载入，不能把 Paper 直接放在模组根目录。构建输出版本、Git 提交和 DLL SHA-256；程序集 FileVersion/InformationalVersion 来自清单与提交，程序集绑定版本继续保持原来的 0.0.0.0。
+源码自动收集自 src/**/*.cs，测试不会编进 Mod。编译先写 obj/release，规则检查成功后才更新 dist；部署前检查游戏已关闭。发布内容为 DLL、清单、LICENSE、Localization 中的中英文 CSV 与 Textures/Paper（源码素材目录为 Paper）。ModLoader.LoadTextures 先检查 Textures 目录，再从其中的 Paper 子目录载入，不能把 Paper 直接放在模组根目录。构建输出版本、Git 提交和 DLL SHA-256；程序集 FileVersion/InformationalVersion 来自清单与提交，程序集绑定版本继续保持原来的 0.0.0.0。
 
 游戏 ModScanner 在 Unity 外没有已初始化的游戏程序集目录，因此检查工具从实际 Managed 目录建立引用白名单。扫描器的 Pending 是受游戏运行时保护的 API 调用，不等于拒绝项；本项目要求拒绝项、未声明能力均为零。
 
 ## 提交与版本
 
+- 用户要求：每次完成 MOD 修改并通过适用检查后，自动完成本地 Git 提交，并在汇报中提供提交号。只暂存当前任务的改动；原有无关改动和构建产物保留在提交之外。
 - 首行格式 `<版本> <类型>: <主题>`，类型 feat/fix/tune/docs/build；正文写原因、影响范围和验证。
 - 每次发布递增 manifest.xml 的 ModVersion；同版的整理与修复可分多次提交。
 - 先运行构建和检查，再提交，在最后一个发布提交打 vX.Y.Z 标签。以该提交重新构建，保证 DLL 的提交标识对应发布提交。

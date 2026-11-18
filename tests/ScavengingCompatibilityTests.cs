@@ -19,6 +19,7 @@ internal static class ScavengingCompatibilityTests
         ExtraDrawRules();
         ScopeRules();
         FurnaceLayout();
+        StoppedPartnerRules();
         foreach (bool partnerFirst in new[] { true, false }) PatchRules(partnerFirst);
         Console.WriteLine("PASS: " + checks + " scavenging compatibility checks (regional snapshots, extra-draw filter, native hooks, both load orders)");
         return checks;
@@ -157,6 +158,56 @@ internal static class ScavengingCompatibilityTests
     }
 
     private static HarmonyMethod Method(string name) { return new HarmonyMethod(AccessTools.Method(typeof(ScavengingCompatibilityTests), name)); }
+
+    private static bool betterRunning;
+    private static int betterCalls;
+
+    private static void StoppedPartnerRules()
+    {
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+        FieldInfo methodField = typeof(BetterScavengingBridge).GetField("tryRoll", flags);
+        FieldInfo probedField = typeof(BetterScavengingBridge).GetField("probed", flags);
+        object oldMethod = methodField.GetValue(null), oldProbed = probedField.GetValue(null);
+        var harmony = new Harmony(Owner);
+        try
+        {
+            harmony.Patch(AccessTools.Method(typeof(ModHelper), "IsModRunning"), prefix: Method("BetterRunningPrefix"));
+            methodField.SetValue(null, AccessTools.Method(typeof(ScavengingCompatibilityTests), "BetterTryRoll"));
+            probedField.SetValue(null, true);
+            betterCalls = 0;
+            betterRunning = true;
+            string item;
+            Check(BetterScavengingBridge.TryRoll(out item) && item == "audit_crate" && betterCalls == 1,
+                "Running Better Scavenging can use its cached roll method");
+            betterRunning = false;
+            Check(!BetterScavengingBridge.Available, "Stopped partner is unavailable even with a cached method");
+            Check(!BetterScavengingBridge.TryRoll(out item) && item == null && betterCalls == 1,
+                "Stopping the partner prevents further calls into its cached method");
+            betterRunning = true;
+            Check(BetterScavengingBridge.TryRoll(out item) && betterCalls == 2,
+                "Running partner can resume without retaining a stopped-state result");
+        }
+        finally
+        {
+            harmony.UnpatchAll(Owner);
+            methodField.SetValue(null, oldMethod);
+            probedField.SetValue(null, oldProbed);
+        }
+    }
+
+    private static bool BetterRunningPrefix(string __0, ref bool __result)
+    {
+        Check(__0 == "better_scavenging", "Bridge checks its partner's mod ID");
+        __result = betterRunning;
+        return false;
+    }
+
+    private static bool BetterTryRoll(string group, out string item)
+    {
+        ++betterCalls;
+        item = "audit_crate";
+        return true;
+    }
 
     private static HarmonyMethod WithRealOrdering(Type patch, string name, string probe)
     {

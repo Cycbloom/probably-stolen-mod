@@ -6,13 +6,12 @@ namespace DumpingGroundMap
     internal sealed class RegionalEvent
     {
         internal readonly string RegionId;
-        private readonly string titleZh, titleEn, storyZh, storyEn, goodsZh, goodsEn;
-        private RegionalEvent(string id, string zh, string en, string story, string storyEnglish, string goods, string goodsEnglish)
+        private readonly string titleKey, storyKey, goodsKey;
+        private RegionalEvent(string id, string title, string story, string goods)
         {
-            RegionId = id; titleZh = zh; titleEn = en; storyZh = story; storyEn = storyEnglish;
-            goodsZh = goods; goodsEn = goodsEnglish;
+            RegionId = id; titleKey = title; storyKey = story; goodsKey = goods;
         }
-        internal string Title { get { return Copy.Text(titleZh, titleEn); } }
+        internal string Title { get { return Copy.Get(titleKey); } }
         internal float JunkMultiplier
         {
             get { return RegionId == "scrap" || RegionId == "med" ? 0.6f
@@ -22,20 +21,19 @@ namespace DumpingGroundMap
         {
             get
             {
-                string effect = Copy.Text("普通垃圾权重 −", "Ordinary junk weight -")
+                string effect = Copy.Get("regionalevent_ordinary_junk_weight")
                     + ((1f - JunkMultiplier) * 100f).ToString("0", CultureInfo.InvariantCulture) + "%";
-                if (RegionId == "gate") effect += Copy.Text(" · 受伤风险 −20%", " · Wound risk -20%");
-                else effect += Copy.Text(" · ", " · ") + Copy.Text(goodsZh, goodsEn)
-                    + Copy.Text("权重最多 +50%", " weight up to +50%");
-                if (RegionId == "water") effect += Copy.Text(" · 水量分布中心55%→65%", " · Fill center 55% to 65%");
+                if (RegionId == "gate") effect += Copy.Get("regionalevent_wound_risk_20");
+                else effect += " · " + Copy.Get(goodsKey)
+                    + Copy.Get("regionalevent_weight_up_to_50");
+                if (RegionId == "water") effect += Copy.Get("regionalevent_fill_center_55_to_65");
                 return effect;
             }
         }
         internal string Tooltip
         {
-            get { return Title + "\n" + Copy.Text(storyZh, storyEn) + "\n" + Description
-                + Copy.Text("\n今日有效，明日结束。仅调整普通主掉落；贵重、箱卡和大小奖规则不变。\n特产权重在普通非垃圾池内重分配；极端设置下降低倾斜幅度，避免事件降低收益。",
-                    "\nToday only. Applies to ordinary main loot; rare, crate/card and reward rules stay unchanged.\nTheme weights are redistributed within ordinary non-junk loot; strength is reduced at extreme settings to prevent a loss of EV."); }
+            get { return Title + "\n" + Copy.Get(storyKey) + "\n" + Description
+                + Copy.Get("regionalevent_today_only_applies_to_ordinary_main_loot"); }
         }
         internal bool Targets(Region region, string itemId)
         {
@@ -54,14 +52,14 @@ namespace DumpingGroundMap
         }
         internal static readonly RegionalEvent[] All =
         {
-            new RegionalEvent("gate", "分拣后的废料", "Sorted Waste", "有人把碎玻璃和杂物归拢到了路边，可用的东西露了出来。", "Someone cleared the glass and clutter, uncovering usable goods.", "", ""),
-            new RegionalEvent("scrap", "工坊清运", "Workshop Clearance", "工坊刚清出一批边角料，废堆里还能找到不少可用材料。", "A workshop has dumped fresh offcuts and usable stock.", "原材料", "Raw materials"),
-            new RegionalEvent("refuse", "商铺集中清仓", "Shop Clear-out", "一批商铺同时清仓，食品和日用品混在新送来的废料中。", "Local shops have discarded food and household stock.", "食品、日用品", "Food and household goods"),
-            new RegionalEvent("med", "药房清库", "Pharmacy Clearance", "药房腾空了旧库房，一些医疗耗材和药品还用得上。", "A pharmacy has cleared storage; some supplies and medicine remain useful.", "医疗耗材、药品", "Medical supplies and medicine"),
-            new RegionalEvent("weapons", "军械清退", "Armory Clear-out", "退下来的军械箱被倒进废堆，散落着弹药和配件。", "Discarded armory crates have spilled ammunition and gun parts.", "弹药、配件", "Ammo and gun mods"),
-            new RegionalEvent("electronics", "设备换代", "Equipment Upgrade", "一批淘汰设备刚送到，电子件和能用的模组还没被挑走。", "Newly discarded equipment still holds components and usable modules.", "电子件、可用模组", "Electronics and usable modules"),
-            new RegionalEvent("vehicles", "新车入场", "Fresh Wrecks", "新拖来的报废车还没拆完，车厢里留着工具和可拆零件。", "Freshly towed wrecks still contain tools and salvageable parts.", "工具、机械零件", "Tools and mechanical parts"),
-            new RegionalEvent("water", "储水罐排空", "Tank Drainage", "旧储水罐正在清空，周围散落着还带水的瓶桶。", "Old tanks are being drained, leaving partly filled bottles and jugs.", "带水容器", "Water containers")
+            new RegionalEvent("gate", "event_gate_title", "event_gate_story", ""),
+            new RegionalEvent("scrap", "event_scrap_title", "event_scrap_story", "event_scrap_goods"),
+            new RegionalEvent("refuse", "event_refuse_title", "event_refuse_story", "event_refuse_goods"),
+            new RegionalEvent("med", "event_med_title", "event_med_story", "event_med_goods"),
+            new RegionalEvent("weapons", "event_weapons_title", "event_weapons_story", "event_weapons_goods"),
+            new RegionalEvent("electronics", "event_electronics_title", "event_electronics_story", "event_electronics_goods"),
+            new RegionalEvent("vehicles", "event_vehicles_title", "event_vehicles_story", "event_vehicles_goods"),
+            new RegionalEvent("water", "event_water_title", "event_water_story", "event_water_goods")
         };
         internal static RegionalEvent For(string regionId) { return Array.Find(All, e => e.RegionId == regionId); }
     }

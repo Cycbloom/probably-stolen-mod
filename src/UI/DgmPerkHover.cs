@@ -28,10 +28,10 @@ namespace DumpingGroundMap
             if (m == null) return;
 
             PerkDefinition perk = PerkCatalog.For(threshold);
-            string name = Copy.Text(perk.NameZh, perk.NameEn);
-            string state = active ? Copy.Text("已激活", "Active") : Copy.Text("未激活", "Inactive");
-            string body = Copy.Text(perk.DescriptionZh, perk.DescriptionEn);
-            string flavor = Copy.Text(FlavorZh(threshold), FlavorEn(threshold));
+            string name = perk.Name;
+            string state = active ? Copy.Get("dgmperkhover_active") : Copy.Get("dgmperkhover_inactive");
+            string body = perk.Description;
+            string flavor = Flavor(threshold);
 
             Set(m.perkTitle, name + " [" + state + "] " + threshold + "/200");
             Set(m.perkStatus, string.Empty);
@@ -55,28 +55,11 @@ namespace DumpingGroundMap
             if (label != null) label.SetText(text);
         }
 
-        private static string FlavorZh(int perkThreshold)
+        private static string Flavor(int perkThreshold)
         {
-            switch (perkThreshold)
-            {
-                case 20: return "拾荒者们知道哪家店会给好价钱。";
-                case 40: return "你知道哪里能捡到更好的东西。";
-                case 60: return "别人翻过去的东西，你还会再看一眼。";
-                case 80: return "值钱的东西，你一眼就认得出来。";
-                default: return "在这片垃圾场里，所有人都把你当兄弟。";
-            }
-        }
-
-        private static string FlavorEn(int perkThreshold)
-        {
-            switch (perkThreshold)
-            {
-                case 20: return "Scavengers know which shop pays well.";
-                case 40: return "You know where the better finds are.";
-                case 60: return "What others pass over, you look at twice.";
-                case 80: return "You can spot something valuable at a glance.";
-                default: return "In this dump, everyone treats you like family.";
-            }
+            int tier = perkThreshold == 20 || perkThreshold == 40 || perkThreshold == 60
+                || perkThreshold == 80 ? perkThreshold : 100;
+            return Copy.Get("perk_" + tier + "_flavor");
         }
     }
 }

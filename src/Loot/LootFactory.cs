@@ -20,6 +20,23 @@ namespace DumpingGroundMap
 
     internal static class LootRollResolver
     {
+        /// <summary>Only a failed foreign factory retries; an event cancellation is final.</summary>
+        internal static T CreateWithFallback<T>(EffectiveTable table, int index,
+            Func<EffectiveTable, int, string> resolve, Func<string, T> create, out bool usedFallback) where T : class
+        {
+            usedFallback = false;
+            string resolved = resolve(table, index);
+            if (string.IsNullOrEmpty(resolved)) return null;
+            T item = create(resolved);
+            if (item != null || table.Slots[index].Kind != LootKind.Foreign) return item;
+
+            int fallback = table.FallbackOrdinaryIndex();
+            if (fallback < 0) return null;
+            usedFallback = true;
+            resolved = resolve(table, fallback);
+            return string.IsNullOrEmpty(resolved) ? null : create(resolved);
+        }
+
         /// <summary>
         /// Preserve a virtual variant only when subscribers leave its real ID unchanged.
         /// A replacement (or cancellation) is used before constructing any GameItem.

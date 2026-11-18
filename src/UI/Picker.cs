@@ -167,7 +167,7 @@ namespace DumpingGroundMap
         private void Build()
         {
             CustomUIManager ui = CustomUIManager.Instance;
-            CustomUIBuilder b = ui.CreateWindow(WindowId, Copy.Text("垃圾场 · 拾荒地图", "Dumping Ground · Search Map"),
+            CustomUIBuilder b = ui.CreateWindow(WindowId, Copy.Get("picker_dumping_ground_search_map"),
                 CustomUIManager.LAYER_OVERLAY, null, CustomUIManager.Style.Meta);
             window = b.Handle;
             Vector2 canvasSize = new Vector2(1920f, 1080f);
@@ -189,11 +189,9 @@ namespace DumpingGroundMap
             cover.SetSiblingIndex(window.Rect.GetSiblingIndex());
             shade.GetComponent<Image>().color = new Color32(9, 16, 19, 183);
 
-            b.AddLabel(Copy.Text("悬停查看物资，点击地标或附近地面落下 X，再确认前往。本趟沿用所选区域。",
-                "Hover to preview; click a landmark or nearby ground, then confirm. Area stays fixed this visit."));
+            b.AddLabel(Copy.Get("picker_hover_to_preview_click_a_landmark_or"));
             eventSummary = b.Last;
-            eventSummary.SetTooltip(Copy.Text("悬停查看今日事件与收益，点击地标或附近地面落下 X，再确认前往。本趟沿用所选区域。",
-                "Hover for today's effects and EV; click a landmark or nearby ground, then confirm. Area stays fixed this visit."));
+            eventSummary.SetTooltip(Copy.Get("picker_hover_for_today_s_effects_and_ev"));
             Size(b.Last, -1, 36);
             if (b.Last.text != null)
             {
@@ -245,18 +243,18 @@ namespace DumpingGroundMap
                 description.text.overflowMode = TextOverflowModes.Ellipsis;
             }
             b.AddSpace(8).BeginRow(12, TextAnchor.MiddleRight);
-            b.AddButton(Copy.Text("查看物品概率", "Loot chances"), delegate
+            b.AddButton(Copy.Get("picker_loot_chances"), delegate
             {
                 Region focus = hovered ?? inspected ?? selected;
                 if (focus != null) LootNoticeView.Open(focus);
             });
             notice = b.Last;
             Size(notice, Mathf.Min(164f, mapSize.x * 0.32f), 36);
-            b.AddButton(Copy.Text("取消", "Cancel"), Close);
+            b.AddButton(Copy.Get("picker_cancel"), Close);
             Size(b.Last, Mathf.Min(130f, mapSize.x * 0.22f), 36);
             b.AddButton(target != null
-                ? Copy.Text("进入该区域", "Enter this area")
-                : Copy.Text("开始拾荒", "Start search"), StartSearch);
+                ? Copy.Get("picker_enter_this_area")
+                : Copy.Get("picker_start_search"), StartSearch);
             confirm = b.Last;
             Size(confirm, Mathf.Min(248f, mapSize.x * 0.38f), 36);
             b.End();
@@ -304,27 +302,26 @@ namespace DumpingGroundMap
         {
             if (string.IsNullOrEmpty(identifier)) return "";
             if (identifier == WaterSupplyPack.HalfTest)
-                return ItemName("full_water_test_strip_box") + Copy.Text("（半盒 · 5张）", " (half pack, 5 strips)");
+                return ItemName("full_water_test_strip_box") + Copy.Get("picker_half_pack_5_strips");
             if (identifier == WaterSupplyPack.HalfTablets)
-                return ItemName("full_water_purification_tablet_box") + Copy.Text("（半瓶 · 5颗）", " (half bottle, 5 tablets)");
-
-            string cached;
-            if (ResolvedNames.TryGetValue(identifier, out cached)) return cached;
+                return ItemName("full_water_purification_tablet_box") + Copy.Get("picker_half_bottle_5_tablets");
 
             // 先按游戏自己的取名途径：物品目录或预构建工厂里的 GameItem 已经带着
             // 本地化后的 name，其它模组的物品也是这样注册的。
-            string name = GameItemName(identifier);
-            if (name == null) name = LocalizedName(identifier);
+            string name = ResolvedNames.Get(LocHelper.GetCurrentLocaleCode(), identifier, ResolveItemName);
             // 查不到就把 id 尾段整理成可读文本，不把 mod.item_id 原样丢给玩家。
             if (name == null) return FallbackName(identifier);
 
-            ResolvedNames[identifier] = name;
             return name;
         }
 
         /// <summary>已解析的显示名，避免告示牌每次刷新都重新构造物品对象。</summary>
-        private static readonly Dictionary<string, string> ResolvedNames =
-            new Dictionary<string, string>(StringComparer.Ordinal);
+        private static readonly ItemNameCache ResolvedNames = new ItemNameCache();
+
+        private static string ResolveItemName(string identifier)
+        {
+            return GameItemName(identifier) ?? LocalizedName(identifier);
+        }
 
         /// <summary>
         /// 用游戏自己的物品目录/预构建工厂取显示名（生成物品时走的也是这条途径），
@@ -387,14 +384,14 @@ namespace DumpingGroundMap
         /// </summary>
         private static string FallbackName(string identifier)
         {
-            if (identifier == "random_performance_module") return Copy.Text("随机性能模组", "Random Performance Module");
-            if (identifier == "random_efficiency_module") return Copy.Text("随机效率模组", "Random Efficiency Module");
-            if (identifier == "random_quality_module") return Copy.Text("随机品质模组", "Random Quality Module");
+            if (identifier == "random_performance_module") return Copy.Get("picker_random_performance_module");
+            if (identifier == "random_efficiency_module") return Copy.Get("picker_random_efficiency_module");
+            if (identifier == "random_quality_module") return Copy.Get("picker_random_quality_module");
             // 100 档的补给箱是预构建容器，没有独立词条，沿用同类箱子的叫法。
-            if (identifier == "loot_crate_engineering") return Copy.Text("工程箱", "Engineering Crate");
-            if (identifier == "loot_crate_service") return Copy.Text("服务箱", "Service Crate");
-            if (identifier == "loot_crate_medical") return Copy.Text("医疗箱", "Medical Crate");
-            if (identifier == "loot_crate_security") return Copy.Text("安保箱", "Security Crate");
+            if (identifier == "loot_crate_engineering") return Copy.Get("picker_engineering_crate");
+            if (identifier == "loot_crate_service") return Copy.Get("picker_service_crate");
+            if (identifier == "loot_crate_medical") return Copy.Get("picker_medical_crate");
+            if (identifier == "loot_crate_security") return Copy.Get("picker_security_crate");
             return PrettyIdentifier(identifier);
         }
 
@@ -434,9 +431,9 @@ namespace DumpingGroundMap
             if (reputationLabel == null) return;
             int unlocked = 0;
             foreach (Region region in Region.All) if (region.Unlocked) ++unlocked;
-            reputationLabel.SetText(Copy.Text("声望 ", "Reputation ") + Reputation.Points
-                + "  ·  " + Copy.Text("可探索 ", "Available ") + unlocked + "/" + Region.All.Length
-                + "  ·  " + Copy.Text("基础收益目标 +", "Base reward target +") + (LootBalance.Stage(Reputation.Points) * 10) + "%");
+            reputationLabel.SetText(Copy.Get("picker_reputation") + Reputation.Points
+                + "  ·  " + Copy.Get("picker_available") + unlocked + "/" + Region.All.Length
+                + "  ·  " + Copy.Get("picker_base_reward_target") + (LootBalance.Stage(Reputation.Points) * 10) + "%");
             reputationLabel.SetTextColor(Accent);
         }
 
@@ -469,30 +466,29 @@ namespace DumpingGroundMap
             Region focus = hovered ?? inspected ?? selected;
             string details;
             if (focus == null)
-                details = Copy.Text("在地图上选一个拾荒地点。边缘围墙与远离地标的废料堆不可搜索。",
-                    "Choose a search area on the map. Outer walls and distant scrap piles cannot be searched.");
+                details = Copy.Get("picker_choose_a_search_area_on_the_map");
             else
             {
-                details = (focus == selected ? Copy.Text("已选：", "Selected: ") : Copy.Text("预览：", "Preview: "))
+                details = (focus == selected ? Copy.Get("picker_selected") : Copy.Get("picker_preview"))
                     + focus.Name + " · " + focus.Detail;
                 if (!focus.Unlocked)
-                    details += Copy.Text("  需要声望 ", "  Needs reputation ") + focus.RequiredReputation
-                        + Copy.Text("（当前 ", " (current ") + Reputation.Points + ")";
+                    details += Copy.Get("picker_needs_reputation") + focus.RequiredReputation
+                        + Copy.Get("picker_current") + Reputation.Points + ")";
                 else
                 {
                     EffectiveTable table = Tuning.TableFor(focus);
                     if (table.RegionalEvent != null) details += "\n" + RegionalEvents.Details(focus, table);
-                    else details += "\n" + Copy.Text("今日无区域事件 · 主掉落期望 ", "No regional event · Main-drop EV ")
-                        + table.Ev.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Text(" 信用点/件", " credits/item");
+                    else details += "\n" + Copy.Get("picker_no_regional_event_main_drop_ev")
+                        + table.Ev.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Get("picker_credits_item");
                 }
             }
             if (eventSummary != null) eventSummary.SetText(RegionalEvents.TodaySummary());
             description.SetTooltip(details);
-            description.SetText(details + "\n" + Copy.Text("剩余拾荒次数：", "Searches left: ") + RemainingSearches());
+            description.SetText(details + "\n" + Copy.Get("picker_searches_left") + RemainingSearches());
             notice.SetInteractable(focus != null);
-            confirm.SetText(selected == null ? Copy.Text("请选择地点", "Choose an area")
-                : target != null ? Copy.Text("前往：", "Enter: ") + selected.Name
-                : Copy.Text("搜索：", "Search: ") + selected.Name);
+            confirm.SetText(selected == null ? Copy.Get("picker_choose_an_area")
+                : target != null ? Copy.Get("picker_enter") + selected.Name
+                : Copy.Get("picker_search") + selected.Name);
             if (confirm.text != null)
             {
                 confirm.text.enableAutoSizing = true;

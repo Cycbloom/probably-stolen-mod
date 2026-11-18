@@ -24,8 +24,7 @@ namespace DumpingGroundMap
     internal static class ReputationBoardPatch
     {
         private const string RowName = "DGM_ReputationRow";
-        private const string TitleZh = "拾荒客";
-        private const string TitleEn = "Scavenger";
+        private const string TitleKey = "reputation_title";
         private const string TitleColor = "8FA06A";
         private const float BarFullHeight = 65.5f;
         private const string DisasterDayId = "disaster_day";
@@ -53,15 +52,10 @@ namespace DumpingGroundMap
             PerkCatalog.Perk100Threshold
         };
 
-        private static readonly string[] TierZh =
+        private static readonly string[] TierKeys =
         {
-            "生手", PerkCatalog.Perk20NameZh, PerkCatalog.Perk40NameZh,
-            PerkCatalog.Perk60NameZh, PerkCatalog.Perk80NameZh, PerkCatalog.Perk100NameZh
-        };
-        private static readonly string[] TierEn =
-        {
-            "Rookie", PerkCatalog.Perk20NameEn, PerkCatalog.Perk40NameEn,
-            PerkCatalog.Perk60NameEn, PerkCatalog.Perk80NameEn, PerkCatalog.Perk100NameEn
+            "perk_rookie_name", PerkCatalog.Perk20NameKey, PerkCatalog.Perk40NameKey,
+            PerkCatalog.Perk60NameKey, PerkCatalog.Perk80NameKey, PerkCatalog.Perk100NameKey
         };
 
         private static bool patchLogged;
@@ -158,7 +152,7 @@ namespace DumpingGroundMap
         private static StoreReputation BuildEntry(int points)
         {
             StoreReputation entry = new StoreReputation();
-            entry.factionDisplay = Copy.Text(TitleZh, TitleEn);
+            entry.factionDisplay = Copy.Get(TitleKey);
             entry.factionColor2 = TitleColor;
             entry.perks = BuildPerks(points);
             // 写精确值而不是整数点数：原版面板的数字由 ApplyRow 覆盖成两位小数，
@@ -303,7 +297,7 @@ namespace DumpingGroundMap
         {
             int tier = 0;
             while (tier < Thresholds.Length && points >= Thresholds[tier]) ++tier;
-            return Copy.Text(TierZh[tier], TierEn[tier]);
+            return Copy.Get(TierKeys[tier]);
         }
 
         /// <summary>

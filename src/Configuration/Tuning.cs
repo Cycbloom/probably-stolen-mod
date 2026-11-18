@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Reflection;
@@ -68,9 +68,9 @@ namespace DumpingGroundMap
         internal const string ForeignVanillaKey = "foreign_loot_vanilla";
         internal const bool DefaultForeignVanilla = false;
 
-        private const string SectionName = "拾荒掉落 / Loot";
-        private const string IntegrationSection = "声望飘字 / Reputation Pop";
-        private const string DebugSection = "调试 / Debug";
+        private const string SectionName = "dgm_settings_section_loot";
+        private const string IntegrationSection = "dgm_settings_section_integration";
+        private const string DebugSection = "dgm_settings_section_debug";
 
         /// <summary>声望飘字开关：只在装了 Reputation Pop 时才有实际效果。</summary>
         internal const string ReputationPopKey = "reputation_pop";
@@ -83,7 +83,7 @@ namespace DumpingGroundMap
         internal const float DebugPointsMax = 200f;
 
         /// <summary>性能日志。默认关闭；关闭时调用点只有一次布尔判断。</summary>
-        private const string PerfSection = "性能 / Performance";
+        private const string PerfSection = "dgm_settings_section_performance";
         internal const string PerfLogKey = "perf_log";
         internal const bool DefaultPerfLog = false;
 
@@ -92,7 +92,12 @@ namespace DumpingGroundMap
         /// 12×9 是原版；默认 19×21，宽 12–19、高 9–31。
         /// 尺寸不进存档，改完下次重建地面时生效。
         /// </summary>
-        internal const string GroundSection = "拾荒地面 / Ground";
+        internal const string GroundSection = "dgm_settings_section_ground";
+        internal static bool IsSectionKey(string key)
+        {
+            return key == SectionName || key == IntegrationSection || key == DebugSection
+                || key == PerfSection || key == GroundSection;
+        }
         internal const string GroundWidthKey = "ground_width";
         internal const string GroundHeightKey = "ground_height";
         internal const int DefaultGroundWidth = 19;
@@ -109,12 +114,13 @@ namespace DumpingGroundMap
         /// </summary>
         internal const string GroundAlignKey = "ground_align";
         internal const int DefaultGroundAlign = 6;
-        private static readonly string[] GroundAlignZh =
+        // Stable legacy config values; only dropdown display text is localized.
+        private static readonly string[] GroundAlignValues =
             { "左上", "上中", "右上", "左中", "居中", "右中", "左下", "下中", "右下" };
-        private static readonly string[] GroundAlignEn =
+        private static readonly string[] LegacyGroundAlignEnglish =
             { "Top left", "Top middle", "Top right", "Middle left", "Center", "Middle right",
               "Bottom left", "Bottom middle", "Bottom right" };
-        private static string[] groundAlignLabels;
+
 
         /// <summary>
         /// One shared tier for every area. Each area still applies it to its
@@ -260,13 +266,18 @@ namespace DumpingGroundMap
         {
             get
             {
-                if (groundAlignLabels == null)
-                {
-                    groundAlignLabels = new string[GroundAlignZh.Length];
-                    for (int i = 0; i < groundAlignLabels.Length; ++i)
-                        groundAlignLabels[i] = Copy.Text(GroundAlignZh[i], GroundAlignEn[i]);
-                }
-                return groundAlignLabels;
+                string[] labels = new string[GroundAlignValues.Length];
+                for (int i = 0; i < labels.Length; ++i) labels[i] = Copy.Get("ground_align_" + i);
+                return labels;
+            }
+        }
+        internal static string[] SpecialtyDisplayLabels
+        {
+            get
+            {
+                string[] labels = new string[SpecialtyLabels.Length];
+                for (int i = 0; i < labels.Length; ++i) labels[i] = Copy.Get("specialty_tier_" + i);
+                return labels;
             }
         }
 
@@ -277,9 +288,15 @@ namespace DumpingGroundMap
             {
                 ConfigEntry<string> entry = groundAlignEntry;
                 if (entry == null) return DefaultGroundAlign;
-                int index = System.Array.IndexOf(GroundAlignLabels, entry.Value);
+                int index = GroundAlignIndex(entry.Value);
                 return index < 0 ? DefaultGroundAlign : index;
             }
+        }
+
+        internal static int GroundAlignIndex(string value)
+        {
+            int index = Array.IndexOf(GroundAlignValues, value);
+            return index < 0 ? Array.IndexOf(LegacyGroundAlignEnglish, value) : index;
         }
 
         /// <summary>下拉框换档：立即写进配置项，下次进拾荒场景按新位置摆放。</summary>
@@ -287,7 +304,7 @@ namespace DumpingGroundMap
         {
             ConfigEntry<string> entry = groundAlignEntry;
             if (entry == null) return;
-            string[] labels = GroundAlignLabels;
+            string[] labels = GroundAlignValues;
             string value = labels[Mathf.Clamp(index, 0, labels.Length - 1)];
             if (entry.Value == value) return;
             entry.Set(value);
@@ -552,176 +569,152 @@ namespace DumpingGroundMap
                 ModConfig config = ModHelper.GetConfig(Core.Id);
 
                 junkEntry = config.Define("junk_percent", DefaultJunkPercent, SectionName,
-                    delegate { return Copy.Text("垃圾出现率倍率（%，0–150）", "Junk chance multiplier (%, 0-150)"); },
+                    delegate { return Copy.Get("tuning_junk_chance_multiplier_0_150"); },
                     JunkMin, JunkMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "范围0–150%，默认100%。\n100%：常态50%垃圾；150%：75%垃圾。\n50%：25%垃圾；0%：不出垃圾。\n声望0/20/40/60的基础收益按100%倍率校准，\n分别为12.24/13.46/14.69/15.91，大小奖另算。\n夜间事件仍会改变垃圾权重。",
-                            "Range 0-150%, default 100%.\n100% gives 50% junk; 150% gives 75%.\n50% gives 25% junk; 0% removes junk.\nBase rewards at reputation 0/20/40/60 are calibrated at 100%:\n12.24/13.46/14.69/15.91, excluding bonuses.\nNight events still modify junk weights.");
+                        return Copy.Get("tuning_range_0_150_default_100_100_gives");
                     },
                     false);
 
                 highEntry = config.Define("high_percent", DefaultHighPercent, SectionName,
-                    delegate { return Copy.Text("贵重品出现率（%，0–30）", "Valuable find chance (%, 0-30)"); },
+                    delegate { return Copy.Get("tuning_valuable_find_chance_0_30"); },
                     0f, 30f,
                     delegate
                     {
-                        return Copy.Text(
-                            "每次拾荒单独判断：这一趟会不会出贵重品。\n没出不累积，下次概率不变，没有保底。\n8% 约每 12 次出 1 次；0% 不出；最高 30%。\n贵重品换自普通物品，垃圾不受影响。\n本项在声望达到 80（识货行家）后生效：\n80 之前按 0 算（设置值会保留），80 之后完全按滑条数值生效。",
-                            "Rolled once per search:\nit decides only whether this haul includes a valuable item.\nNo pity: a miss does not raise the chance next time.\n8%: about 1 in 12 searches. 0%: never. Up to 30%.\nValuable items replace normal items; junk is not affected.\nThis setting activates at 80 reputation (Connoisseur):\nbefore 80 it counts as 0 (your value is kept); from 80 on the slider applies as-is.");
+                        return Copy.Get("tuning_rolled_once_per_search_it_decides_only");
                     },
                     false);
 
                 crateEntry = config.Define(CratePercentKey, DefaultSpecialPercent, SectionName,
-                    delegate { return Copy.Text("补给箱概率（%，0–5）", "Supply crate chance (%, 0-5)"); },
+                    delegate { return Copy.Get("tuning_supply_crate_chance_0_5"); },
                     SpecialPercentMin, SpecialPercentMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "声望达到100后，每次主掉落出补给箱的总概率。\n默认1%，范围0–5%，按0.1吸附；0%不出。\n八区均有箱子，具体箱型按本区权重分配。\n箱子种类增多不会叠加总概率；份额从非垃圾普通物品中扣除。",
-                            "Total supply-crate chance per main roll, active at 100 reputation.\nDefault 1%, range 0-5%, 0.1 steps; 0% disables it.\nAll eight areas have regional crate-type weights.\nMore types share this total; they replace non-junk ordinary items.");
+                        return Copy.Get("tuning_total_supply_crate_chance_per_main_roll");
                     },
                     false);
 
                 cardEntry = config.Define(KeycardPercentKey, DefaultSpecialPercent, SectionName,
-                    delegate { return Copy.Text("钥匙卡概率（%，0–5）", "Keycard chance (%, 0-5)"); },
+                    delegate { return Copy.Get("tuning_keycard_chance_0_5"); },
                     SpecialPercentMin, SpecialPercentMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "声望达到100后，每次主掉落出钥匙卡的总概率。\n默认1%，范围0–5%，按0.1吸附；0%不出。\n八区均有卡片，类型权重与本区箱型配套。\n箱子、卡片独立掉落；份额从非垃圾普通物品中扣除。",
-                            "Total keycard chance per main roll, active at 100 reputation.\nDefault 1%, range 0-5%, 0.1 steps; 0% disables it.\nCard-type weights match each area's native crate locks.\nCrates and cards roll independently and replace non-junk ordinary items.");
+                        return Copy.Get("tuning_total_keycard_chance_per_main_roll_active");
                     },
                     false);
 
                 minorEntry = config.Define(MinorPercentKey, DefaultMinorPercent, SectionName,
-                    delegate { return Copy.Text("小奖概率上限（%，0–10）", "Minor prize chance cap (%, 0-10)"); },
+                    delegate { return Copy.Get("tuning_minor_prize_chance_cap_0_10"); },
                     MinorPercentMin, MinorPercentMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "小奖窗口上限，默认3%，范围0–10%，0%停用。\n开启下方小奖窗口时，概率逐次搜索增长，中奖后减半；关闭时直接用本值。\n声望不足60时，当前实际概率仍乘1/10（上限3%对应实际最高0.3%）。\n按本区奖池翻出一整箱同一种物品，价值看「小奖整箱价值」。\n大奖优先，告示牌的小奖实际概率已扣除大奖占用。\n小奖物品照常计入声望，不发新闻、不改价格，也不影响大奖窗口。",
-                            "Minor-prize window cap: default 3%, range 0-10%; 0% disables it.\nWith the minor window on, odds grow per search and halve after a win; off uses this cap directly.\nBelow 60 reputation, current odds are multiplied by 1/10 (a 3% cap gives at most 0.3%).\nA whole crate of one regional item type; payout follows Minor prize crate value.\nJackpots have priority; the notice shows minor odds after that exclusion.\nItems count toward reputation. No news, market effect, or change to the jackpot window.");
+                        return Copy.Get("tuning_minor_prize_window_cap_default_3_range");
                     },
                     false);
 
                 minorWindowEntry = config.Define(MinorWindowKey, DefaultMinorWindow, SectionName,
-                    delegate { return Copy.Text("启用小奖概率拥塞窗口（每次搜索）", "Use an adaptive minor-prize window (per search)"); },
+                    delegate { return Copy.Get("tuning_use_an_adaptive_minor_prize_window_per"); },
                     delegate
                     {
-                        return Copy.Text("开启：默认从0.3%开始，未中先翻倍，达到上限一半后每次搜索增加0.1个百分点；中奖后减半。\n起点取上限的1/10且不超过0.3%。每次有效搜索更新一次，各区域共用、随存档保存。\n关闭：直接使用上方概率上限，暂停窗口进度。\n声望不到60时，当前实际概率仍按1/10生效。上限0时不抽奖、不增长。",
-                            "On: starts at 0.3% with the default cap. Misses first double the chance, then add 0.1 percentage points per search after reaching half the cap. Wins halve it.\nStart is one tenth of the cap, at most 0.3%. One update per eligible search, shared across areas and saved with the run.\nOff: uses the cap directly and pauses saved progress.\nBelow 60 reputation, actual odds remain one tenth. A zero cap disables rolls and growth.");
+                        return Copy.Get("tuning_on_starts_at_0_3_with_the");
                     }, false);
                 minorWindowEntry.OnChanged += delegate(bool value) { Invalidated(); };
 
                 minorValueEntry = config.Define(MinorValueKey, DefaultMinorValue, SectionName,
-                    delegate { return Copy.Text("小奖整箱价值", "Minor prize crate value"); },
+                    delegate { return Copy.Get("tuning_minor_prize_crate_value"); },
                     MinorValueMin, MinorValueMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "只决定小奖那一整箱值多少钱，不影响爆大奖，也不影响上面的基础 EV。\n每次小奖在 目标值 × 0.75–1.25 之间随机取一个金额，\n除以该箱物品单价后四舍五入得到件数（最少 1 件、最多 12 件）。\n默认 200，范围 50–400，按 10 吸附。\n例：目标 200、单价 25 的物品约 6–10 件；目标 100 约 3–5 件。",
-                            "Sets how much a minor-prize crate is worth; it does not touch the jackpot or the base EV above.\nEach minor prize picks a random amount in target x 0.75-1.25,\ndivides it by the item's unit price and rounds to get the count (1 to 12 items).\nDefault 200, range 50-400, 10 steps.\nExample: target 200 with a 25-value item is about 6-10 items; target 100 is about 3-5.");
+                        return Copy.Get("tuning_sets_how_much_a_minor_prize_crate");
                     },
                     false);
 
                 stashWindowEntry = config.Define(StashWindowKey, DefaultStashWindow, SectionName,
-                    delegate { return Copy.Text("启用大奖概率拥塞窗口（每天）", "Use an adaptive jackpot window (daily)"); },
+                    delegate { return Copy.Get("tuning_use_an_adaptive_jackpot_window_daily"); },
                     delegate
                     {
-                        return Copy.Text(
-                            "开启：当天概率固定，每个自然日只更新一次。\n从本轮起点线性增长，连续5个未中大奖的日子达到上限；没去拾荒的日子也计入。\n中奖后次日概率减半，再用5个未中日增长到上限。最低0.05%。\n默认上限1%时：0.05→0.24→0.43→0.62→0.81→1.00%。\n关闭：直接用下方上限，暂停日窗口进度。声望不足60仍受0.1%上限限制。\n每趟最多一次大奖；同一天多次搜索不增加窗口概率。",
-                            "On: odds stay fixed throughout the day, with one update per calendar day.\nLinear growth from the cycle start reaches the cap after 5 days without a jackpot, including non-scavenging days.\nA winning day halves odds the next day, then starts another 5-day recovery. Minimum 0.05%.\nAt the default 1% cap: 0.05, 0.24, 0.43, 0.62, 0.81, 1.00%.\nOff uses the cap directly and pauses progress. Below 60 reputation, the cap remains 0.1%.\nAt most one jackpot per visit; more searches do not increase the daily odds.");
+                        return Copy.Get("tuning_on_odds_stay_fixed_throughout_the_day");
                     }, false);
 
                 stashCapEntry = config.Define(StashCapKey, DefaultStashCap, SectionName,
-                    delegate { return Copy.Text("爆大奖概率上限（%，0.1–5.0）", "Jackpot chance cap (%, 0.1-5.0)"); },
+                    delegate { return Copy.Get("tuning_jackpot_chance_cap_0_1_5_0"); },
                     StashCapMin, StashCapMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "大奖概率的上限。\n启用拥塞窗口时，概率动态增长到这个上限；关闭时，每次直接使用这个概率。\n声望不到 60 时，实际生效的上限仍压到 0.1%。\n适用于配置了储藏样板的全部八个区域。每趟最多中一次大奖。",
-                            "Jackpot chance cap.\nWith the adaptive window enabled, the chance grows toward this cap; when disabled, every roll uses it directly.\nThe effective cap is still limited to 0.1% below 60 reputation.\nApplies to all eight areas with stash templates. At most one jackpot per visit.");
+                        return Copy.Get("tuning_jackpot_chance_cap_with_the_adaptive_window");
                     },
                     false);
 
                 foreignEnabledEntry = config.Define(ForeignEnabledKey, DefaultForeignEnabled, SectionName,
-                    delegate { return Copy.Text("允许其它模组的拾荒物品出现", "Allow other mods' scavenge items"); },
+                    delegate { return Copy.Get("tuning_allow_other_mods_scavenge_items"); },
                     delegate
                     {
-                        return Copy.Text(
-                            "本模组按区域接管了拾荒掉落，其它模组加进原版拾荒表的物品默认不会出现。\n开启后，这些外来条目会按它们在原版表里的相对权重参与掉落。\n只读取原版表组，不修改任何模组的数据。\n外来条目在告示板里单列一组「外来条目（其它模组）」。",
-                            "This mod takes over scavenging per region, so items other mods added to the native loot tables would never drop.\nWhen enabled, those entries join the roll with the relative weights they have in the native group.\nThe native tables are only read, never modified.\nNeeds a scene reload to take effect after installing or removing such a mod.");
+                        return Copy.Get("tuning_this_mod_takes_over_scavenging_per_region");
                     },
                     false);
 
                 foreignPercentEntry = config.Define(ForeignPercentKey, DefaultForeignPercent, SectionName,
-                    delegate { return Copy.Text("外来条目份额上限（%，0–8）", "Foreign item share cap (%, 0-8)"); },
+                    delegate { return Copy.Get("tuning_foreign_item_share_cap_0_8"); },
                     ForeignPercentMin, ForeignPercentMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "每次拾荒里，外来条目最多占多少概率。\n这是上限而不是固定摊派：如果它们在原版表里本来只占 0.8%，就按 0.8% 出。\n份额优先从非专精部分扣除（垃圾，以及普通物品里由原版表插值来的那份），专精物品最后才动。\n0% 等于关闭；值钱的外来物品越多，单次收益抬得越明显。\n默认 5%。",
-                            "Upper bound on how much of one haul foreign entries may take.\nThis is a cap, not a fixed allotment: if they naturally hold 0.8% of the native table, they get 0.8%.\nThe share comes out of the non-specialty part first (junk, plus the vanilla half of ordinary items); specialty items are touched last.\n0% disables it; the more valuable the foreign items, the more they raise per-search returns.\nDefault 5%.");
+                        return Copy.Get("tuning_upper_bound_on_how_much_of_one");
                     },
                     false);
 
                 foreignVanillaEntry = config.Define(ForeignVanillaKey, DefaultForeignVanilla, SectionName,
-                    delegate { return Copy.Text("外来条目也纳入未收录的原版物品", "Also include vanilla items this mod omits"); },
+                    delegate { return Copy.Get("tuning_also_include_vanilla_items_this_mod_omits"); },
                     delegate
                     {
-                        return Copy.Text(
-                            "默认关闭：只有其它模组新增的条目算外来。\n开启后，本模组各区域表里没收录的原版物品也会进入外来池。\n用于排查遗漏，可能把刻意剔除的原版物品放回来，日常不建议开。",
-                            "Off by default: only entries added by other mods count as foreign.\nWhen on, vanilla items missing from this mod's regional tables also join the pool.\nUseful for auditing omissions; it can reintroduce items that were excluded on purpose, so it is not recommended for normal play.");
+                        return Copy.Get("tuning_off_by_default_only_entries_added_by");
                     },
                     false);
 
                 specialtyEntry = config.Define(SpecialtyKey, SpecialtyLabels[DefaultSpecialtyTier],
                     SectionName,
-                    delegate { return Copy.Text("区域专精度", "Region specialty"); },
+                    delegate { return Copy.Get("tuning_region_specialty"); },
                     SpecialtyLabels,
                     delegate
                     {
-                        return Copy.Text(
-                            "决定除垃圾外，捡到的东西多偏向本区特产。\n档位越高，本区特产越多，通用物品越少。\n「全部」：除垃圾外只出本区特产。\n如拆解堆：「较少」仍有食品、日用，\n「全部」只出材料、工具与电子件。\n每个区都有自己的一批特产；垃圾不受影响。",
-                            "Controls how strongly, junk aside, a haul leans toward this region's own goods.\nHigher tiers mean more local goods and fewer generic ones.\nAll: nothing but local goods and junk.\nExample, Scrap Pile: Rare still brings food and household goods;\nAll brings only materials, tools, and electronics.\nEach region has its own goods; junk is not affected.");
+                        return Copy.Get("tuning_controls_how_strongly_junk_aside_a_haul");
                     },
                     false);
 
                 MigrateSpecialtyTier(config);
 
-                groundAlignEntry = config.Define(GroundAlignKey, GroundAlignLabels[DefaultGroundAlign],
+                groundAlignEntry = config.Define(GroundAlignKey, GroundAlignValues[DefaultGroundAlign],
                     GroundSection,
-                    delegate { return Copy.Text("地面对齐", "Ground alignment"); },
-                    GroundAlignLabels,
+                    delegate { return Copy.Get("tuning_ground_alignment"); },
+                    GroundAlignValues,
                     delegate
                     {
-                        return Copy.Text(
-                            "拾荒时地面窗口贴在哪里。\n九个位置：左上、上中、右上、左中、居中、右中、左下、下中、右下。\n默认左下，避开右侧的时间与按钮面板。\n靠右时如果会压住右侧原生面板，会自动往左让开。\n改完下次进拾荒场景生效；商店界面不受影响。",
-                            "Where the ground window sits while scavenging.\nNine spots: top left, top middle, top right, middle left, center, middle right, bottom left, bottom middle, bottom right.\nDefault bottom left, clear of the time and button panel on the right.\nOn the right side it moves left automatically when it would cover that panel.\nApplies the next time you enter the scavenging scene; the shop UI is never touched.");
+                        return Copy.Get("tuning_where_the_ground_window_sits_while_scavenging");
                     },
                     false);
 
+                string savedAlignment;
+                if (TryReadRaw(config, GroundAlignKey, out savedAlignment))
+                {
+                    int savedIndex = GroundAlignIndex(savedAlignment);
+                    if (savedIndex >= 0) groundAlignEntry.Set(GroundAlignValues[savedIndex]);
+                }
+
                 groundWidthEntry = config.Define(GroundWidthKey, DefaultGroundWidth, GroundSection,
-                    delegate { return Copy.Text("地面宽度（格，12–19）", "Ground width (cells, 12-19)"); },
+                    delegate { return Copy.Get("tuning_ground_width_cells_12_19"); },
                     GroundWidthMin, GroundWidthMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "只影响拾荒时整理战利品的那块「地面」。\n12 是原版宽度；调小不会把已经放大的地面缩回去。\n尺寸不进存档，改完下次进拾荒场景、重建地面时生效。",
-                            "Only affects the ground where scavenging loot is sorted.\n12 is the vanilla width. Lowering it never shrinks a ground that is already larger.\nThe size is not stored in the save; it applies the next time the scavenging scene rebuilds the ground.");
+                        return Copy.Get("tuning_only_affects_the_ground_where_scavenging_loot_2");
                     },
                     false);
 
                 groundHeightEntry = config.Define(GroundHeightKey, DefaultGroundHeight, GroundSection,
-                    delegate { return Copy.Text("地面高度（格，9–31）", "Ground height (cells, 9-31)"); },
+                    delegate { return Copy.Get("tuning_ground_height_cells_9_31"); },
                     GroundHeightMin, GroundHeightMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "只影响拾荒时整理战利品的那块「地面」。\n9 是原版高度；调小不会把已经放大的地面缩回去。\n尺寸不进存档，改完下次进拾荒场景、重建地面时生效。",
-                            "Only affects the ground where scavenging loot is sorted.\n9 is the vanilla height. Lowering it never shrinks a ground that is already larger.\nThe size is not stored in the save; it applies the next time the scavenging scene rebuilds the ground.");
+                        return Copy.Get("tuning_only_affects_the_ground_where_scavenging_loot");
                     },
                     false);
 
@@ -730,16 +723,12 @@ namespace DumpingGroundMap
                     delegate
                     {
                         return ReputationPopBridge.Running
-                            ? Copy.Text("声望飘字（需安装 Reputation Pop）",
-                                "Reputation pop-ups (requires Reputation Pop)")
-                            : Copy.Text("声望飘字（需安装 Reputation Pop，当前未安装）",
-                                "Reputation pop-ups (requires Reputation Pop - not installed)");
+                            ? Copy.Get("tuning_reputation_pop_ups_requires_reputation_pop")
+                            : Copy.Get("tuning_reputation_pop_ups_requires_reputation_pop_not");
                     },
                     delegate
                     {
-                        return Copy.Text(
-                            "每次拾荒结算后，把本次获得的声望用 Reputation Pop 的气泡飘出来。\n只在装了「声望增加显示 / Reputation Pop」时生效；\n未安装时本项不起作用，也不会报错。\n关掉后不再弹出，声望照常累计。",
-                            "After each scavenge, pops this haul's reputation gain as a Reputation Pop bubble.\nOnly works when the Reputation Pop mod is installed;\nwithout it this option does nothing and logs no error.\nTurning it off stops the pop-ups only; reputation still accumulates.");
+                        return Copy.Get("tuning_after_each_scavenge_pops_this_haul_s");
                     },
                     false);
 
@@ -749,12 +738,10 @@ namespace DumpingGroundMap
                 };
 
                 debugEnabledEntry = config.Define(DebugEnabledKey, false, DebugSection,
-                    delegate { return Copy.Text("启用调试项", "Enable debug options"); },
+                    delegate { return Copy.Get("tuning_enable_debug_options"); },
                     delegate
                     {
-                        return Copy.Text(
-                            "打开后下面的「设置声望点数」才会生效。\n仅供测试，默认关闭。",
-                            "Turns on the reputation setter below.\nTesting only; off by default.");
+                        return Copy.Get("tuning_turns_on_the_reputation_setter_below_testing");
                     },
                     false);
 
@@ -765,23 +752,19 @@ namespace DumpingGroundMap
                 };
 
                 perfLogEntry = config.Define(PerfLogKey, DefaultPerfLog, PerfSection,
-                    delegate { return Copy.Text("性能日志", "Performance log"); },
+                    delegate { return Copy.Get("tuning_performance_log"); },
                     delegate
                     {
-                        return Copy.Text(
-                            "打开后在日志里输出掉落表构建、告示牌刷新、外来池重扫和单次拾荒的耗时。\n统一前缀 [DGM][perf]，每类动作只打一条，默认关闭。",
-                            "Writes timing lines for loot-table builds, notice-board refreshes, foreign-pool rescans and single scavenges.\nPrefix [DGM][perf]; one line per action, off by default.");
+                        return Copy.Get("tuning_writes_timing_lines_for_loot_table_builds");
                     },
                     false);
 
                 debugPointsEntry = config.Define(DebugPointsKey, 0f, DebugSection,
-                    delegate { return Copy.Text("设置声望点数", "Set reputation points"); },
+                    delegate { return Copy.Get("tuning_set_reputation_points"); },
                     DebugPointsMin, DebugPointsMax,
                     delegate
                     {
-                        return Copy.Text(
-                            "仅供测试，会直接改写当前存档的声望（写同一个键 rep_total_value）。\n数值按 0.5 点取整，例如 19.5。\n需先打开上面的「启用调试项」才会生效。\n已有存档时改完立即存档；在主菜单改则排到下次读档时生效。",
-                            "Testing only - overwrites the reputation stored in the current save (same rep_total_value key).\nValues snap to 0.5 points, for example 19.5.\nRequires \"Enable debug options\" above to be on.\nWith a save loaded the change is saved immediately; from the main menu it applies on the next load.");
+                        return Copy.Get("tuning_testing_only_overwrites_the_reputation_stored_in");
                     },
                     false);
 

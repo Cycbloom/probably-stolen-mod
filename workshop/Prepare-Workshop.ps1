@@ -20,6 +20,17 @@ $release = Join-Path $PSScriptRoot ('releases/' + $manifest.Manifest.ModVersion 
 $content = Join-Path $release 'content'
 $textures = Join-Path $content 'Textures/Paper'
 New-Item -ItemType Directory -Path $textures -Force | Out-Null
+$localization = Join-Path $content 'Localization'
+New-Item -ItemType Directory -Path $localization -Force | Out-Null
+& (Join-Path $repo 'tools/verify-localization.ps1') -ProjectRoot $repo
+foreach ($locale in 'zh','en') {
+    $source = Join-Path $repo "Localization/$locale.csv"
+    $built = Join-Path $repo "dist/Localization/$locale.csv"
+    if ((Get-FileHash -LiteralPath $source).Hash -ne (Get-FileHash -LiteralPath $built).Hash) {
+        throw "Localization changed since the last build: $locale.csv"
+    }
+    Copy-Item -LiteralPath $built -Destination $localization
+}
 Copy-Item -LiteralPath (Join-Path $repo 'dist/DumpingGroundMap.dll'),(Join-Path $repo 'manifest.xml'),(Join-Path $repo 'LICENSE') -Destination $content
 $textureNames = @('dumping_ground_map','dumping_ground_map_art','dumping_ground_map_base','dumping_ground_landmarks',
     'dumping_ground_gate','dumping_ground_scrap','dumping_ground_refuse','dumping_ground_med',

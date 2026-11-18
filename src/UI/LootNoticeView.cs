@@ -73,7 +73,7 @@ namespace DumpingGroundMap
             if (ui == null) return;
 
             CustomUIBuilder b = ui.CreateWindow(BoardWindowId,
-                Copy.Text("拾荒告示板 · ", "Loot Notice · ") + region.Name,
+                Copy.Get("lootnoticeview_loot_notice") + region.Name,
                 CustomUIManager.LAYER_OVERLAY, null, CustomUIManager.Style.Meta);
             boardWindow = b.Handle;
             b.SetSize(620, 640).Center().SetDraggable(false).SetCloseOnEscape(true).OnClose(BoardClosed);
@@ -81,11 +81,11 @@ namespace DumpingGroundMap
             boardRegion = region;
             List<string> minorNames = new List<string>();
             foreach (string id in StashFind.MinorBox.ItemsFor(region.Id)) minorNames.Add(Picker.ItemName(id));
-            boardMinorContents = string.Join(Copy.Text("、", ", "), minorNames.ToArray());
+            boardMinorContents = string.Join(Copy.Get("lootnoticeview_"), minorNames.ToArray());
             boardGroups.Clear();
             boardSupplyItems.Clear();
 
-            b.AddLabel(Copy.Text("—— 本区掉落公示 ——", "— Area Loot Notice —"), "board_header");
+            b.AddLabel(Copy.Get("lootnoticeview_area_loot_notice"), "board_header");
             b.Last.SetTextColor(Picker.Accent);
             Picker.Size(b.Last, -1, 28);
             ConfigureText(b.Last, 20, false);
@@ -104,8 +104,7 @@ namespace DumpingGroundMap
             if (b.Last.text != null) b.Last.text.richText = true;
             b.Last.SetTextColor(Picker.Accent);
             b.AddSpace(6);
-            b.AddLabel(Copy.Text("按大类分组，概率是当前生效值，跟着设置实时变化：",
-                "Grouped by category; chances are live and follow the settings:"), "board_caption");
+            b.AddLabel(Copy.Get("lootnoticeview_grouped_by_category_chances_are_live_and"), "board_caption");
             Picker.Size(b.Last, -1, 26);
             boardCaption = b.Last;
             ConfigureText(b.Last, 18, false);
@@ -119,10 +118,10 @@ namespace DumpingGroundMap
                 BoardGroup group = new BoardGroup();
                 group.High = source.Valuable;
                 group.Name = source.Valuable
-                    ? Copy.Text("贵重品（80 档 + 贵重品出现率）", "Valuables (tier 80 + valuable chance)")
-                    : source.Foreign ? Copy.Text("外来条目（其它模组）", "Foreign (other mods)")
+                    ? Copy.Get("lootnoticeview_valuables_tier_80_valuable_chance")
+                    : source.Foreign ? Copy.Get("lootnoticeview_foreign_other_mods")
                     : source.Category >= 0 ? region.Loot.CategoryName(source.Category)
-                    : Copy.Text("其他（低专精混入的原版物品）", "Other (vanilla items at lower specialty)");
+                    : Copy.Get("lootnoticeview_other_vanilla_items_at_lower_specialty");
                 foreach (int slot in source.Slots)
                 {
                     BoardItem item = new BoardItem();
@@ -150,7 +149,7 @@ namespace DumpingGroundMap
             }
 
             b.AddSpace(4);
-            b.AddLabel(Copy.Text("档位加成", "Tier bonuses"), "board_bonus_header");
+            b.AddLabel(Copy.Get("lootnoticeview_tier_bonuses"), "board_bonus_header");
             boardBonusHeader = b.Last;
             boardBonusHeader.SetTextColor(Picker.Accent);
             Picker.Size(b.Last, -1, RowHeight);
@@ -171,16 +170,14 @@ namespace DumpingGroundMap
             }
             b.End();
             b.AddSpace(6);
-            b.AddLabel(Copy.Text("已计入当前事件：垃圾权重改变后，全部概率重新归一化；0.0% 表示当前条件下不会掉落。",
-                "Current events are included: changing junk weight renormalizes all chances. 0.0% means unavailable under current conditions."),
+            b.AddLabel(Copy.Get("lootnoticeview_current_events_are_included_changing_junk_weight"),
                 "board_footer");
             Picker.Size(b.Last, -1, 42);
             ConfigureText(b.Last, 16, true);
             b.Last.SetTooltip(b.Last.GetText());
             if (ModHelper.IsModRunning(ScavengingExpansionBridge.ModId))
             {
-                b.AddLabel(Copy.Text("拾荒拓展的技能会进一步改变候选物品与实际收益，并可能追加奖励；上表未单列这些技能效果。",
-                    "Scavenging Expansion skills can change candidates and rewards or add extra loot; these skill effects are not listed separately above."),
+                b.AddLabel(Copy.Get("lootnoticeview_scavenging_expansion_skills_can_change_candidates_and"),
                     "board_skill_note");
                 Picker.Size(b.Last, -1, 56);
                 ConfigureText(b.Last, 16, true);
@@ -255,13 +252,13 @@ namespace DumpingGroundMap
             if (boardEvent != null)
             {
                 RegionalEvent effect = table.RegionalEvent;
-                boardEvent.SetText(effect == null ? Copy.Text("今日无区域事件", "No regional event today")
-                    : Copy.Text("今日事件：", "Today's event: ") + effect.Title + Copy.Text(" · 今日结束", " · Ends today")
+                boardEvent.SetText(effect == null ? Copy.Get("lootnoticeview_no_regional_event_today")
+                    : Copy.Get("lootnoticeview_today_s_event") + effect.Title + Copy.Get("lootnoticeview_ends_today")
                         + "\n" + effect.Description);
                 boardEvent.SetTooltip(effect == null ? "" : effect.Tooltip);
             }
             if (boardCaption != null)
-                boardCaption.SetText(Copy.Text("实际概率 · 全场垃圾权重 ×", "Live chances · yard-wide junk weight ×")
+                boardCaption.SetText(Copy.Get("lootnoticeview_live_chances_yard_wide_junk_weight")
                     + table.JunkScale.ToString("0.00", CultureInfo.InvariantCulture));
             for (int g = 0; g < boardGroups.Count; ++g)
             {
@@ -299,33 +296,30 @@ namespace DumpingGroundMap
                 StashFind.MinorBox.ExpectedValue(region.Id, Tuning.MinorValue));
             bool showCrate = suppliesUnlocked && crate > 0f;
             bool showCard = suppliesUnlocked && card > 0f;
-            SetBoardSpecial(0, showJackpot, Copy.Text("大奖", "Jackpot"), rewards.JackpotProbability * 100f);
-            SetBoardSpecial(1, showMinor, Copy.Text("小奖", "Minor find"), rewards.MinorProbability * 100f);
+            SetBoardSpecial(0, showJackpot, Copy.Get("lootnoticeview_jackpot"), rewards.JackpotProbability * 100f);
+            SetBoardSpecial(1, showMinor, Copy.Get("lootnoticeview_minor_find"), rewards.MinorProbability * 100f);
             if (showJackpot)
             {
                 string jackpotTip = Tuning.StashWindowEnabled
-                    ? Copy.Text("大奖按自然日更新概率，当天固定。连续5个未中大奖的日子达到上限，中奖后次日减半。\n每趟最多中一次；本趟已中时显示0%。",
-                        "Jackpot odds update once per calendar day and stay fixed that day. Five missed days reach the cap; a win halves the next day's odds.\nAt most one win per visit; shows 0% after this visit's win.")
-                    : Copy.Text("大奖窗口已关闭，直接使用当前生效上限；保存的日窗口进度暂停。",
-                        "Daily window is off: uses the effective cap directly while saved progress is paused.");
+                    ? Copy.Get("lootnoticeview_jackpot_odds_update_once_per_calendar_day")
+                    : Copy.Get("lootnoticeview_daily_window_is_off_uses_the_effective");
                 boardSpecial[0].Name.SetTooltip(jackpotTip);
                 boardSpecial[0].Chance.SetTooltip(jackpotTip);
             }
             if (showMinor)
             {
-                string minorTip = Copy.Text("本区小奖整箱：", "Area minor-reward crates: ") + boardMinorContents
-                    + Copy.Text("\n命中后随机一种，整箱同类物品；数量按目标价值与单价计算（1–12件）。实际概率已计入大奖优先。",
-                        "\nOne type per crate, chosen at random. Count follows target value and unit price (1-12 items). Effective odds include jackpot precedence.");
+                string minorTip = Copy.Get("lootnoticeview_area_minor_reward_crates") + boardMinorContents
+                    + Copy.Get("lootnoticeview_one_type_per_crate_chosen_at_random");
                 minorTip += "\n" + (Tuning.MinorWindowEnabled
-                    ? Copy.Text("每次搜索更新窗口；未中增长、中奖减半。", "Per-search window: misses increase odds, wins halve them.")
-                    : Copy.Text("小奖窗口关闭，直接使用生效上限。", "Minor window is off: uses the effective cap directly."))
-                    + Copy.Text("\n当前抽奖概率：", "\nCurrent roll chance: ") + BoardPercentValue(StashFind.CurrentMinorChancePercent)
-                    + Copy.Text("；实际生效上限：", "; effective cap: ") + BoardPercentValue(Tuning.EffectiveMinorPercent);
+                    ? Copy.Get("lootnoticeview_per_search_window_misses_increase_odds_wins")
+                    : Copy.Get("lootnoticeview_minor_window_is_off_uses_the_effective"))
+                    + Copy.Get("lootnoticeview_current_roll_chance") + BoardPercentValue(StashFind.CurrentMinorChancePercent)
+                    + Copy.Get("lootnoticeview_effective_cap") + BoardPercentValue(Tuning.EffectiveMinorPercent);
                 boardSpecial[1].Name.SetTooltip(minorTip);
                 boardSpecial[1].Chance.SetTooltip(minorTip);
             }
-            SetBoardSpecial(2, showCrate, Copy.Text("补给箱合计", "All crates"), crate * 100f);
-            SetBoardSpecial(3, showCard, Copy.Text("钥匙卡合计", "All keycards"), card * 100f);
+            SetBoardSpecial(2, showCrate, Copy.Get("lootnoticeview_all_crates"), crate * 100f);
+            SetBoardSpecial(3, showCard, Copy.Get("lootnoticeview_all_keycards"), card * 100f);
             foreach (BoardItem item in boardSupplyItems)
             {
                 float probability = table.Probs[item.Slot];
@@ -345,34 +339,30 @@ namespace DumpingGroundMap
                     boardEvParts = MainExpectation.From(table, region.Id);
                 }
                 MainExpectation parts = boardEvParts;
-                boardEv.SetText(Copy.Text("主掉落期望合计 ≈ ", "Main-drop expected total ≈ ")
-                    + table.Ev.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Text(" 信用点", " credits")
-                    + "\n<size=16>" + Copy.Text("基础 ", "Base ") + parts.Base.ToString("0.00", CultureInfo.InvariantCulture)
-                    + Copy.Text(" + 贵重增益 ", " + rare ") + parts.Valuable.ToString("0.00", CultureInfo.InvariantCulture)
-                    + Copy.Text(" + 箱卡增益 ", " + crates/cards ") + parts.Supply.ToString("0.00", CultureInfo.InvariantCulture)
-                    + "</size>\n<size=16>" + Copy.Text("今日事件增益 +", "Today's regional uplift +")
+                boardEv.SetText(Copy.Get("lootnoticeview_main_drop_expected_total")
+                    + table.Ev.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Get("lootnoticeview_credits")
+                    + "\n<size=16>" + Copy.Get("lootnoticeview_base") + parts.Base.ToString("0.00", CultureInfo.InvariantCulture)
+                    + Copy.Get("lootnoticeview_rare") + parts.Valuable.ToString("0.00", CultureInfo.InvariantCulture)
+                    + Copy.Get("lootnoticeview_crates_cards") + parts.Supply.ToString("0.00", CultureInfo.InvariantCulture)
+                    + "</size>\n<size=16>" + Copy.Get("lootnoticeview_today_s_regional_uplift")
                     + parts.Event.ToString("0.00", CultureInfo.InvariantCulture)
-                    + "</size>\n<size=15>" + Copy.Text("奖励期望/次搜索：大奖 +", "Bonus EV/search: jackpot +")
-                    + rewards.JackpotEv.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Text(" · 小奖 +", " · minor +")
+                    + "</size>\n<size=15>" + Copy.Get("lootnoticeview_bonus_ev_search_jackpot")
+                    + rewards.JackpotEv.ToString("0.00", CultureInfo.InvariantCulture) + Copy.Get("lootnoticeview_minor")
                     + rewards.MinorEv.ToString("0.00", CultureInfo.InvariantCulture)
-                    + "</size>\n<size=13>" + Copy.Text("贵重与箱卡为净增益；工具、额外收获另算",
-                        "Rare/crates are net uplifts; tools and extra finds are separate") + "</size>");
-                string valueNote = Copy.Text("单位：信用点/件。基础、贵重和箱卡按同日无区域事件拆分，事件增益为当前区域事件前后的差值；四项相加等于当前主掉落期望。全场原版事件已计入。贵重品和箱卡为扣除替代普通掉落后的净增益，箱子按内容估值。\n贵重品概率：",
-                    "Units: credits/item. Base/rare/crates use the same day without regional effects. Regional uplift is the event/no-event difference; all four terms sum to current main-drop EV. Native yard-wide events are included. Rare/crates are net uplifts; crates use estimated contents value.\nValuable chance: ")
-                    + BoardPercent(parts.ValuableProbability) + Copy.Text("；箱卡概率：", "; crate/card chance: ")
+                    + "</size>\n<size=13>" + Copy.Get("lootnoticeview_rare_crates_are_net_uplifts_tools_and") + "</size>");
+                string valueNote = Copy.Get("lootnoticeview_units_credits_item_base_rare_crates_use")
+                    + BoardPercent(parts.ValuableProbability) + Copy.Get("lootnoticeview_crate_card_chance")
                     + BoardPercent(parts.SupplyProbability)
-                    + Copy.Text("\n大奖中奖时平均价值：", "\nMean jackpot payout: ")
+                    + Copy.Get("lootnoticeview_mean_jackpot_payout")
                     + rewards.JackpotValue.ToString("0.00", CultureInfo.InvariantCulture)
-                    + Copy.Text("；当前概率：", "; current chance: ") + BoardPercentValue(rewards.JackpotProbability * 100f)
-                    + Copy.Text("\n小奖中奖时平均价值：", "\nMean minor payout: ")
+                    + Copy.Get("lootnoticeview_current_chance") + BoardPercentValue(rewards.JackpotProbability * 100f)
+                    + Copy.Get("lootnoticeview_mean_minor_payout")
                     + rewards.MinorValue.ToString("0.00", CultureInfo.InvariantCulture)
-                    + Copy.Text("；实际概率：", "; effective chance: ") + BoardPercentValue(rewards.MinorProbability * 100f)
-                    + Copy.Text("\n奖励期望按每次搜索、当前概率计算；小奖已计入大奖优先及1–12件限制。大奖后的后续额外收获、工具、额外主掉落和市场效果另算。",
-                        "\nBonus EV is per search at current odds; minor rewards include jackpot precedence and the 1-12 item limit. Later extra finds, tools, extra main rolls and market effects are separate.");
+                    + Copy.Get("lootnoticeview_effective_chance") + BoardPercentValue(rewards.MinorProbability * 100f)
+                    + Copy.Get("lootnoticeview_bonus_ev_is_per_search_at_current");
                 if (table.ForeignCount > 0)
                 {
-                    valueNote += Copy.Text("\n外来条目（其它模组）没有可用的估值，按 0 信用点计入，所以上面的合计比实际收益偏低。",
-                        "\nForeign (other mods) entries have no value data and count as 0 credits, so the total above understates real returns.");
+                    valueNote += Copy.Get("lootnoticeview_foreign_other_mods_entries_have_no_value");
                 }
                 boardEv.SetTooltip(valueNote);
             }
@@ -413,14 +403,13 @@ namespace DumpingGroundMap
         private static string BoardItemName(string id)
         {
             if (id == HydraUsage.ItemId)
-                return Picker.ItemName(id) + Copy.Text("（剩余1/3、1/2或全满）", " (1/3, 1/2 or full uses)");
+                return Picker.ItemName(id) + Copy.Get("lootnoticeview_1_3_1_2_or_full_uses");
             if (id == LootCatalog.InjectorBadId)
-                return Copy.Text("免疫宁注射器（过期/仿品/不能用）",
-                    "Immunivax injector (expired/counterfeit/unusable)");
+                return Copy.Get("lootnoticeview_immunivax_injector_expired_counterfeit_unusable");
             if (id == LootCatalog.CigaretteFakeId)
-                return Copy.Text("一包海明威香烟（仿品）", "Hemingway cigarettes (counterfeit)");
+                return Copy.Get("lootnoticeview_hemingway_cigarettes_counterfeit");
             if (id == LootCatalog.StampFakeId)
-                return Copy.Text("食品券（仿品）", "Food stamp (counterfeit)");
+                return Copy.Get("lootnoticeview_food_stamp_counterfeit");
 
             return Picker.ItemName(id);
         }

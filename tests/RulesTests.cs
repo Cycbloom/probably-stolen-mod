@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -21,9 +21,13 @@ internal static class RulesTests
         };
         try
         {
-            if (args.Length > 3 && args[3] == "events") WriteRegionalEventReport(args[2]);
-            else if (args.Length > 2) WriteBalanceReport(args[2]);
-            else Run();
+            using (var localization = new LocalizationTests())
+            {
+                assertions += localization.Run();
+                if (args.Length > 3 && args[3] == "events") WriteRegionalEventReport(args[2]);
+                else if (args.Length > 2) WriteBalanceReport(args[2]);
+                else Run();
+            }
             return 0;
         }
         catch (Exception error) { Console.Error.WriteLine(error); return 1; }
@@ -100,6 +104,9 @@ internal static class RulesTests
         SettingsProfileRules();
         RegionalEventRulesTests();
         ForeignLootRules();
+        ForeignRegistryRules();
+        CancelledForeignLootRules();
+        LocalizedItemNameRules();
         PendingDebugRules();
         assertions += ScavengingCompatibilityTests.Run();
         Console.WriteLine("PASS: " + assertions + " assertions (loot/events, state, outings, milestones, jackpot modes/news, traffic)");
@@ -109,6 +116,122 @@ internal static class RulesTests
     {
         ++assertions;
         if (!condition) throw new Exception(message);
+    }
+
+    private static void ForeignRegistryRules()
+    {
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+        FieldInfo tablesField = typeof(LootRegistry).GetField("tables", flags);
+        FieldInfo groupsField = typeof(LootRegistry).GetField("groups", flags);
+        FieldInfo dirtyField = typeof(LootRegistry).GetField("dirty", flags);
+        object oldTables = tablesField.GetValue(null), oldGroups = groupsField.GetValue(null);
+        object oldDirty = dirtyField.GetValue(null);
+        var oldFactories = PreBuiltItemHelper.preBuiltItems;
+        MethodInfo read = typeof(ForeignLoot).GetMethod("Read", flags);
+        var foreign = new LootEntry("audit_foreign_a", 1f, "audit");
+        var tables = new Dictionary<string, List<LootEntry>>
+        {
+            { "audit_native", new List<LootEntry> { new LootEntry("junk", 1000f, null) } },
+            { "audit_mod", new List<LootEntry> { foreign } }
+        };
+        var group = new List<LootEntry>
+        {
+            new LootEntry("audit_native", 99f, null), new LootEntry("audit_mod", 1f, "audit")
+        };
+        try
+        {
+            tablesField.SetValue(null, tables);
+            groupsField.SetValue(null, new Dictionary<string, List<LootEntry>> { { ForeignLoot.GroupId, group } });
+            dirtyField.SetValue(null, false);
+            PreBuiltItemHelper.preBuiltItems = new Dictionary<string, Func<GameItem>>
+            {
+                { "audit_foreign_a", null }, { "audit_foreign_b", null }
+            };
+            Func<ForeignLootTable> snapshot = () => (ForeignLootTable)read.Invoke(null, new object[] { false });
+            ForeignLootTable first = snapshot();
+            Near(first.NaturalShare, 0.01f, "Foreign registry preserves the group's 1% table share");
+            foreach (float scale in new[] { 0.01f, 1f, 1000f, float.MaxValue })
+            {
+                foreign.weight = scale;
+                ForeignLootTable scaled = snapshot();
+                Near(scaled.NaturalShare, 0.01f, "Scaling a child table leaves its natural share unchanged");
+                Check(first.SameContent(scaled), "Equivalent table weights preserve the snapshot cache identity");
+            }
+            foreign.weight = 1f;
+            tables["audit_mod"].Add(new LootEntry("audit_foreign_b", 3f, "audit"));
+            ForeignLootTable split = snapshot();
+            Near(split.NaturalShare, 0.01f, "Adding table contents preserves the table's group share");
+            Near(split.Weights[0] * 3f, split.Weights[1], "Native two-stage roll preserves the child table's 1:3 ratio");
+            foreign.weight = 1.001f;
+            Check(!split.SameContent(snapshot()), "Small foreign probability changes invalidate the cached distribution");
+            foreign.weight = 1f;
+            group.Add(new LootEntry("audit_empty", 100f, "audit"));
+            tables["audit_empty"] = new List<LootEntry>();
+            Near(snapshot().NaturalShare, 0.005f, "Empty table rolls remain in the native group denominator");
+            group.Add(new LootEntry("audit_mod", float.NaN, "audit"));
+            group.Add(new LootEntry("audit_mod", float.PositiveInfinity, "audit"));
+            tables["audit_mod"].Add(new LootEntry("audit_foreign_a", float.NaN, "audit"));
+            Near(snapshot().NaturalShare, 0.005f, "Non-finite weights do not poison the foreign snapshot");
+        }
+        finally
+        {
+            tablesField.SetValue(null, oldTables);
+            groupsField.SetValue(null, oldGroups);
+            dirtyField.SetValue(null, oldDirty);
+            PreBuiltItemHelper.preBuiltItems = oldFactories;
+            ForeignLoot.Invalidate();
+        }
+    }
+
+    private static void CancelledForeignLootRules()
+    {
+        EffectiveTable table = LootCalculator.Build(Region.All[0], new LootSettings(100f, 0f, 100f, 0f, 0f, 5f),
+            false, 1f, 0, new ForeignLootTable(new[] { "audit_foreign" }, new[] { 1f }, 0.01f));
+        foreach (string cancelled in new string[] { null, "" })
+        {
+            int events = 0, spawns = 0;
+            bool fallback;
+            object item = LootRollResolver.CreateWithFallback(table, table.ForeignStart,
+                (t, i) => { ++events; return LootRollResolver.Resolve(t.Items[i], t.Items[i], "audit", c => c.itemId = cancelled); },
+                token => { ++spawns; return new object(); }, out fallback);
+            Check(item == null && !fallback && events == 1 && spawns == 0,
+                "Cancelled foreign roll fires once, spawns nothing and never retries");
+        }
+        foreach (bool cancelFallback in new[] { false, true })
+        {
+            int events = 0, spawns = 0;
+            bool fallback;
+            object item = LootRollResolver.CreateWithFallback(table, table.ForeignStart,
+                (t, i) => { ++events; return events == 2 && cancelFallback ? null : t.Items[i]; },
+                token => { ++spawns; return token == "audit_foreign" ? null : new object(); }, out fallback);
+            Check(fallback && events == 2 && spawns == (cancelFallback ? 1 : 2),
+                "A failed foreign factory retries once and respects cancellation on the fallback");
+            Check((item == null) == cancelFallback, "Only an uncancelled valid fallback produces an item");
+        }
+        int ordinarySpawns = 0;
+        bool ordinaryFallback;
+        LootRollResolver.CreateWithFallback<object>(table, table.FallbackOrdinaryIndex(), (t, i) => t.Items[i],
+            token => { ++ordinarySpawns; return null; }, out ordinaryFallback);
+        Check(!ordinaryFallback && ordinarySpawns == 1, "A failed ordinary factory is not retried");
+    }
+
+    private static void LocalizedItemNameRules()
+    {
+        var cache = new ItemNameCache();
+        int reads = 0;
+        string translated = "中文物品";
+        Func<string, string> resolve = id => { ++reads; return translated; };
+        Check(cache.Get("zh-CN", "item", resolve) == translated, "Names resolve in the current locale");
+        cache.Get("zh-cn", "item", resolve);
+        Check(reads == 1, "Repeated lookups in the same locale reuse the cached name");
+        translated = "English item";
+        Check(cache.Get("en", "item", resolve) == translated && reads == 2, "Changing locale resolves the same item again");
+        translated = "中文物品";
+        Check(cache.Get("zh-CN", "item", resolve) == translated && reads == 3, "Switching back cannot retain an English name");
+        translated = null;
+        Check(cache.Get("zh-CN", "missing", resolve) == null, "Missing names stay unresolved");
+        translated = "Loaded later";
+        Check(cache.Get("zh-CN", "missing", resolve) == translated, "Missing names are retried after assets become available");
     }
 
     /// <summary>
@@ -968,7 +1091,7 @@ internal static class RulesTests
         Check(!GroundExpand.SearchActive, "Scene setup resets search scope");
         Near(PerkCatalog.MinorMultiplier(59), 0.1f, "Below tier 60");
         Near(PerkCatalog.MinorMultiplier(60), 1f, "At tier 60");
-        Check(PerkCatalog.For(100).DescriptionZh.Contains("夜间服务"), "Tier 100 describes the actual night service");
+        Check(PerkCatalog.For(100).Description.Contains("夜间服务"), "Tier 100 describes the actual night service");
         bool wentOut = true;
         bool original = wentOut;
         RestoreScope outer = new RestoreScope(() => wentOut = original);
@@ -1022,11 +1145,11 @@ internal static class RulesTests
             Check(!note.GivesToken(true), "Legacy token receipt prevents a duplicate");
             Check(note.GivesToken(false) == (note.Threshold == 100), "Token belongs exclusively to 100 reputation");
         }
-        Check(!MilestoneNotes.All[0].Body(true, false).Contains("信物"), "20-point letter no longer claims a token");
-        Check(MilestoneNotes.All[1].Body(true, false).Contains("搬回你店里"), "40-point letter explains hauling");
-        Check(MilestoneNotes.All[2].Body(true, true).Contains("20 信用点")
-            && MilestoneNotes.All[2].Body(true, true).Contains("2 回"), "100-point letter follows service price and attempts");
-        Check(!MilestoneNotes.All[2].Body(true, false).Contains("这枚信物"), "Upgrade note does not imply a second token");
+        Check(!MilestoneNotes.All[0].Body(false).Contains("信物"), "20-point letter no longer claims a token");
+        Check(MilestoneNotes.All[1].Body(false).Contains("搬回你店里"), "40-point letter explains hauling");
+        Check(MilestoneNotes.All[2].Body(true).Contains("20 信用点")
+            && MilestoneNotes.All[2].Body(true).Contains("2 回"), "100-point letter follows service price and attempts");
+        Check(!MilestoneNotes.All[2].Body(false).Contains("这枚信物"), "Upgrade note does not imply a second token");
 
         List<string> onCounter = new List<string>();
         bool received = false;

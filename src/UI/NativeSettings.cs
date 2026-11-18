@@ -323,8 +323,7 @@ namespace DumpingGroundMap
         private static void AddEvBlock(CustomUIBuilder b)
         {
             b.AddSpace(6);
-            b.AddLabel(Copy.Text("—— 各声望档主掉落期望（信用点/件，实时刷新） ——",
-                "— Main-drop value by reputation (credits/item, live) —"), "dgm_ev_header");
+            b.AddLabel(Copy.Get("nativesettings_main_drop_value_by_reputation_credits_item"), "dgm_ev_header");
             CustomUIElement header = b.Last;
             if (header.text != null) header.text.color = Picker.Accent;
             Picker.Size(header, -1, 26);
@@ -336,8 +335,7 @@ namespace DumpingGroundMap
             reference.SetText(ReferenceLine());
             if (reference.text != null) reference.text.color = Picker.Ink;
 
-            b.AddLabel(Copy.Text("按各档已开放区域平均；常态无事件，大小奖另算。",
-                "Average of areas open at each tier; no events. Rewards separate."), "dgm_ev_basis");
+            b.AddLabel(Copy.Get("nativesettings_average_of_areas_open_at_each_tier"), "dgm_ev_basis");
             Picker.Size(b.Last, -1, 24);
 
             evLabels = new CustomUIElement[ReputationExpectationPreview.Milestones.Length];
@@ -366,8 +364,8 @@ namespace DumpingGroundMap
 
             b.AddSpace(4);
             b.BeginRow(8f, TextAnchor.MiddleLeft);
-            PresetButton(b, 0, Copy.Text("默认", "Default"));
-            PresetButton(b, 1, Copy.Text("加强", "Enhanced"));
+            PresetButton(b, 0, Copy.Get("nativesettings_default"));
+            PresetButton(b, 1, Copy.Get("nativesettings_enhanced"));
             b.End();
             b.AddSpace(4);
         }
@@ -378,8 +376,7 @@ namespace DumpingGroundMap
             Picker.Size(b.Last, 140, 34);
             LootPreset profile = LootPreset.For(preset);
             b.Last.SetTooltip(string.Format(CultureInfo.InvariantCulture,
-                Copy.Text("垃圾倍率 {0}% · 专精 {1}%\n贵重品 {2}% · 箱/卡各 {3}%\n小奖上限 {4}% · 小奖价值 {5}\n大奖上限 {6}% · 大小奖窗口开启\n大奖按天，小奖按搜索。声望门槛照常生效。",
-                    "Junk {0}% · Specialty {1}%\nValuables {2}% · Crates/cards {3}% each\nMinor cap {4}% · Minor value {5}\nJackpot cap {6}% · Both adaptive windows on\nJackpot daily; minor per search. Reputation gates still apply."),
+                Copy.Get("nativesettings_junk_0_specialty_1_valuables_2_crates"),
                 profile.Junk, profile.SpecialtyPercent, profile.High, profile.Crate,
                 profile.Minor, profile.MinorValue, profile.StashCap));
         }
@@ -388,8 +385,7 @@ namespace DumpingGroundMap
         private static void AddGroundPresetBlock(CustomUIBuilder b)
         {
             b.AddSpace(6);
-            b.AddLabel(Copy.Text("—— 常用尺寸（点一下同时设置宽和高） ——",
-                "— Common sizes (sets width and height together) —"), "dgm_ground_presets");
+            b.AddLabel(Copy.Get("nativesettings_common_sizes_sets_width_and_height_together"), "dgm_ground_presets");
             CustomUIElement header = b.Last;
             if (header.text != null) header.text.color = Picker.Accent;
             Picker.Size(header, -1, 26);
@@ -453,6 +449,7 @@ namespace DumpingGroundMap
                 Debug.LogWarning(LogTag + key + ": dropdown widget missing, live EV refresh disabled");
                 return;
             }
+            LocalizeDropdown(element, Tuning.SpecialtyDisplayLabels);
             element.OnDropdown(delegate(int index)
             {
                 Tuning.SetSpecialtyTierLive(index);
@@ -471,6 +468,8 @@ namespace DumpingGroundMap
                 Debug.LogWarning(LogTag + key + ": dropdown widget missing, alignment fixed at default");
                 return;
             }
+            LocalizeDropdown(element, Tuning.GroundAlignLabels);
+            element.SetIndex(Tuning.GroundAlign, false);
             element.OnDropdown(delegate(int index)
             {
                 Tuning.SetGroundAlignLive(index);
@@ -478,6 +477,16 @@ namespace DumpingGroundMap
             });
             Debug.Log(LogTag + key + ": dropdown bound (options="
                 + element.dropdown.options.Count + ", current=" + Tuning.GroundAlign + ")");
+        }
+
+        private static void LocalizeDropdown(CustomUIElement element, string[] labels)
+        {
+            if (element == null || element.dropdown == null) return;
+            // Keep the native choices and their indices for Apply/Reset/persistence.
+            // Only replace what the player sees in TMP's option data.
+            for (int i = 0; i < labels.Length && i < element.dropdown.options.Count; ++i)
+                element.dropdown.options[i].text = labels[i];
+            element.dropdown.RefreshShownValue();
         }
 
         private static CustomUIElement HookDebugSlider(CustomUIWindow target, string key)
@@ -595,9 +604,9 @@ namespace DumpingGroundMap
             {
                 int points = ReputationExpectationPreview.Milestones[i];
                 string name = string.Format(CultureInfo.InvariantCulture,
-                    Copy.Text("声望 {0}（{1}区平均）", "Reputation {0} ({1}-area average)"),
+                    Copy.Get("nativesettings_reputation_0_1_area_average"),
                     points, ReputationExpectationPreview.OpenCount(points));
-                if (i == currentTier) name += Copy.Text(" · 当前档", " · Current tier");
+                if (i == currentTier) name += Copy.Get("nativesettings_current_tier");
                 SetEvLine(evLabels[i], name, reputationPreview.Get(i, preview, foreign));
                 evLabels[i].SetTextColor(i == currentTier ? Picker.Accent : Picker.Ink);
             }
@@ -618,6 +627,8 @@ namespace DumpingGroundMap
         internal static void AfterNativeReset(CustomUIWindow target, ModConfig config)
         {
             if (config == null || config.ModId != Core.Id || !ReferenceEquals(target, window)) return;
+            LocalizeDropdown(specialtyDropdown, Tuning.SpecialtyDisplayLabels);
+            LocalizeDropdown(groundAlignDropdown, Tuning.GroundAlignLabels);
             Refresh();
         }
 
@@ -634,24 +645,22 @@ namespace DumpingGroundMap
             // Every area is reverse-solved to the same target, so one compact figure
             // is enough; fall back to a range if rounding ever splits them.
             string valueText = (max - min) <= 0.011f
-                ? Copy.Text("各区 ", "every area ") + min.ToString("0.00", CultureInfo.InvariantCulture)
+                ? Copy.Get("nativesettings_every_area") + min.ToString("0.00", CultureInfo.InvariantCulture)
                 : min.ToString("0.00", CultureInfo.InvariantCulture) + " – "
                     + max.ToString("0.00", CultureInfo.InvariantCulture);
-            return Copy.Text("原版参考（垃圾 100%、无专精）：",
-                "Vanilla reference (100% junk, no specialty): ") + valueText;
+            return Copy.Get("nativesettings_vanilla_reference_100_junk_no_specialty") + valueText;
         }
 
         private static void SetEvLine(CustomUIElement label, string name, MainExpectation parts)
         {
             string total = parts.Total.ToString("0.00", CultureInfo.InvariantCulture);
-            string components = Copy.Text("基础 ", "Base ") + parts.Base.ToString("0.00", CultureInfo.InvariantCulture)
-                + Copy.Text(" + 贵重增益 ", " + rare uplift ") + parts.Valuable.ToString("0.00", CultureInfo.InvariantCulture)
-                + Copy.Text(" + 箱卡增益 ", " + crates/cards ") + parts.Supply.ToString("0.00", CultureInfo.InvariantCulture);
-            label.SetText(name + Copy.Text("　合计 ≈ ", "  Total ≈ ") + total
+            string components = Copy.Get("lootnoticeview_base") + parts.Base.ToString("0.00", CultureInfo.InvariantCulture)
+                + Copy.Get("nativesettings_rare_uplift") + parts.Valuable.ToString("0.00", CultureInfo.InvariantCulture)
+                + Copy.Get("lootnoticeview_crates_cards") + parts.Supply.ToString("0.00", CultureInfo.InvariantCulture);
+            label.SetText(name + Copy.Get("nativesettings_total") + total
                 + "\n<size=15>" + components + "</size>");
             label.SetTooltip(name + "\n" + components + " ≈ " + total
-                + Copy.Text(" 信用点/件\n使用当前设置，取该声望档已开放区域的等权平均；按无全场/区域事件的常态计算。80声望加入贵重品，100声望再加入补给箱与钥匙卡。同行服务不改变单件期望。大奖、小奖、工具和额外收获另算；外来物品缺少估值时按0计，显示值可能偏低。",
-                    " credits/item\nCurrent settings; equal-weight average of areas open at this tier, without native or regional events. Valuables unlock at 80; crates/cards unlock at 100. The outing does not change per-item value. Jackpots, minor rewards, tools and extra finds are separate. Unpriced foreign items count as zero, so estimates may be low."));
+                + Copy.Get("nativesettings_credits_item_current_settings_equal_weight_average"));
         }
 
         private static void OnSlide(int kind, float value)

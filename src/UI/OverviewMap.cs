@@ -211,7 +211,7 @@ namespace DumpingGroundMap
                 RegionalEvent effect = RegionalEvents.ActiveFor(r);
                 if (eventRoots[i] != null) eventRoots[i].SetActive(effect != null);
                 if (effect != null && eventBadges[i] != null)
-                    eventBadges[i].SetText(Copy.Text("今日：", "Today: ") + effect.Title);
+                    eventBadges[i].SetText(Copy.Get("regionalevents_today") + effect.Title);
                 if (artAvailable)
                     art[i].color = locked ? new Color(0.66f, 0.67f, 0.70f, 1f)
                         : lit ? Color.white : new Color(0.88f, 0.88f, 0.90f, 1f);
