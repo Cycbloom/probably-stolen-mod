@@ -205,27 +205,13 @@ namespace DumpingGroundMap
 
                 if (hit)
                 {
-                    int spawned = AddJackpot(items, template);
-                    // This day's probability is fixed. The next day consumes
-                    // the winning-day result and halves its window once.
-                    tripHit = true;
-                    hitDay = today;
-                    if (useWindow) adaptiveHitDay = today;
-                    hitRegion = region.Id;
-                    newsDay = today + 1;
-                    newsFired = -1;
-                    // 当场按「明天」排进原生未来队列，日历当天即可看到；
-                    // 失败时保留 newsDay，由次日开日的兜底路径补排。
-                    bool newsQueued = QueueNewsForTomorrow(template);
-                    jackpotHit = true;
-                    SaveState();
-                    NotifyFind(region.Id);
-                    ModLogger.Info("stash: jackpot region=" + region.Id
-                        + " day=" + today + " roll=" + roll.ToString("F3")
-                        + " items=" + spawned + " chance " + before.ToString("F3")
-                        + " -> " + JackpotChanceRules.Current(chance, cap, useWindow).ToString("F3")
-                        + " window=" + useWindow + " phase=" + phase
-                        + " news_day=" + newsDay + " news_queued=" + (newsQueued ? 1 : 0));
+                    jackpotHit = TryAwardJackpot(items, template, region, today);
+                    if (jackpotHit)
+                        ModLogger.Info("stash: jackpot region=" + region.Id
+                            + " day=" + today + " roll=" + roll.ToString("F3")
+                            + " chance " + before.ToString("F3")
+                            + " -> " + JackpotChanceRules.Current(chance, cap, useWindow).ToString("F3")
+                            + " window=" + useWindow + " phase=" + phase);
                 }
                 else
                 {
@@ -254,6 +240,33 @@ namespace DumpingGroundMap
                 ModLogger.Info("stash: bonus region=" + region.Id
                     + " day=" + today + " items=" + BonusItems);
             }
+        }
+
+        /// <summary>Only a delivered jackpot consumes the trip, queues news and announces a win.</summary>
+        private static bool TryAwardJackpot(List<GameItem> items, StashTemplate template, Region region, int today)
+        {
+            if (tripHit) return false;
+            int spawned = AddJackpot(items, template);
+            if (spawned <= 0)
+            {
+                ModLogger.Warning("stash: jackpot award failed region=" + region.Id + "; no win recorded");
+                return false;
+            }
+            // Today's chance stays fixed; the next day consumes this result once.
+            tripHit = true;
+            hitDay = today;
+            if (Tuning.StashWindowEnabled) adaptiveHitDay = today;
+            hitRegion = region.Id;
+            newsDay = today + 1;
+            newsFired = -1;
+            // Keep newsDay for the next-day fallback if queueing fails.
+            bool newsQueued = QueueNewsForTomorrow(template);
+            SaveState();
+            SoundFeedback.Jackpot();
+            NotifyFind(region.Id);
+            ModLogger.Info("stash: jackpot delivered region=" + region.Id + " items=" + spawned
+                + " news_day=" + newsDay + " news_queued=" + (newsQueued ? 1 : 0));
+            return true;
         }
 
         /// <summary>

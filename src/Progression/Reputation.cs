@@ -162,7 +162,9 @@ namespace DumpingGroundMap
             string difficultyId;
             float multiplier = ReadGainMultiplier(out difficultyId);
             long scaled = ScaleValue(value, multiplier);
+            int before = Points;
             totalValue = WriteStored(totalValue + scaled);
+            SoundFeedback.ReputationGained(before, Points);
             if (multiplier != 1f)
             {
                 ModLogger.Info("reputation: difficulty=" + difficultyId

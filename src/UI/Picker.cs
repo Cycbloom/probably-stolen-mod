@@ -454,10 +454,12 @@ namespace DumpingGroundMap
         private void Select(Region region)
         {
             if (current != this) return;
+            Region previous = selected;
             inspected = region;
             selected = region != null && region.Unlocked ? region : null;
             if (overview != null) overview.SetSelection(selected, selectedPoint);
             RefreshDetails();
+            SoundFeedback.Selection(previous, selected);
         }
 
         private void RefreshDetails()
