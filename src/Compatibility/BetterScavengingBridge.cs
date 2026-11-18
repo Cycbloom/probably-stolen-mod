@@ -117,7 +117,7 @@ namespace DumpingGroundMap
         {
             if (warned) return;
             warned = true;
-            Debug.LogWarning("[DumpingGroundMap] Better Scavenging bridge disabled: " + ex.Message);
+            ModLogger.Warning("Better Scavenging bridge disabled: " + ex.Message);
         }
     }
 }

@@ -16,20 +16,23 @@ namespace DumpingGroundMap
 
         public void Init(ModManifest manifest)
         {
+            ModLogger.Init(manifest);
             Tuning.Init();
+            ModLogger.Info("initialized v" + manifest.ModVersion);
         }
 
         public void OnEnable()
         {
             Enabled = true;
             ModLifecycle.Enable();
-            Debug.Log("[DumpingGroundMap] enabled");
+            ModLogger.Info("enabled");
         }
 
         public void OnDisable()
         {
             Enabled = false;
             ModLifecycle.Disable();
+            ModLogger.Info("disabled");
         }
     }
 }

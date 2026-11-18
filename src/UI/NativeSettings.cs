@@ -86,7 +86,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogError(LogTag + "begin entry failed: " + ex);
+                ModLogger.Error(LogTag + "begin entry failed: " + ex);
             }
         }
 
@@ -153,7 +153,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogError(LogTag + "value label failed: " + ex);
+                ModLogger.Error(LogTag + "value label failed: " + ex);
             }
         }
 
@@ -254,7 +254,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogError(LogTag + "inject failed: " + ex);
+                ModLogger.Error(LogTag + "inject failed: " + ex);
             }
             finally
             {
@@ -281,7 +281,7 @@ namespace DumpingGroundMap
             CustomUIElement element = target.Get(key);
             if (element == null || element.slider == null)
             {
-                Debug.LogWarning(LogTag + key + ": slider widget missing, live value disabled");
+                ModLogger.Warning(LogTag + key + ": slider widget missing, live value disabled");
                 return null;
             }
             if (key == KeyJunk)
@@ -292,7 +292,7 @@ namespace DumpingGroundMap
             }
             element.slider.onValueChanged.AddListener(delegate(float value) { OnSlide(kind, value); });
             HookRelease(element, key);
-            Debug.Log(LogTag + key + ": live listener bound (min="
+            ModLogger.Info(LogTag + key + ": live listener bound (min="
                 + element.slider.minValue.ToString("0.###", CultureInfo.InvariantCulture)
                 + " max=" + element.slider.maxValue.ToString("0.###", CultureInfo.InvariantCulture)
                 + " whole=" + element.slider.wholeNumbers + ")");
@@ -317,7 +317,7 @@ namespace DumpingGroundMap
             entry.eventID = UnityEngine.EventSystems.EventTriggerType.PointerUp;
             entry.callback.AddListener(delegate(UnityEngine.EventSystems.BaseEventData data) { EndDrag(); });
             trigger.triggers.Add(entry);
-            Debug.Log(LogTag + key + ": release hook on " + go.name);
+            ModLogger.Info(LogTag + key + ": release hook on " + go.name);
         }
 
         private static void AddEvBlock(CustomUIBuilder b)
@@ -429,11 +429,11 @@ namespace DumpingGroundMap
             CustomUIElement element = target.Get(key);
             if (element == null || element.toggle == null)
             {
-                Debug.LogWarning(LogTag + key + ": toggle widget missing");
+                ModLogger.Warning(LogTag + key + ": toggle widget missing");
                 return;
             }
             element.OnToggle(delegate(bool value) { Tuning.SetDebugEnabledLive(value); });
-            Debug.Log(LogTag + key + ": live listener bound");
+            ModLogger.Info(LogTag + key + ": live listener bound");
         }
 
         /// <summary>
@@ -446,18 +446,18 @@ namespace DumpingGroundMap
         {
             if (element == null || element.dropdown == null)
             {
-                Debug.LogWarning(LogTag + key + ": dropdown widget missing, live EV refresh disabled");
+                ModLogger.Warning(LogTag + key + ": dropdown widget missing, live EV refresh disabled");
                 return;
             }
             LocalizeDropdown(element, Tuning.SpecialtyDisplayLabels);
             element.OnDropdown(delegate(int index)
             {
                 Tuning.SetSpecialtyTierLive(index);
-                Debug.Log(LogTag + "ev refresh tier=" + Tuning.SpecialtyTier
+                ModLogger.Info(LogTag + "ev refresh tier=" + Tuning.SpecialtyTier
                     + " percent=" + Tuning.SpecialtyPercent.ToString("0.#", CultureInfo.InvariantCulture)
                     + " source=dropdown");
             });
-            Debug.Log(LogTag + key + ": dropdown bound (options="
+            ModLogger.Info(LogTag + key + ": dropdown bound (options="
                 + element.dropdown.options.Count + ")");
         }
 
@@ -465,7 +465,7 @@ namespace DumpingGroundMap
         {
             if (element == null || element.dropdown == null)
             {
-                Debug.LogWarning(LogTag + key + ": dropdown widget missing, alignment fixed at default");
+                ModLogger.Warning(LogTag + key + ": dropdown widget missing, alignment fixed at default");
                 return;
             }
             LocalizeDropdown(element, Tuning.GroundAlignLabels);
@@ -473,9 +473,9 @@ namespace DumpingGroundMap
             element.OnDropdown(delegate(int index)
             {
                 Tuning.SetGroundAlignLive(index);
-                Debug.Log(LogTag + "ground align=" + Tuning.GroundAlign + " source=dropdown");
+                ModLogger.Info(LogTag + "ground align=" + Tuning.GroundAlign + " source=dropdown");
             });
-            Debug.Log(LogTag + key + ": dropdown bound (options="
+            ModLogger.Info(LogTag + key + ": dropdown bound (options="
                 + element.dropdown.options.Count + ", current=" + Tuning.GroundAlign + ")");
         }
 
@@ -494,7 +494,7 @@ namespace DumpingGroundMap
             CustomUIElement element = target.Get(key);
             if (element == null || element.slider == null)
             {
-                Debug.LogWarning(LogTag + key + ": slider widget missing");
+                ModLogger.Warning(LogTag + key + ": slider widget missing");
                 return null;
             }
             element.OnSlider(delegate(float value)
@@ -518,7 +518,7 @@ namespace DumpingGroundMap
                 CommitDebugSlider();
             });
             trigger.triggers.Add(entry);
-            Debug.Log(LogTag + key + ": slider bound (min="
+            ModLogger.Info(LogTag + key + ": slider bound (min="
                 + element.slider.minValue.ToString("0.###", CultureInfo.InvariantCulture)
                 + " max=" + element.slider.maxValue.ToString("0.###", CultureInfo.InvariantCulture)
                 + " whole=" + element.slider.wholeNumbers + ")");
@@ -534,7 +534,7 @@ namespace DumpingGroundMap
             // 松手后以真正写入的值为准：开关关闭时会被忽略，标签要退回原值。
             if (debugValue != null)
                 debugValue.SetText(Tuning.DebugPoints.ToString("0.0", CultureInfo.InvariantCulture));
-            Debug.Log(LogTag + "debug slider release raw="
+            ModLogger.Info(LogTag + "debug slider release raw="
                 + value.ToString("0.###", CultureInfo.InvariantCulture)
                 + " entry=" + Tuning.DebugPoints.ToString("0.##", CultureInfo.InvariantCulture)
                 + " stored=" + Reputation.ExactPoints.ToString("0.##", CultureInfo.InvariantCulture)
@@ -788,7 +788,7 @@ namespace DumpingGroundMap
                 dragKind = kind;
                 slideCount = 0;
                 lastLogAt = 0f;
-                Debug.Log(LogTag + "drag begin kind=" + kind + " from="
+                ModLogger.Info(LogTag + "drag begin kind=" + kind + " from="
                     + from.ToString("0.###", CultureInfo.InvariantCulture));
             }
             lastSlideAt = now;
@@ -800,7 +800,7 @@ namespace DumpingGroundMap
             dragging = false;
             lastSlideAt = 0f;
             Tuning.CommitLive();
-            Debug.Log(LogTag + "drag end kind=" + dragKind + " callbacks=" + slideCount
+            ModLogger.Info(LogTag + "drag end kind=" + dragKind + " callbacks=" + slideCount
                 + " saved=" + Num(Tuning.JunkPercent) + "/" + Num(Tuning.HighPercent));
             Refresh();
         }
@@ -812,7 +812,7 @@ namespace DumpingGroundMap
             float now = Time.realtimeSinceStartup;
             if (now - lastLogAt < 0.25f) return;
             lastLogAt = now;
-            Debug.Log(LogTag + "kind=" + kind
+            ModLogger.Info(LogTag + "kind=" + kind
                 + " raw=" + raw.ToString("0.###", CultureInfo.InvariantCulture)
                 + " applied=" + applied.ToString("0.###", CultureInfo.InvariantCulture)
                 + " live=" + (Tuning.HasLive ? 1 : 0)

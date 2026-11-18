@@ -66,7 +66,7 @@ namespace DumpingGroundMap
         private static MethodBase TargetMethod()
         {
             MethodBase method = AccessTools.Method(typeof(ReputationUIManager), "OpenUI", new Type[0]);
-            Debug.Log("[DumpingGroundMap] reputation row: patch target "
+            ModLogger.Info("reputation row: patch target "
                 + (method == null ? "NOT FOUND" : method.DeclaringType.Name + "." + method.Name));
             return method;
         }
@@ -91,13 +91,13 @@ namespace DumpingGroundMap
                 if (!patchLogged)
                 {
                     patchLogged = true;
-                    Debug.Log("[DumpingGroundMap] reputation row: postfix entered (disaster_day="
+                    ModLogger.Info("reputation row: postfix entered (disaster_day="
                         + ModHelper.IsModRunning(DisasterDayId) + ", rir="
                         + ModHelper.IsModRunning(ReputationRemakeId) + ")");
                 }
                 if (builtAtOpen == thisOpen && builtFrame == Time.frameCount)
                 {
-                    Debug.Log("[DumpingGroundMap] reputation row: skip, already built for open #"
+                    ModLogger.Info("reputation row: skip, already built for open #"
                         + thisOpen + " children=" + (__instance.layout == null ? "?" : __instance.layout.transform.childCount.ToString(CultureInfo.InvariantCulture)));
                     return;
                 }
@@ -106,7 +106,7 @@ namespace DumpingGroundMap
                 GameObject prefab = __instance.reputationPrefab;
                 if (layout == null || prefab == null)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] reputation row: layout=" + (layout == null ? "null" : layout.name)
+                    ModLogger.Warning("reputation row: layout=" + (layout == null ? "null" : layout.name)
                         + " prefab=" + (prefab == null ? "null" : prefab.name));
                     return;
                 }
@@ -122,7 +122,7 @@ namespace DumpingGroundMap
                 if (element == null)
                 {
                     UnityEngine.Object.Destroy(row);
-                    Debug.LogWarning("[DumpingGroundMap] reputation row: prefab has no ReputationElement");
+                    ModLogger.Warning("reputation row: prefab has no ReputationElement");
                     return;
                 }
 
@@ -133,7 +133,7 @@ namespace DumpingGroundMap
                 PlaceRow(row, layout);
                 builtAtOpen = thisOpen;
                 builtFrame = Time.frameCount;
-                Debug.Log("[DumpingGroundMap] reputation row: added " + points
+                ModLogger.Info("reputation row: added " + points
                     + " open=#" + thisOpen
                     + " frame=" + builtFrame
                     + " active=" + row.activeSelf
@@ -144,7 +144,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogError("[DumpingGroundMap] reputation row failed: " + ex);
+                ModLogger.Error("reputation row failed: " + ex);
             }
         }
 
@@ -198,7 +198,7 @@ namespace DumpingGroundMap
                 if (parent != null) containerHeight = parent.rect.height;
             }
 
-            Debug.Log("[DumpingGroundMap] reputation row: text status="
+            ModLogger.Info("reputation row: text status="
                 + (element.reputationStatus == null ? "missing" : StatusName(points))
                 + " number=" + (element.reputationNumber == null ? "missing" : NumberText())
                 + " bar=" + barHeight.ToString("F1") + "px"
@@ -206,7 +206,7 @@ namespace DumpingGroundMap
                 + " expectedAt200=" + (BarFullHeight * 2f).ToString("F1") + "px");
             if (containerHeight > 0f && containerHeight < BarFullHeight * 2f - 1f)
             {
-                Debug.LogWarning("[DumpingGroundMap] reputation row: bar container is only "
+                ModLogger.Warning("reputation row: bar container is only "
                     + containerHeight.ToString("F1") + "px, 0–200 scale needs "
                     + (BarFullHeight * 2f).ToString("F1") + "px; 200 points will overflow");
             }
@@ -271,7 +271,7 @@ namespace DumpingGroundMap
                 layout += (i == 0 ? "" : " ") + threshold + "@" + Y(perk).ToString("F1")
                     + "/s1.00";
             }
-            Debug.Log("[DumpingGroundMap] reputation row: perks total=" + all.Count
+            ModLogger.Info("reputation row: perks total=" + all.Count
                 + " used=" + fresh.Count + " stale=" + (all.Count - fresh.Count)
                 + " points=" + points + " y=[" + layout + "]");
         }
@@ -315,7 +315,7 @@ namespace DumpingGroundMap
             RectTransform rect = row.GetComponent<RectTransform>();
             RectTransform root = layout.GetComponent<RectTransform>();
             LayoutGroup group = layout.GetComponent<LayoutGroup>();
-            Debug.Log("[DumpingGroundMap] reputation row: layout group="
+            ModLogger.Info("reputation row: layout group="
                 + (group == null ? "none" : group.GetType().Name)
                 + " children=" + layout.transform.childCount
                 + " root=" + (root == null ? "no RectTransform" : root.rect.ToString()));
@@ -324,7 +324,7 @@ namespace DumpingGroundMap
             if (group != null)
             {
                 LayoutRebuilder.ForceRebuildLayoutImmediate(root);
-                Debug.Log("[DumpingGroundMap] reputation row: placed by layout group, anchored="
+                ModLogger.Info("reputation row: placed by layout group, anchored="
                     + rect.anchoredPosition + " size=" + rect.sizeDelta);
                 return;
             }
@@ -332,13 +332,13 @@ namespace DumpingGroundMap
             int count = layout.transform.childCount;
             if (count < 2)
             {
-                Debug.LogWarning("[DumpingGroundMap] reputation row: no sibling to align to");
+                ModLogger.Warning("reputation row: no sibling to align to");
                 return;
             }
             RectTransform previous = layout.transform.GetChild(count - 2) as RectTransform;
             if (previous == null)
             {
-                Debug.LogWarning("[DumpingGroundMap] reputation row: previous row has no RectTransform");
+                ModLogger.Warning("reputation row: previous row has no RectTransform");
                 return;
             }
             float step = previous.rect.height > 0f ? previous.rect.height : rect.rect.height;
@@ -347,7 +347,7 @@ namespace DumpingGroundMap
             rect.pivot = previous.pivot;
             rect.sizeDelta = previous.sizeDelta;
             rect.anchoredPosition = previous.anchoredPosition - new Vector2(0f, step);
-            Debug.Log("[DumpingGroundMap] reputation row: placed by sibling, previous="
+            ModLogger.Info("reputation row: placed by sibling, previous="
                 + previous.anchoredPosition + " step=" + step
                 + " anchored=" + rect.anchoredPosition + " size=" + rect.sizeDelta);
         }

@@ -97,7 +97,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] debug: could not read pending points: " + ex.Message);
+                ModLogger.Warning("debug: could not read pending points: " + ex.Message);
                 return false;
             }
         }
@@ -111,7 +111,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] debug: could not queue points: " + ex.Message);
+                ModLogger.Warning("debug: could not queue points: " + ex.Message);
                 return false;
             }
         }
@@ -125,7 +125,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] debug: could not clear pending points: " + ex.Message);
+                ModLogger.Warning("debug: could not clear pending points: " + ex.Message);
                 return false;
             }
         }

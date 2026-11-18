@@ -34,12 +34,12 @@ namespace DumpingGroundMap
                         items => store.RemoveItemFromStoreInventory(items),
                         () => MarkReceived(note, includeToken));
                     if (!delivered) break; // Retry the unfinished milestone next opening.
-                    Debug.Log("[DumpingGroundMap] delivered scavenger milestone " + note.Threshold
+                    ModLogger.Info("delivered scavenger milestone " + note.Threshold
                         + (includeToken ? " with token" : " note"));
                 }
                 catch (Exception error)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] milestone " + note.Threshold + " delivery failed: " + error.Message);
+                    ModLogger.Warning("milestone " + note.Threshold + " delivery failed: " + error.Message);
                     break;
                 }
             }

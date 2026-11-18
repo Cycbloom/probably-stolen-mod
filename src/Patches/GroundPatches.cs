@@ -20,7 +20,7 @@ namespace DumpingGroundMap
             {
                 // 这里在 EmporiumEntry.Start 中间执行，抛出去会把整个商店界面建一半就断掉，
                 // 所以只记日志、放弃扩展，宁可地面保持原版尺寸。
-                Debug.LogWarning("[DGM-GROUND] 跳过：初始化地面时出错 " + error);
+                ModLogger.Warning("[DGM-GROUND] 跳过：初始化地面时出错 " + error);
             }
         }
     }

@@ -142,7 +142,7 @@ namespace DumpingGroundMap
                 UnityEngine.Object.Destroy(clone);
                 UnityEngine.Object.Destroy(helperSlot.gameObject);
                 helperSlot = null;
-                Debug.LogWarning("[DumpingGroundMap] helper button skipped: confirm button has no Button");
+                ModLogger.Warning("helper button skipped: confirm button has no Button");
                 return false;
             }
             button.onClick = new Button.ButtonClickedEvent();
@@ -238,7 +238,7 @@ namespace DumpingGroundMap
 
                 store.PayMoney(Fee, true);
                 int carried = CarryBack();
-                Debug.Log("[DumpingGroundMap] scavenger helper paid " + Fee + ", carried " + carried
+                ModLogger.Info("scavenger helper paid " + Fee + ", carried " + carried
                     + " item(s) off the ground");
 
                 if (ui != null) ui.ClosePanel();
@@ -247,7 +247,7 @@ namespace DumpingGroundMap
             }
             catch (Exception error)
             {
-                Debug.LogWarning("[DumpingGroundMap] helper button failed: " + error);
+                ModLogger.Warning("helper button failed: " + error);
             }
         }
 
@@ -268,7 +268,7 @@ namespace DumpingGroundMap
             // 这样它不占店内格子，帮手搬地面时也不用替它留位置。
             if (BackpackHookInstalled)
             {
-                Debug.Log("[DumpingGroundMap] helper: backpack left for wall hook");
+                ModLogger.Info("helper: backpack left for wall hook");
             }
             else
             {

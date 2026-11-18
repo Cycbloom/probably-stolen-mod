@@ -734,7 +734,7 @@ namespace DumpingGroundMap
 
                 reputationPopEntry.OnChanged += delegate(bool value)
                 {
-                    Debug.Log("[DumpingGroundMap] reputation pop: setting=" + (value ? "on" : "off"));
+                    ModLogger.Info("reputation pop: setting=" + (value ? "on" : "off"));
                 };
 
                 debugEnabledEntry = config.Define(DebugEnabledKey, false, DebugSection,
@@ -748,7 +748,7 @@ namespace DumpingGroundMap
                 debugEnabledEntry.OnChanged += delegate(bool value)
                 {
                     if (!value) Reputation.ClearPendingDebugPoints();
-                    Debug.Log("[DumpingGroundMap] debug: options " + (value ? "on" : "off"));
+                    ModLogger.Info("debug: options " + (value ? "on" : "off"));
                 };
 
                 perfLogEntry = config.Define(PerfLogKey, DefaultPerfLog, PerfSection,
@@ -779,7 +779,7 @@ namespace DumpingGroundMap
                         if (!debugIgnoredLogged)
                         {
                             debugIgnoredLogged = true;
-                            Debug.Log("[DumpingGroundMap] debug: reputation setter ignored (debug off)");
+                            ModLogger.Info("debug: reputation setter ignored (debug off)");
                         }
                         return;
                     }
@@ -852,7 +852,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogError("[DumpingGroundMap] Could not register settings: " + ex);
+                ModLogger.Error("Could not register settings: " + ex);
             }
         }
 

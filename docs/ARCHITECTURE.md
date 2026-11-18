@@ -10,6 +10,7 @@
 | src/Services | 开局物资、地面尺寸/布局、付费搬运、同行夜间服务 |
 | src/Compatibility | 原生掉落事件及可选 Reputation Pop / Better Scavenging / Scavenging Expansion 联动 |
 | src/Patches | Harmony 接入点，调用具体服务 |
+| src/Diagnostics | ModLogger 统一官方日志入口；PerfLog 提供可关闭的性能记录 |
 | tests、tools | 进程内规则检查、游戏扫描器检查；不打进发布包 |
 
 ## 掉落流程

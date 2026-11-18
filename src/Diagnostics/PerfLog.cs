@@ -1,5 +1,4 @@
 using System.Globalization;
-using UnityEngine;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
 namespace DumpingGroundMap
@@ -10,7 +9,7 @@ namespace DumpingGroundMap
     /// </summary>
     internal static class PerfLog
     {
-        private const string Prefix = "[DGM][perf] ";
+        private const string Prefix = "[perf] ";
         private static readonly double MsPerTick = 1000.0 / Stopwatch.Frequency;
 
         internal static bool Enabled
@@ -21,7 +20,7 @@ namespace DumpingGroundMap
         internal static void Line(string text)
         {
             if (!Enabled) return;
-            Debug.Log(Prefix + text);
+            ModLogger.Info(Prefix + text);
         }
 
         /// <summary>把 GetTimestamp 的起止差换成毫秒（一位小数）。</summary>

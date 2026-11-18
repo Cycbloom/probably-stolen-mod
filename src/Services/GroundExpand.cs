@@ -44,14 +44,14 @@ namespace DumpingGroundMap
             int shapeHeight = ground.heightPixels / grid;
             if (shapeWidth <= 0 || shapeHeight <= 0)
             {
-                Debug.LogWarning("[DGM-GROUND] 跳过：地面尺寸还没算出来");
+                ModLogger.Warning("[DGM-GROUND] 跳过：地面尺寸还没算出来");
                 return;
             }
 
             // 兼容：只有原版 12×9 才接手，别的 mod 改过形状就完全不动。
             if (shapeWidth != VanillaWidth || shapeHeight != VanillaHeight)
             {
-                Debug.Log("[DGM-GROUND] 跳过：地面形状是 " + shapeWidth + "x" + shapeHeight
+                ModLogger.Info("[DGM-GROUND] 跳过：地面形状是 " + shapeWidth + "x" + shapeHeight
                     + "，不是原版 12x9（可能已被其它 mod 接管）");
                 return;
             }
@@ -59,7 +59,7 @@ namespace DumpingGroundMap
             // 只放不缩：地面里已经有东西时不改形状，避免挤掉或丢失物品。
             if (ground.childItems.Count > 0)
             {
-                Debug.Log("[DGM-GROUND] 跳过：地面已有 " + ground.childItems.Count
+                ModLogger.Info("[DGM-GROUND] 跳过：地面已有 " + ground.childItems.Count
                     + " 件物品，保持现状不缩");
                 return;
             }
@@ -68,7 +68,7 @@ namespace DumpingGroundMap
             int wantHeight = Mathf.Clamp(Tuning.GroundHeight, Tuning.GroundHeightMin, Tuning.GroundHeightMax);
             if (wantWidth <= VanillaWidth && wantHeight <= VanillaHeight)
             {
-                Debug.Log("[DGM-GROUND] 跳过：设置是原版尺寸 " + wantWidth + "x" + wantHeight);
+                ModLogger.Info("[DGM-GROUND] 跳过：设置是原版尺寸 " + wantWidth + "x" + wantHeight);
                 return;
             }
 
@@ -76,7 +76,7 @@ namespace DumpingGroundMap
             int canvasHeight;
             if (!CanvasSize(out canvasWidth, out canvasHeight))
             {
-                Debug.LogWarning("[DGM-GROUND] 跳过：拿不到窗口画布尺寸");
+                ModLogger.Warning("[DGM-GROUND] 跳过：拿不到窗口画布尺寸");
                 return;
             }
 
@@ -91,18 +91,18 @@ namespace DumpingGroundMap
             if (width > fitWidth)
             {
                 width = Mathf.Max(VanillaWidth, fitWidth);
-                Debug.LogWarning("[DGM-GROUND] 画布宽 " + canvasWidth + " 放不下 " + wantWidth
+                ModLogger.Warning("[DGM-GROUND] 画布宽 " + canvasWidth + " 放不下 " + wantWidth
                     + " 格，压到 " + width + " 格");
             }
             if (height > fitHeight)
             {
                 height = Mathf.Max(VanillaHeight, fitHeight);
-                Debug.LogWarning("[DGM-GROUND] 画布高 " + canvasHeight + " 放不下 " + wantHeight
+                ModLogger.Warning("[DGM-GROUND] 画布高 " + canvasHeight + " 放不下 " + wantHeight
                     + " 格，压到 " + height + " 格");
             }
             if (width <= VanillaWidth && height <= VanillaHeight)
             {
-                Debug.Log("[DGM-GROUND] 跳过：画布太小，放不下比原版更大的地面");
+                ModLogger.Info("[DGM-GROUND] 跳过：画布太小，放不下比原版更大的地面");
                 return;
             }
 
@@ -115,7 +115,7 @@ namespace DumpingGroundMap
             // 中间被调的，那时 RenderHandler 还没准备好，Validate 会空引用并把 Start 打断，
             // 商店界面就只建了一半。位置留给 ShowAfterhourInv / Validate 的 postfix。
 
-            Debug.Log("[DGM-GROUND] 地面 " + VanillaWidth + "x" + VanillaHeight
+            ModLogger.Info("[DGM-GROUND] 地面 " + VanillaWidth + "x" + VanillaHeight
                 + " → " + width + "x" + height
                 + "，窗口 " + window.widthPixels + "x" + window.heightPixels
                 + "，画布 " + canvasWidth + "x" + canvasHeight);
@@ -173,7 +173,7 @@ namespace DumpingGroundMap
             if (furnace && x > alignedX + 0.5f && !furnaceSpaceNoticed)
             {
                 furnaceSpaceNoticed = true;
-                Debug.Log("[DGM-GROUND] Reserved Scavenging Expansion furnace space: ground left=" + x);
+                ModLogger.Info("[DGM-GROUND] Reserved Scavenging Expansion furnace space: ground left=" + x);
             }
 
             // anchoredPosition 的 y 向下为负。

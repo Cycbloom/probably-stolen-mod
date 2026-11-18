@@ -21,7 +21,7 @@ namespace DumpingGroundMap
         {
             MethodBase method = AccessTools.Method(typeof(ScavHelper), "GetRandomScavengedItem",
                 new Type[] { typeof(GameItem).MakeByRefType() });
-            Debug.Log("[DumpingGroundMap] scavenge: patch target "
+            ModLogger.Info("scavenge: patch target "
                 + (method == null ? "NOT FOUND" : method.DeclaringType.Name + "." + method.Name));
             return method;
         }
@@ -56,7 +56,7 @@ namespace DumpingGroundMap
                 try { sum += item.GetCurrentValue(false, true, true, false, 0L); }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] scavenge: value failed: " + ex.Message);
+                    ModLogger.Warning("scavenge: value failed: " + ex.Message);
                 }
             }
             long repValue = Reputation.Add(sum);
@@ -67,12 +67,12 @@ namespace DumpingGroundMap
             // 特殊物品提示放到最终列表之后：布里丹驴等技能比较并丢弃较低者时，
             // 被丢掉的那件不会再留下「有提示没物品」。
             StashFind.NoticeSpecialFinds(__result);
-            Debug.Log("[DumpingGroundMap] scavenge: items=" + count + " value=" + sum
+            ModLogger.Info("scavenge: items=" + count + " value=" + sum
                 + " repValue=" + repValue + " total=" + Reputation.TotalValue
                 + " points=" + Reputation.Points);
             if (count > 0 && sum <= 0L)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenge: items found but total value is 0");
+                ModLogger.Warning("scavenge: items found but total value is 0");
             }
         }
     }

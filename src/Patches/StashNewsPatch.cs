@@ -13,7 +13,7 @@ namespace DumpingGroundMap
         private static MethodBase TargetMethod()
         {
             MethodBase method = AccessTools.Method(typeof(StoreEventManager), "OnDayStart", new Type[0]);
-            Debug.Log("[DumpingGroundMap] stash news: patch target "
+            ModLogger.Info("stash news: patch target "
                 + (method == null ? "NOT FOUND" : method.DeclaringType.Name + "." + method.Name));
             return method;
         }

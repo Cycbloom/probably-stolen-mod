@@ -51,7 +51,7 @@ namespace DumpingGroundMap
                 if (!disabledLogged)
                 {
                     disabledLogged = true;
-                    Debug.Log("[DumpingGroundMap] reputation pop: disabled by setting");
+                    ModLogger.Info("reputation pop: disabled by setting");
                 }
                 return;
             }
@@ -61,7 +61,7 @@ namespace DumpingGroundMap
                 if (!missingLogged)
                 {
                     missingLogged = true;
-                    Debug.Log("[DumpingGroundMap] reputation pop: unavailable (mod not running)");
+                    ModLogger.Info("reputation pop: unavailable (mod not running)");
                 }
                 return;
             }
@@ -74,13 +74,13 @@ namespace DumpingGroundMap
             try
             {
                 record(FactionId, delta);
-                Debug.Log("[DumpingGroundMap] reputation pop: delta="
+                ModLogger.Info("reputation pop: delta="
                     + delta.ToString("0.##", CultureInfo.InvariantCulture)
                     + " faction=" + FactionId);
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] reputation pop: Record failed: " + ex.Message);
+                ModLogger.Warning("reputation pop: Record failed: " + ex.Message);
             }
         }
 
@@ -94,18 +94,18 @@ namespace DumpingGroundMap
                     new Type[] { typeof(string), typeof(double) });
                 if (method == null)
                 {
-                    Debug.Log("[DumpingGroundMap] reputation pop: " + RecordTarget + " NOT FOUND");
+                    ModLogger.Info("reputation pop: " + RecordTarget + " NOT FOUND");
                     return;
                 }
                 record = (Action<string, double>)Delegate.CreateDelegate(
                     typeof(Action<string, double>), method);
-                Debug.Log("[DumpingGroundMap] reputation pop: resolved " + RecordTarget);
+                ModLogger.Info("reputation pop: resolved " + RecordTarget);
                 PatchName();
             }
             catch (Exception ex)
             {
                 record = null;
-                Debug.LogWarning("[DumpingGroundMap] reputation pop: resolve failed: " + ex.Message);
+                ModLogger.Warning("reputation pop: resolve failed: " + ex.Message);
             }
         }
 
@@ -124,17 +124,17 @@ namespace DumpingGroundMap
                 MethodInfo prefix = AccessTools.Method(typeof(ReputationPopBridge), "NamePrefix");
                 if (target == null || prefix == null)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] reputation pop: name prefix target "
+                    ModLogger.Warning("reputation pop: name prefix target "
                         + (target == null ? "NOT FOUND" : "ok"));
                     return;
                 }
                 Harmony harmony = new Harmony(Core.Id + ".reputation_pop");
                 harmony.Patch(target, prefix: new HarmonyMethod(prefix));
-                Debug.Log("[DumpingGroundMap] reputation pop: name prefix patched");
+                ModLogger.Info("reputation pop: name prefix patched");
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] reputation pop: name prefix failed: " + ex.Message);
+                ModLogger.Warning("reputation pop: name prefix failed: " + ex.Message);
             }
         }
 

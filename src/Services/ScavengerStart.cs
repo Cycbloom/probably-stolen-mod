@@ -78,7 +78,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogError("[DumpingGroundMap] scavenger start: hook failed: " + ex);
+                ModLogger.Error("scavenger start: hook failed: " + ex);
             }
         }
 
@@ -91,7 +91,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenger start: unregister failed: " + ex.Message);
+                ModLogger.Warning("scavenger start: unregister failed: " + ex.Message);
             }
             registered = false;
             hooked = false;
@@ -143,7 +143,7 @@ namespace DumpingGroundMap
             scenario.onStart = OnStart;
             StartingScenario.Register(scenario);
             registered = true;
-            Debug.Log("[DumpingGroundMap] scavenger start: registered " + ScenarioId);
+            ModLogger.Info("scavenger start: registered " + ScenarioId);
         }
 
         /// <summary>
@@ -158,7 +158,7 @@ namespace DumpingGroundMap
                 EmporiumEntry entry = EmporiumEntry.Instance;
                 if (entry == null || entry.invElement == null)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] scavenger start: no EmporiumEntry, gear skipped");
+                    ModLogger.Warning("scavenger start: no EmporiumEntry, gear skipped");
                     return;
                 }
                 GameGridInventory inv = entry.invElement;
@@ -182,17 +182,17 @@ namespace DumpingGroundMap
                 if (store != null)
                 {
                     store.playerCash -= StartCashCost;
-                    Debug.Log("[DumpingGroundMap] scavenger start: gear given, cash -" + StartCashCost
+                    ModLogger.Info("scavenger start: gear given, cash -" + StartCashCost
                         + " left=" + store.playerCash);
                 }
                 else
                 {
-                    Debug.LogWarning("[DumpingGroundMap] scavenger start: no PlayerStore, cash untouched");
+                    ModLogger.Warning("scavenger start: no PlayerStore, cash untouched");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenger start: gear failed: " + ex);
+                ModLogger.Warning("scavenger start: gear failed: " + ex);
             }
         }
 
@@ -203,7 +203,7 @@ namespace DumpingGroundMap
             if (item == null && !string.IsNullOrEmpty(fallbackId)) item = Make(fallbackId);
             if (item == null) return null;
             GraphUtils.EmporiumTryAdd(inv, item);
-            Debug.Log("[DumpingGroundMap] scavenger start: gave " + item.identifier
+            ModLogger.Info("scavenger start: gave " + item.identifier
                 + " placed=" + (item.parentInventory != null));
             return item;
         }
@@ -217,7 +217,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenger start: item '" + id + "' failed: " + ex.Message);
+                ModLogger.Warning("scavenger start: item '" + id + "' failed: " + ex.Message);
                 return null;
             }
         }
@@ -235,7 +235,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenger start: toolbox slots failed: " + ex.Message);
+                ModLogger.Warning("scavenger start: toolbox slots failed: " + ex.Message);
             }
         }
 
@@ -251,12 +251,12 @@ namespace DumpingGroundMap
             {
                 long baseValue = item.unitValue;
                 ItemFeatureHelper.SetShabby(item);
-                Debug.Log("[DumpingGroundMap] scavenger start: " + item.identifier + " shabby base="
+                ModLogger.Info("scavenger start: " + item.identifier + " shabby base="
                     + baseValue + " now=" + item.GetCurrentValue(false, false, false, false, 0L));
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenger start: shabby failed on "
+                ModLogger.Warning("scavenger start: shabby failed on "
                     + item.identifier + ": " + ex.Message);
             }
         }
@@ -269,11 +269,11 @@ namespace DumpingGroundMap
             MakeShabby(tool);
             if (toolbox != null && GraphUtils.TryAcceptAll(toolbox, tool, -1) == 0)
             {
-                Debug.Log("[DumpingGroundMap] scavenger start: " + id + " into toolbox");
+                ModLogger.Info("scavenger start: " + id + " into toolbox");
                 return;
             }
             GraphUtils.EmporiumTryAdd(inv, tool);
-            Debug.Log("[DumpingGroundMap] scavenger start: " + id + " into back room");
+            ModLogger.Info("scavenger start: " + id + " into back room");
         }
 
         /// <summary>
@@ -291,7 +291,7 @@ namespace DumpingGroundMap
                 float points = StartReputation * multiplier;
                 Reputation.SetPoints(points);
                 ScavengerPerkPatch.ResetCache();
-                Debug.Log("[DumpingGroundMap] scavenger start: reputation = "
+                ModLogger.Info("scavenger start: reputation = "
                     + points.ToString("0.##", CultureInfo.InvariantCulture)
                     + " (base " + StartReputation + " x "
                     + multiplier.ToString("0.###", CultureInfo.InvariantCulture)
@@ -299,7 +299,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenger start: reputation failed: " + ex.Message);
+                ModLogger.Warning("scavenger start: reputation failed: " + ex.Message);
             }
         }
     }

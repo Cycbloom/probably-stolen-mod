@@ -61,7 +61,7 @@ namespace DumpingGroundMap
             catch (Exception ex)
             {
                 days = null;
-                if (!failed) Debug.LogWarning("[DumpingGroundMap] regional events: " + ex.Message);
+                if (!failed) ModLogger.Warning("regional events: " + ex.Message);
                 failed = true;
             }
         }

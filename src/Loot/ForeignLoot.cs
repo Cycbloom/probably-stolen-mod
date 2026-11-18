@@ -260,14 +260,14 @@ namespace DumpingGroundMap
         private static void LogMissing(string id)
         {
             if (!missingLogged.Add(id)) return;
-            Debug.LogWarning("[DumpingGroundMap] foreign loot: skipping unknown item id '" + id + "'");
+            ModLogger.Warning("foreign loot: skipping unknown item id '" + id + "'");
         }
 
         private static void WarnRead(Exception ex)
         {
             if (warnedRead) return;
             warnedRead = true;
-            Debug.LogWarning("[DumpingGroundMap] foreign loot: cannot read native tables: " + ex.Message);
+            ModLogger.Warning("foreign loot: cannot read native tables: " + ex.Message);
         }
     }
 }

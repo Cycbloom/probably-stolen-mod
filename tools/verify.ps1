@@ -31,7 +31,7 @@ New-Item -ItemType Directory -Force -Path $out | Out-Null
 $framework = Join-Path ${env:ProgramFiles(x86)} 'Reference Assemblies/Microsoft/Framework/.NETFramework/v4.7.2'
 $compiler = Join-Path $env:windir 'Microsoft.NET/Framework64/v4.0.30319/csc.exe'
 $test = Join-Path $out 'DumpingGroundMap.Tests.exe'
-& $compiler /noconfig /nologo /t:exe /platform:x64 /codepage:65001 /nostdlib+ "/out:$test" "/r:$binaryPath" "/r:$managed/Assembly-CSharp.dll" "/r:$managed/0Harmony.dll" "/r:$managed/UnityEngine.CoreModule.dll" "/r:$framework/mscorlib.dll" "/r:$framework/System.dll" "/r:$framework/System.Core.dll" "/r:$framework/Facades/netstandard.dll" (Join-Path $repo 'tests/RulesTests.cs') (Join-Path $repo 'tests/ScavengingCompatibilityTests.cs') (Join-Path $repo 'tests/LocalizationTests.cs')
+& $compiler /noconfig /nologo /t:exe /platform:x64 /codepage:65001 /nostdlib+ "/out:$test" "/r:$binaryPath" "/r:$managed/Assembly-CSharp.dll" "/r:$managed/0Harmony.dll" "/r:$managed/UnityEngine.CoreModule.dll" "/r:$framework/mscorlib.dll" "/r:$framework/System.dll" "/r:$framework/System.Core.dll" "/r:$framework/Facades/netstandard.dll" (Join-Path $repo 'tests/RulesTests.cs') (Join-Path $repo 'tests/ScavengingCompatibilityTests.cs') (Join-Path $repo 'tests/LocalizationTests.cs') (Join-Path $repo 'tests/LoggingTests.cs')
 if ($LASTEXITCODE -ne 0) { throw 'Rule test compilation failed.' }
 & $test $binaryPath $managed
 if ($LASTEXITCODE -ne 0) { throw 'Rule tests failed.' }

@@ -96,7 +96,7 @@ namespace DumpingGroundMap
             try { return StoreStation.GetDayCounter(); }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] stash: day counter failed: " + ex.Message);
+                ModLogger.Warning("stash: day counter failed: " + ex.Message);
                 return -1;
             }
         }
@@ -220,7 +220,7 @@ namespace DumpingGroundMap
                     jackpotHit = true;
                     SaveState();
                     NotifyFind(region.Id);
-                    Debug.Log("[DumpingGroundMap] stash: jackpot region=" + region.Id
+                    ModLogger.Info("stash: jackpot region=" + region.Id
                         + " day=" + today + " roll=" + roll.ToString("F3")
                         + " items=" + spawned + " chance " + before.ToString("F3")
                         + " -> " + JackpotChanceRules.Current(chance, cap, useWindow).ToString("F3")
@@ -229,7 +229,7 @@ namespace DumpingGroundMap
                 }
                 else
                 {
-                    Debug.Log("[DumpingGroundMap] stash: miss region=" + region.Id
+                    ModLogger.Info("stash: miss region=" + region.Id
                         + " day=" + today + " roll=" + roll.ToString("F3")
                         + " chance " + before.ToString("F3") + " -> "
                         + JackpotChanceRules.Current(chance, cap, useWindow).ToString("F3")
@@ -251,7 +251,7 @@ namespace DumpingGroundMap
             if (bonusActive && template != null)
             {
                 AddBonus(items, template, BonusItems);
-                Debug.Log("[DumpingGroundMap] stash: bonus region=" + region.Id
+                ModLogger.Info("stash: bonus region=" + region.Id
                     + " day=" + today + " items=" + BonusItems);
             }
         }
@@ -268,15 +268,15 @@ namespace DumpingGroundMap
             {
                 if (StoreUIManager.Instance == null)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] stash: " + tag + " notice skipped, no StoreUIManager");
+                    ModLogger.Warning("stash: " + tag + " notice skipped, no StoreUIManager");
                     return;
                 }
                 StoreUIManager.Instance.Notify(text, "default");
-                Debug.Log("[DumpingGroundMap] stash: " + tag + " notice shown");
+                ModLogger.Info("stash: " + tag + " notice shown");
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] stash: " + tag + " notice failed: " + ex.Message);
+                ModLogger.Warning("stash: " + tag + " notice failed: " + ex.Message);
             }
         }
 
@@ -408,7 +408,7 @@ namespace DumpingGroundMap
                 GameItem item = LootFactory.Create(id);
                 if (item == null)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] stash: spawn failed " + id);
+                    ModLogger.Warning("stash: spawn failed " + id);
                     return false;
                 }
                 items.Add(item);
@@ -416,7 +416,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] stash: spawn failed " + id + ": " + ex.Message);
+                ModLogger.Warning("stash: spawn failed " + id + ": " + ex.Message);
                 return false;
             }
         }
@@ -452,18 +452,18 @@ namespace DumpingGroundMap
                     }
                     else
                     {
-                        Debug.LogWarning("[DumpingGroundMap] stash: minor spawn failed " + box.ItemId);
+                        ModLogger.Warning("stash: minor spawn failed " + box.ItemId);
                     }
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] stash: minor spawn failed "
+                    ModLogger.Warning("stash: minor spawn failed "
                         + box.ItemId + ": " + ex.Message);
                 }
             }
 
             if (spawned > 0) NotifyMinor(box, region.Id);
-            Debug.Log("[DumpingGroundMap] stash: minor region=" + region.Id
+            ModLogger.Info("stash: minor region=" + region.Id
                 + " day=" + today + " box=" + box.ItemId + " items=" + spawned + "/" + count
                 + " value=" + crateValue + " target=" + Tuning.MinorValue.ToString("F0")
                 + " tier=" + (Reputation.Points < PerkCatalog.Perk60Threshold ? "1/10" : "full")
@@ -700,7 +700,7 @@ namespace DumpingGroundMap
                 newsFired = today;
                 newsDay = -1;
                 SaveState();
-                Debug.Log("[DumpingGroundMap] stash: news already queued day=" + today
+                ModLogger.Info("stash: news already queued day=" + today
                     + " id=" + identifier + " region=" + template.RegionId);
                 return;
             }
@@ -718,12 +718,12 @@ namespace DumpingGroundMap
                 newsFired = today;
                 newsDay = -1;
                 SaveState();
-                Debug.Log("[DumpingGroundMap] stash: news queued day=" + today
+                ModLogger.Info("stash: news queued day=" + today
                     + " id=" + ev.identifier + " region=" + template.RegionId + " fallback=1");
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] stash: news queue failed: " + ex.Message);
+                ModLogger.Warning("stash: news queue failed: " + ex.Message);
             }
         }
 
@@ -737,13 +737,13 @@ namespace DumpingGroundMap
                 StoreEvent ev = BuildEvent(template);
                 if (HasQueuedOrActive(manager, ev.identifier)) return true;
                 manager.QueueFuturEvent(ev, 1, true);
-                Debug.Log("[DumpingGroundMap] stash: news queued for tomorrow id=" + ev.identifier
+                ModLogger.Info("stash: news queued for tomorrow id=" + ev.identifier
                     + " today=" + Today());
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] stash: news queue at hit failed: " + ex.Message);
+                ModLogger.Warning("stash: news queue at hit failed: " + ex.Message);
                 return false;
             }
         }
@@ -870,17 +870,17 @@ namespace DumpingGroundMap
                 newsFired = ModHelper.GetModDataInt(Core.Id, NewsFiredKey, -1);
                 tripHit = false;
                 loaded = true;
-                Debug.Log("[DumpingGroundMap] stash: loaded chance=" + chance.ToString("F3")
+                ModLogger.Info("stash: loaded chance=" + chance.ToString("F3")
                     + " phase=" + phase + " hit_day=" + hitDay
                     + " hit_region=" + hitRegion + " news_day=" + newsDay
                     + " news_fired=" + newsFired + " store=" + (saveName ?? "?"));
                 int repaired = RepairLegacyNews(StoreStation.Instance.storeEventManager, Today(), newsFired, hitRegion);
                 if (repaired > 0)
-                    Debug.Log("[DumpingGroundMap] stash: repaired legacy queued news count=" + repaired);
+                    ModLogger.Info("stash: repaired legacy queued news count=" + repaired);
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] stash: load failed: " + ex.Message);
+                ModLogger.Warning("stash: load failed: " + ex.Message);
             }
         }
 
@@ -898,7 +898,7 @@ namespace DumpingGroundMap
             newsFired = -1;
             tripHit = false;
             loaded = true;
-            Debug.Log("[DumpingGroundMap] stash: reset for new game");
+            ModLogger.Info("stash: reset for new game");
         }
 
         private static void SaveState()
@@ -921,7 +921,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] stash: save failed: " + ex.Message);
+                ModLogger.Warning("stash: save failed: " + ex.Message);
             }
         }
     }

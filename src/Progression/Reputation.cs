@@ -61,7 +61,7 @@ namespace DumpingGroundMap
             loadedStore = StoreKey();
             totalValue = 0L;
             ScavengerPerkPatch.ResetCache();
-            Debug.Log("[DumpingGroundMap] reputation reset for new game");
+            ModLogger.Info("reputation reset for new game");
         }
 
         /// <summary>
@@ -76,14 +76,14 @@ namespace DumpingGroundMap
             string store = StoreKey();
             if (store == null)
             {
-                Debug.LogWarning("[DumpingGroundMap] reputation load skipped: no PlayerStore");
+                ModLogger.Warning("reputation load skipped: no PlayerStore");
                 return;
             }
             long previous = totalValue;
             loadedStore = store;
             totalValue = StoredValue();
             ScavengerPerkPatch.ResetCache();
-            Debug.Log("[DumpingGroundMap] reputation load: id=" + Core.Id + " key=" + DataKey
+            ModLogger.Info("reputation load: id=" + Core.Id + " key=" + DataKey
                 + " store=" + store + " value=" + totalValue + " points=" + Points
                 + " previous=" + previous);
             // 主菜单改的调试值在这里补上，并立即存档，避免下次重启又丢。
@@ -123,7 +123,7 @@ namespace DumpingGroundMap
                 if (!multiplierWarned)
                 {
                     multiplierWarned = true;
-                    Debug.LogWarning("[DumpingGroundMap] difficulty multiplier unavailable: "
+                    ModLogger.Warning("difficulty multiplier unavailable: "
                         + Describe(ex));
                 }
                 return 1f;
@@ -150,7 +150,7 @@ namespace DumpingGroundMap
             string store = StoreKey();
             if (store == null)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenge: reputation add skipped, no PlayerStore (value="
+                ModLogger.Warning("scavenge: reputation add skipped, no PlayerStore (value="
                     + value + ")");
                 return 0L;
             }
@@ -165,7 +165,7 @@ namespace DumpingGroundMap
             totalValue = WriteStored(totalValue + scaled);
             if (multiplier != 1f)
             {
-                Debug.Log("[DumpingGroundMap] reputation: difficulty=" + difficultyId
+                ModLogger.Info("reputation: difficulty=" + difficultyId
                     + " multiplier=" + multiplier.ToString("0.###", CultureInfo.InvariantCulture)
                     + " value=" + value + " -> " + scaled);
             }
@@ -183,7 +183,7 @@ namespace DumpingGroundMap
             long value = ToStored(points);
             if (!HasStore)
             {
-                Debug.LogWarning("[DumpingGroundMap] debug: set points skipped, no save loaded");
+                ModLogger.Warning("debug: set points skipped, no save loaded");
                 return 0L;
             }
             loadedStore = StoreKey();
@@ -211,12 +211,12 @@ namespace DumpingGroundMap
             if (!HasStore || EmporiumEntry.Instance == null)
             {
                 string why = HasStore ? "Emporium not loaded" : "no save loaded";
-                Debug.Log("[DumpingGroundMap] debug: " + why + ", applying on next load");
+                ModLogger.Info("debug: " + why + ", applying on next load");
                 QueueDebugPoints(points, why);
                 return;
             }
             long stored = SetPoints(points);
-            Debug.Log("[DumpingGroundMap] debug: reputation set to "
+            ModLogger.Info("debug: reputation set to "
                 + points.ToString("0.##", CultureInfo.InvariantCulture)
                 + " points (value=" + stored + ")");
             // 不等日终：用原生保存入口落盘（延后一帧，避开场景初始化），否则强退就丢。
@@ -240,10 +240,10 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] debug: could not read current run: " + ex.Message);
+                ModLogger.Warning("debug: could not read current run: " + ex.Message);
             }
             if (!PendingDebugPoints.Write(record)) return false;
-            Debug.Log("[DumpingGroundMap] debug: queued "
+            ModLogger.Info("debug: queued "
                 + points.ToString("0.##", CultureInfo.InvariantCulture)
                 + " points for next load (" + why + ")");
             return true;
@@ -265,7 +265,7 @@ namespace DumpingGroundMap
             if (!PendingDebugPoints.TryRead(out record) || !record.Pending) return;
             if (!HasStore)
             {
-                Debug.LogWarning("[DumpingGroundMap] debug: pending points kept, no PlayerStore yet");
+                ModLogger.Warning("debug: pending points kept, no PlayerStore yet");
                 return;
             }
             PlayerStore current = PlayerStore.Instance;
@@ -274,7 +274,7 @@ namespace DumpingGroundMap
             ClearPendingDebugPoints();
             loadedStore = StoreKey();
             totalValue = WriteStored(ToStored(record.Points));
-            Debug.Log("[DumpingGroundMap] debug: applied queued "
+            ModLogger.Info("debug: applied queued "
                 + record.Points.ToString("0.##", CultureInfo.InvariantCulture)
                 + " points (value=" + totalValue + " saveNow=" + (saveNow ? "yes" : "no") + ")");
             if (saveNow) DeferredSave.Run("queued");
@@ -291,24 +291,24 @@ namespace DumpingGroundMap
                 PlayerStore store = PlayerStore.HasInstance ? PlayerStore.Instance : null;
                 if (!Core.Enabled || EmporiumEntry.Instance == null || store == null)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] save now (" + reason + "): no PlayerStore");
+                    ModLogger.Warning("save now (" + reason + "): no PlayerStore");
                     return false;
                 }
                 store.SaveGame();
-                Debug.Log("[DumpingGroundMap] save now (" + reason + "): slot="
+                ModLogger.Info("save now (" + reason + "): slot="
                     + store.saveSlotId + " day=" + StoreStation.GetDayCounter()
                     + " value=" + totalValue + " points=" + Points);
                 return true;
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] save now (" + reason + ") failed: " + Describe(ex));
+                ModLogger.Warning("save now (" + reason + ") failed: " + Describe(ex));
                 // 落盘失败时不能把值留在内存里等下次读档被覆盖：排队，读档时再应用。
                 // 只有调试项会走到这里（"debug" 直接改、"queued" 应用排队值时补存），
                 // 两条都该保住这个值。
                 float points = ExactPoints;
                 QueueDebugPoints(points, "save failed: " + reason, true);
-                Debug.LogWarning("[DumpingGroundMap] debug: save failed, "
+                ModLogger.Warning("debug: save failed, "
                     + points.ToString("0.##", CultureInfo.InvariantCulture)
                     + " points queued for next load");
                 return false;
@@ -353,7 +353,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] could not read reputation mod data: " + ex.Message);
+                ModLogger.Warning("could not read reputation mod data: " + ex.Message);
                 return 0L;
             }
         }
@@ -369,7 +369,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] could not write reputation mod data: " + ex.Message);
+                ModLogger.Warning("could not write reputation mod data: " + ex.Message);
             }
             return value;
         }

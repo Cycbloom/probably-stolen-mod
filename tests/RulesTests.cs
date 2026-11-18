@@ -84,6 +84,7 @@ internal static class RulesTests
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static void Run()
     {
+        assertions += LoggingTests.Run();
         DataAndProbabilityRules();
         CacheRules();
         EventAdjustedLootRules();

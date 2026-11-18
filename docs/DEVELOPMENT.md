@@ -21,6 +21,14 @@ Windows 环境需要游戏 Managed DLL、.NET Framework 4.7.2 引用程序集及
 - 关闭游戏后部署。首次重启后到 Mod 管理确认版本；若加载器提示本地文件更新，按它的正常流程处理。
 - 当前玩法写 README，变更写 CHANGELOG，调查与旧记录放 docs。历史快照不当作当前规则来源。
 
+## 日志
+
+统一通过 `ModLogger.Info`、`Warning`、`Error` 调用官方 `ModLog`，新代码不要直接调用 `Debug.Log*` 或自行添加 `[DumpingGroundMap]` 前缀。正式前缀来自清单的 `<Name>`；地面 `[DGM-GROUND]`、场景 `[DGM-ART]`、设置 `[DGM-SLIDER]` 等现有分类标记保留，方便沿用筛选方式。
+
+加载器先执行 Harmony.PatchAll，再执行 Core.Init，因此 TargetMethod 中的早期日志使用持久 ID `local.dumping_ground_map`；Core.Init 首先传入真实清单，之后使用正式显示名。无需等待贴图或本地化加载，日志也不通过玩家语言 CSV 翻译。
+
+性能日志继续使用设置里的 `perf_log` 开关，默认关闭；调用点应先检查 `PerfLog.Enabled`，再构造消息或计时，避免关闭时仍产生性能开销。开启后输出到同一个 ModLog，并带 `[perf]` 分类。
+
 ## 清单版本声明
 
 `<GameVersions>` 按 `<Version>` 子元素逐条读取：每条去首尾空白、丢弃空项，不支持逗号或分号分隔。匹配时先规范化（只保留数字和点，去掉末尾的点），然后比较相等，或任一方加一个点后作为另一方的前缀；任意一条命中即视为兼容。界面会逐条显示，命中的绿色、未命中的红色；列表非空且一条都不命中时才报版本问题。

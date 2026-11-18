@@ -78,7 +78,7 @@ namespace DumpingGroundMap
             catch (Exception ex)
             {
                 Close();
-                Debug.LogError("[DumpingGroundMap] Could not open map: " + ex);
+                ModLogger.Error("Could not open map: " + ex);
                 return false;
             }
         }
@@ -116,7 +116,7 @@ namespace DumpingGroundMap
             catch (Exception ex)
             {
                 Close();
-                Debug.LogError("[DumpingGroundMap] Could not open map: " + ex);
+                ModLogger.Error("Could not open map: " + ex);
                 return false;
             }
         }

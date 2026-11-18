@@ -46,7 +46,7 @@ namespace DumpingGroundMap
         private static MethodBase TargetMethod()
         {
             MethodBase method = AccessTools.Method(typeof(StoreClientManager), "GenerateClient", new Type[0]);
-            Debug.Log("[DumpingGroundMap] scavenger perk: patch target "
+            ModLogger.Info("scavenger perk: patch target "
                 + (method == null ? "NOT FOUND" : method.DeclaringType.Name + "." + method.Name));
             return method;
         }
@@ -61,7 +61,7 @@ namespace DumpingGroundMap
             int day = StoreStation.GetDayCounter();
             if (store != null && store == lastStore && day == lastDay)
             {
-                Debug.Log("[DumpingGroundMap] scavenger perk: skip, already added for day " + day);
+                ModLogger.Info("scavenger perk: skip, already added for day " + day);
                 return;
             }
 
@@ -70,7 +70,7 @@ namespace DumpingGroundMap
                 StoreClient client = StoreClientList.CreateScavGeneral();
                 if (client == null)
                 {
-                    Debug.LogWarning("[DumpingGroundMap] scavenger perk: CreateScavGeneral returned null");
+                    ModLogger.Warning("scavenger perk: CreateScavGeneral returned null");
                     return;
                 }
                 // 用游戏自带的 mod 来源标记这位客人：ModHelper.SetClientSource 只写
@@ -81,13 +81,13 @@ namespace DumpingGroundMap
                 __instance.AddClient(client);
                 lastStore = store;
                 lastDay = day;
-                Debug.Log("[DumpingGroundMap] scavenger perk: +1 scavenger client day=" + day
+                ModLogger.Info("scavenger perk: +1 scavenger client day=" + day
                     + " points=" + points + " identifier=" + client.identifier
                     + " source=" + client.sourceModId);
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] scavenger perk: add failed: " + ex.Message);
+                ModLogger.Warning("scavenger perk: add failed: " + ex.Message);
             }
         }
     }
@@ -125,14 +125,14 @@ namespace DumpingGroundMap
         {
             MethodBase method = AccessTools.Method(typeof(NegociationUIManager), "RefreshClientHeader",
                 new Type[] { typeof(StoreClient) });
-            Debug.Log("[DumpingGroundMap] client reason: patch target "
+            ModLogger.Info("client reason: patch target "
                 + (method == null ? "NOT FOUND" : method.DeclaringType.Name + "." + method.Name));
             if (method == null) return null;
             frameField = AccessTools.Field(typeof(NegociationUIManager), "frame");
             if (frameField == null)
             {
                 frameFieldMissing = true;
-                Debug.LogWarning("[DumpingGroundMap] client reason: field NegociationUIManager.frame NOT FOUND");
+                ModLogger.Warning("client reason: field NegociationUIManager.frame NOT FOUND");
             }
             return method;
         }
@@ -154,7 +154,7 @@ namespace DumpingGroundMap
                 if (frame.clientSubtitle.text != reason)
                 {
                     frame.clientSubtitle.text = reason;
-                    Debug.Log("[DumpingGroundMap] client reason: rewritten id=" + storeClient.identifier
+                    ModLogger.Info("client reason: rewritten id=" + storeClient.identifier
                         + " day=" + StoreStation.GetDayCounter() + " points=" + Reputation.Points
                         + " text=" + reason);
                 }
@@ -167,7 +167,7 @@ namespace DumpingGroundMap
             }
             catch (Exception ex)
             {
-                Debug.LogWarning("[DumpingGroundMap] client reason: failed: " + ex.Message);
+                ModLogger.Warning("client reason: failed: " + ex.Message);
             }
         }
     }

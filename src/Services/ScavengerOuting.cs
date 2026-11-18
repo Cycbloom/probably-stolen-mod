@@ -95,7 +95,7 @@ namespace DumpingGroundMap
             if (benefitDay < 0) return;
             ModHelper.SetModDataInt(Core.Id, BenefitDayKey, benefitDay);
             store.AddNightLog(Copy.Get("scavengerouting_paid_20_credits_for_a_scavenger_outing"));
-            Debug.Log("[DumpingGroundMap] scavenger outing booked for day " + benefitDay);
+            ModLogger.Info("scavenger outing booked for day " + benefitDay);
         }
 
         internal static void Remove()

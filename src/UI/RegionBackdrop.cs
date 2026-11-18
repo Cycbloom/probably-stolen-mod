@@ -53,7 +53,7 @@ namespace DumpingGroundMap
                 originalScale.y * before.y / after.y, originalScale.z);
             renderer.sprite = art;
             renderer.transform.localScale = appliedScale;
-            Debug.Log("[DGM-ART] Applied region " + region.Id + ": " + art.name
+            ModLogger.Info("[DGM-ART] Applied region " + region.Id + ": " + art.name
                 + " on " + renderer.gameObject.name);
         }
 
