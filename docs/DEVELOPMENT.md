@@ -37,6 +37,17 @@ Windows 环境需要游戏 Managed DLL、.NET Framework 4.7.2 引用程序集及
 
 结果统一输出为 `[assets]` 日志：按问题种类汇总数量、排序并最多列 5 个示例，最后列出成功载入的贴图数、两种语言各自的词条数和警告条数。发现缺失仅警告，不中断启动、不改写已加载资源；现有地图和语言回退逻辑继续负责显示。
 
+## F9 只读调试按钮
+
+按官方指南的开发工具约定，在游戏可执行文件旁创建空的 `dev.txt` 并重启；进入一局游戏后按 F9，在 Special 列查找：
+
+- `DGM Check Assets`：重新检查最近一次本模组 `OnModAssetsLoaded` 通知中的对象，并输出 `[assets]` 日志。它检查当前内存字典，不重新扫描磁盘或热加载文件；改了贴图或 CSV 后仍需重启游戏。未收到通知时仅提示 `not ready`。
+- `DGM Dump State`：输出 `[debug] cached mod state`，包含资源通知是否已收到、整数声望、累计价值、当前区域 ID 和已解锁区域 ID。`assets_notified=True` 只表示收到过完成通知，资源有无缺失看 `[assets]` 警告。输出只反映本模组当前缓存，不重新读档、不保存、不发奖励，也不改变选区。
+
+按 F8 查看日志，或查阅游戏 `Player.log`。按钮标签使用稳定的英文开发名称：注册发生在本地化资产载入之前，不依赖玩家语言。`DebugTools.Register` 防止重复注册，`Unregister` 只以本模组 ID 移除按钮；禁用同时释放资源引用，保留的回调在停用状态下直接返回。无开发工具的玩家不需要 `dev.txt`；此文件不随模组发布。
+
+官方参考：[添加你自己的调试按钮](https://github.com/dragonpan2/probably-stolen-modding/blob/main/ModdingGuide.zh-CN.md#添加你自己的调试按钮)。本机游戏已核对 `AddDebugFunction` / `RemoveDebugFunctions` 的接口签名；实际 F9 显示仍需游戏内验证。
+
 ## 清单版本声明
 
 `<GameVersions>` 按 `<Version>` 子元素逐条读取：每条去首尾空白、丢弃空项，不支持逗号或分号分隔。匹配时先规范化（只保留数字和点，去掉末尾的点），然后比较相等，或任一方加一个点后作为另一方的前缀；任意一条命中即视为兼容。界面会逐条显示，命中的绿色、未命中的红色；列表非空且一条都不命中时才报版本问题。

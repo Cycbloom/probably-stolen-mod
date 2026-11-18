@@ -7,6 +7,9 @@ namespace DumpingGroundMap
     /// <summary>Inspect the loader's completed asset snapshot without loading files or resolving text.</summary>
     internal static class AssetDiagnostics
     {
+        private static LoadedMod loaded;
+        internal static bool Ready { get { return loaded != null; } }
+
         private static readonly string[] MapKeys =
         {
             "dumping_ground_map", "dumping_ground_map_art", "dumping_ground_map_base",
@@ -16,6 +19,7 @@ namespace DumpingGroundMap
         internal static void OnLoaded(LoadedMod mod)
         {
             if (!Core.Enabled || mod == null || mod.Manifest == null || mod.Manifest.ID != Core.Id) return;
+            loaded = mod;
 
             var paperKeys = new List<string>();
             if (mod.PaperSprites != null)
@@ -28,6 +32,15 @@ namespace DumpingGroundMap
                 "[assets] load complete: paper sprites={0}, en={1}, zh={2}, warnings={3}",
                 paperKeys.Count, LocaleCount(mod.Localization, "en"), LocaleCount(mod.Localization, "zh"), issues.Count));
         }
+
+        internal static void Recheck()
+        {
+            if (!Core.Enabled) return;
+            if (loaded == null) ModLogger.Warning("[assets] not ready: no completed load notification received");
+            else OnLoaded(loaded);
+        }
+
+        internal static void Clear() { loaded = null; }
 
         // Pure checks are also exercised with real CSV dictionaries and damaged snapshots in tests.
         // Missing assets are diagnostic only: the existing UI and locale fallbacks keep working.

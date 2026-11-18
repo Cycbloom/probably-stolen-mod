@@ -107,7 +107,7 @@ internal static class AssetDiagnosticsTests
             Check(warnings.Count == 3 && info.Count == 1, "a failed snapshot reports errors without throwing");
             Check(info[0].Contains("en=0, zh=0, warnings=3"), "missing tables have zero counts in completion summary");
         }
-        finally { Core.Enabled = enabled; harmony.UnpatchAll(Owner); }
+        finally { AssetDiagnostics.Clear(); Core.Enabled = enabled; harmony.UnpatchAll(Owner); }
     }
 
     private static Dictionary<string, Dictionary<string, string>> Clone(Dictionary<string, Dictionary<string, string>> source)

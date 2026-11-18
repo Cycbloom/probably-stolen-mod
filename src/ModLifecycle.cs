@@ -21,6 +21,7 @@ namespace DumpingGroundMap
             ModHook.OnAfterhourEventStarted += AfterhourEventChanged;
             ModHook.OnAfterhourEventEnded += AfterhourEventChanged;
             Tuning.Changed += RefreshViews;
+            DebugTools.Register();
             hooked = true;
             // Enabling after a save has already loaded must not retain another run's cache.
             // OnEnable precedes localization asset loading. Restore run data now;
@@ -31,6 +32,8 @@ namespace DumpingGroundMap
 
         internal static void Disable()
         {
+            AssetDiagnostics.Clear();
+            DebugTools.Unregister();
             if (hooked)
             {
                 ModHook.OnModAssetsLoaded -= AssetDiagnostics.OnLoaded;
