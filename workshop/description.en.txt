@@ -1,5 +1,7 @@
 [h1]Scrapyard Expansion: Regional Scavenging & Reputation[/h1]
 
+[b]1.0.9 Update[/b] Area selection, unlocks and successful jackpots now use vanilla sound feedback with the game's volume settings. Empty payouts no longer consume the jackpot opportunity. Loot loading and asset diagnostics have also been improved.
+
 Choose where to scavenge in an expanded scrapyard. Explore eight distinct areas for materials, tools, food, medicine, electronics or water-treatment supplies, and build reputation through scavenging.
 
 [h2]Main Features[/h2]

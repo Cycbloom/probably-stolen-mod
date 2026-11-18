@@ -1,5 +1,7 @@
 [h1]垃圾场拓展：分区拾荒与声望成长[/h1]
 
+[b]1.0.9 更新[/b] 选区、区域解锁和成功中大奖新增原版音效反馈，音量沿用游戏设置；修复未生成奖品仍消耗大奖机会的问题，并完善掉落数据加载与资源检查。
+
 把垃圾场变成可以按需求探索的地方。在八个特色区域中选择目的地，寻找材料、工具、食品、药品、电子零件或水处理用品，并通过拾荒积累声望。
 
 [h2]主要内容[/h2]
@@ -59,6 +61,8 @@
 [hr][/hr]
 
 [h1]Scrapyard Expansion: Regional Scavenging & Reputation[/h1]
+
+[b]1.0.9 Update[/b] Area selection, unlocks and successful jackpots now use vanilla sound feedback with the game's volume settings. Empty payouts no longer consume the jackpot opportunity. Loot loading and asset diagnostics have also been improved.
 
 Choose where to scavenge in an expanded scrapyard. Explore eight distinct areas for materials, tools, food, medicine, electronics or water-treatment supplies, and build reputation through scavenging.
 

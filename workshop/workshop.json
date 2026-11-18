@@ -4,7 +4,7 @@
   "title": "垃圾场拓展：分区拾荒与声望成长 / Scrapyard Expansion",
   "author": "Cycbloom",
   "visibility": 2,
-  "changeNote": "1.0.8：将中英文文案迁移到官方 Localization/zh.csv 与 en.csv；修复设置下拉框显示与持久配置混用，保留旧版中英文地面对齐选项；构建、部署和工坊打包同步包含词条。 / Move in-game text to native localization CSVs, separate translated setting labels from persistent values, preserve legacy alignment choices, and include translations in builds and packages.",
+  "changeNote": "1.0.9：为地图选区、区域解锁和成功大奖添加原版音效；修复空大奖仍消耗机会并排新闻的问题；基础掉落迁入官方 LootTables JSON；完善官方日志、资源就绪检查和 F9 只读调试工具。 / Add vanilla sound feedback for area selection, unlocks and paid jackpots; fix empty jackpot payouts consuming the trip and queuing news; move base loot to native LootTables JSON; improve logging, asset diagnostics and read-only F9 tools.",
   "tags": [
     "Mod",
     "Gameplay",

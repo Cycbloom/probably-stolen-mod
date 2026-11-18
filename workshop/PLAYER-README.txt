@@ -1,12 +1,13 @@
 垃圾场拓展 / Scrapyard Expansion
 作者 / Author: Cycbloom
-版本 / Version: 1.0.8
+版本 / Version: 1.0.9
 清单目标游戏版本 / Manifest target game version: 1.0.0 (covers 1.0 revisions)
 
 订阅安装：等待Steam下载，在游戏模组菜单启用并重启。
 手动安装：将本文件所在的content目录重命名为DumpingGroundMap，放进游戏Mods目录。
 manifest.xml应直接位于Mods/DumpingGroundMap内，不要多套一层content。
-Localization/zh.csv和en.csv必须随DLL一起安装；不要只复制DLL。中英文切换后重新打开界面；编辑词条后重启游戏。
+Localization/zh.csv、en.csv及LootTables/regions.json必须随DLL一起安装；不要只复制DLL。中英文切换后重新打开界面；编辑词条或掉落表后重启游戏。
+选区、声望解锁区域和中大奖会播放原版音效，音量沿用游戏设置。
 工坊版与手动版不要同时保留；本地同ID版本会优先加载。
 
 夜间外出选择垃圾场，再选择区域。新档可选「拾荒客」，配标准储藏区（可放容器和机器）；更新不替换旧档开局物品。已有存档无需重开即可使用选区与声望系统。
@@ -23,6 +24,7 @@ Localization/zh.csv和en.csv必须随DLL一起安装；不要只复制DLL。中�
 新增场景美术及封面使用AI辅助生成。
 
 Native mod loader; enable in the Mods menu and restart. No required mods.
+Install Localization and LootTables alongside the DLL. Selection, area unlocks and jackpots reuse vanilla sound effects and the game's volume settings.
 Compatible with Scavenging Expansion: regional skill draws, native XP accounting and category-specific Insight candidates. Third-party skill effects are not separately itemized on the notice board.
 Choose the dump at night, then select a scavenging area. Scavenger is an optional new-game start.
 Areas unlock at 0/20/40/60 reputation; valuables at 80; supply crates/keycards and outing at 100.

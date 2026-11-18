@@ -1,4 +1,4 @@
-# 垃圾场拓展 · 1.0.8
+# 垃圾场拓展 · 1.0.9
 
 Probably Stolen 的拾荒拓展模组：八区域垃圾场、分区物资、声望成长、每周区域事件与独立大小奖。源码以 MIT 许可公开，构建、安装与兼容说明见下文。
 
@@ -91,7 +91,9 @@ Scrapyard Expansion for *Probably Stolen*: eight scavenging areas with distinct 
 
 ## 安装与兼容
 
-将发布包中的 DLL、manifest.xml、LICENSE、Textures 和 Localization 文件夹一起放入游戏的 Mods/DumpingGroundMap/。贴图位于 Textures/Paper/，词条位于 Localization/zh.csv 与 Localization/en.csv，均与 manifest.xml 所在目录对应。关闭游戏后更新，在 Mod 管理中启用。
+将发布包中的 DLL、manifest.xml、LICENSE、Textures、Localization 和 LootTables 文件夹一起放入游戏的 Mods/DumpingGroundMap/。贴图位于 Textures/Paper/，词条位于 Localization/zh.csv 与 Localization/en.csv，基础掉落位于 LootTables/regions.json，均与 manifest.xml 所在目录对应。关闭游戏后更新，在 Mod 管理中启用。
+
+地图选区、声望解锁区域和成功中大奖会播放原版音效，沿用游戏的音效音量设置。打开地图、悬停、重复选择同一区域及调试改声望不会触发这些反馈。
 
 中英文文案使用游戏原生本地化 CSV（UTF-8、无表头）；切换语言后重新打开界面即可读取对应词条，其他语言沿用加载器的英文回退。翻译修改后需重启游戏以重新加载文件。新增词条使用稳定键名及 `{0}` 等格式占位符，两份文件保持键名和占位符一致；运行 `./tools/verify-localization.ps1` 可单独检查，无需游戏程序集。
 

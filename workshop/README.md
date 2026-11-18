@@ -1,10 +1,12 @@
 # 垃圾场拓展 · Steam创意工坊发布
 
-作者：Cycbloom。当前模组版本1.0.8，清单目标游戏版本1.0.0（覆盖 1.0 修订）。保留内部ID `local.dumping_ground_map`；不因发布改动已有存档标识。
+作者：Cycbloom。当前模组版本1.0.9，清单目标游戏版本1.0.0（覆盖 1.0 修订）。保留内部ID `local.dumping_ground_map`；不因发布改动已有存档标识。
 
 ## 已准备的资料
 
 1.0.8 起内容包必须包含 `Localization/zh.csv`、`Localization/en.csv`。准备脚本会检查它们与源码中的词条一致，再复制进发布目录；只替换 DLL 不足以更新此版本。
+
+1.0.9 起还必须包含 `LootTables/regions.json`；准备脚本校验、复制掉落表并核对构建副本。此版本新增原版音效反馈、空大奖修复、资源就绪诊断和 F9 开发工具。2026-11-18 作者已确认音效听感，日志核对到选区/大奖成功播放；完整验证范围见 `docs/TESTING.md`。
 
 - `description.zh-CN.txt`和`description.en.txt`：扩展后的中文版、英文版介绍，可分别粘贴到工坊对应语言栏。
 - `description.bilingual.txt`和`description.bbcode.txt`：中英合并归档备选；发布时使用独立语言文件，均使用真实换行。`description-short.txt`保留为旧版简短备选。
@@ -22,7 +24,7 @@
 - `releases/`：按时间生成的独立发布目录，包含内容文件夹、手动安装ZIP和校验记录。
 - `latest-release.txt`：最近准备的发布目录路径。
 
-构建/规则检查和ModScanner通过不代表实机验证通过。按用户约定，本次未启动游戏。工坊订阅下载、游戏内启用和表现待作者核对；介绍中已如实说明。
+构建/规则检查和ModScanner通过不代表实机验证通过。本地实机已核对原生掉落表、资源/F9 回调及部分音效，范围与边界见 `docs/TESTING.md`。工坊订阅下载及使用工坊副本的表现需按对应安装路径核对。
 
 ## 重新准备发布包
 
@@ -33,7 +35,7 @@ Set-Location 'D:\Steam\steamapps\common\Probably Stolen\_moddev\DumpingGroundMap
 .\Prepare-Workshop.ps1
 ```
 
-脚本构建并运行规则检查和扫描，按明确文件列表打包：本模组DLL、manifest、12张贴图、封面及玩家说明。不会把src、obj、.git、备份、个人配置、游戏DLL或旧根目录Paper带入上传目录。每次生成新目录，不清空旧发布包。记录每个内容文件的SHA-256。
+脚本构建并运行规则检查和扫描，按明确文件列表打包：本模组DLL、manifest、LICENSE、两种语言CSV、掉落JSON、12张贴图、封面及玩家说明。不会把src、obj、.git、备份、个人配置、游戏DLL或旧根目录Paper带入上传目录。每次生成新目录，不清空旧发布包。记录每个内容文件的SHA-256。
 
 ## 已有条目的推荐发布方式
 
