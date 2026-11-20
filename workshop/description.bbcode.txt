@@ -1,6 +1,6 @@
 [h1]垃圾场拓展：分区拾荒与声望成长[/h1]
 
-[b]1.0.9 更新[/b] 选区、区域解锁和成功中大奖新增原版音效反馈，音量沿用游戏设置；修复未生成奖品仍消耗大奖机会的问题，并完善掉落数据加载与资源检查。
+[b]1.0.10 更新[/b] 地面扩展新增独立开关，默认关闭，旧版本升级也不会自动开启。兼容「储物窗口拖动缩放 / Container Window Scale」：对方启用地面缩放时，由它管理位置和缩放，避免本模组覆盖拖动布局。区域地图、掉落与声望照常使用；切换地面扩展开关后请应用并重启游戏。
 
 把垃圾场变成可以按需求探索的地方。在八个特色区域中选择目的地，寻找材料、工具、食品、药品、电子零件或水处理用品，并通过拾荒积累声望。
 
@@ -64,7 +64,7 @@
 
 [h1]Scrapyard Expansion: Regional Scavenging & Reputation[/h1]
 
-[b]1.0.9 Update[/b] Area selection, unlocks and successful jackpots now use vanilla sound feedback with the game's volume settings. Empty payouts no longer consume the jackpot opportunity. Loot loading and asset diagnostics have also been improved.
+[b]1.0.10 Update[/b] Ground expansion now has a separate toggle, off by default even when upgrading. Container Window Scale compatibility leaves Ground position and scale to that mod when its Ground scaling is enabled, avoiding layout overrides. Regional scavenging, loot and reputation remain available. Apply and restart after changing the Ground expansion toggle.
 
 Choose where to scavenge in an expanded scrapyard. Explore eight distinct areas for materials, tools, food, medicine, electronics or water-treatment supplies, and build reputation through scavenging.
 

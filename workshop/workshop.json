@@ -4,7 +4,7 @@
   "title": "垃圾场拓展：分区拾荒与声望成长 / Scrapyard Expansion",
   "author": "Cycbloom",
   "visibility": 2,
-  "changeNote": "1.0.9：为地图选区、区域解锁和成功大奖添加原版音效；修复空大奖仍消耗机会并排新闻的问题；基础掉落迁入官方 LootTables JSON；完善官方日志、资源就绪检查和 F9 只读调试工具。 / Add vanilla sound feedback for area selection, unlocks and paid jackpots; fix empty jackpot payouts consuming the trip and queuing news; move base loot to native LootTables JSON; improve logging, asset diagnostics and read-only F9 tools.",
+  "changeNote": "1.0.10：地面扩展改为默认关闭的独立选项，旧版本升级保留尺寸偏好；兼容储物窗口拖动缩放 Container Window Scale，由对方管理地面位置与缩放，避免覆盖拖动布局；关闭扩展仍可使用区域地图、掉落和声望。切换后请应用并重启游戏。 / Make Ground expansion optional and off by default, preserving saved size preferences. Let Container Window Scale manage Ground position and scale without layout overrides. Regional scavenging, loot and reputation remain available with expansion off. Apply and restart after changing the toggle.",
   "tags": [
     "Mod",
     "Gameplay",
