@@ -8,6 +8,7 @@ Choose where to scavenge in an expanded scrapyard. Explore eight distinct areas 
 [list]
 [*]Click the overview map to select an area, with responsive landmarks, regional artwork and distinct loot preferences.
 [*]Ground expansion is optional and off by default. When off, the game or other mods control Ground size and position, while regional scavenging and reputation remain available. Apply and restart after changing the toggle.
+[*]Supports Container Window Scale: when its Ground scaling is enabled, it manages the dragged position and scale without this mod overriding the layout.
 [*]Weekly regional events provide different bonuses. Active events appear on the map and notice board.
 [*]Jackpots and minor rewards have separate adaptive odds: jackpots grow by day, minor rewards by search, and wins reduce their odds.
 [*]The notice board shows item probabilities and separate expected-value contributions from basic loot, valuables, crates/keycards, events and rewards.

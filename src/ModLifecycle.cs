@@ -33,6 +33,7 @@ namespace DumpingGroundMap
 
         internal static void Disable()
         {
+            ContainerWindowScaleBridge.Reset();
             ScavLoot.Reset();
             AssetDiagnostics.Clear();
             DebugTools.Unregister();

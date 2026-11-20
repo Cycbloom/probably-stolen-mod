@@ -33,13 +33,13 @@ namespace DumpingGroundMap
         internal static void Apply(EmporiumEntry entry)
         {
             if (!Core.Enabled || !Tuning.GroundEnabled) return;
+            if (applied && ReferenceEquals(entry, appliedOwner)) return;
             ApplyEnabled(entry);
         }
 
         private static void ApplyEnabled(EmporiumEntry entry)
         {
             if (entry == null) return;
-            if (applied && ReferenceEquals(entry, appliedOwner)) return;
             GameGridInventory ground = entry.afterhourInventory;
             PixelWindow window = entry.afterhourWindow;
             if (ground == null || window == null) return;
@@ -139,6 +139,7 @@ namespace DumpingGroundMap
             // Never move a vanilla/third-party ground that we did not expand.
             // This also prevents furnace compatibility from bypassing the opt-out.
             if (!applied || !ReferenceEquals(entry, appliedOwner)) return;
+            if (ContainerWindowScaleBridge.ControlsGround) return;
             RelayoutOwned(entry);
         }
 
@@ -320,6 +321,7 @@ namespace DumpingGroundMap
         /// <summary>SetupAfterhourInv 每次都会重建一块新的地面，接管状态要跟着重置。</summary>
         internal static void ResetForSetup()
         {
+            ContainerWindowScaleBridge.Reset();
             scavengeDepth = 0;
             overflowNoticed = false;
             applied = false;

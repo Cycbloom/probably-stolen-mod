@@ -29,6 +29,14 @@ Windows 环境需要游戏 Managed DLL、.NET Framework 4.7.2 引用程序集及
 
 关闭或改小尺寸时不在运行中的地面上强制缩形、重建或移动物品。设置界面明确要求应用后重启，由原生重新创建地面；第一次升级也需要重启以加载新 DLL。本修复不改 `localScale` 或鼠标到网格的坐标换算，不将默认关闭等同于修复任意第三方缩放。目标是关闭后不再干预对方的地面布局。
 
+## Container Window Scale 兼容
+
+已核对本机工坊条目 3835141019 的 1.4.4 程序集：模组/Harmony ID 均为 `local.container.window.scale`，地面配置键为 `scale_scavenging_ground`，由原生 ModConfig 注册。其 `WindowScale.PositionGround` 维护地面锚点和缩放偏移，`Patches.GroundLayoutUpdated` 在 EmporiumEntry.Validate 后恢复位置，`Mod.Attach` 在窗口显示时接入组件并重施缩放。它也提供物品拖动预览中心、真实物品布局及跨窗口缩放修正；本模组不复制或叠加这些坐标补丁。
+
+`ContainerWindowScaleBridge.ControlsGround` 先检查官方 `IsModRunning`，仅运行时通过 `GetConfig(...).Get(...)` 读取对方当前布尔项，只使用原生配置对象，不自行读写配置文件、不改变对方设置，也不直接调用对方私有类型。没有运行时不查配置；对方明确关闭地面缩放时返回本模组布局；缺键、类型变化和查询异常时保守让位并限次警告，每次重查以兼容晚注册和设置变化。Setup/停用时清理诊断状态。
+
+仅在本模组接管过的地面、且地面开关开启时进行上述协商；交给对方后跳过整个 Relayout，包括对齐和炉体避让，避免覆盖拖动位置或再次套用基于未缩放尺寸的坐标。Apply 仍可用原生 SetShape 增加格子，重复 Show 对同一已接管对象不再次扩展。Show/Validate postfix 使用 HarmonyAfter 声明对方 ID；对方未安装时该声明不形成依赖。
+
 ## 日志
 
 统一通过 `ModLogger.Info`、`Warning`、`Error` 调用官方 `ModLog`，新代码不要直接调用 `Debug.Log*` 或自行添加 `[DumpingGroundMap]` 前缀。正式前缀来自清单的 `<Name>`；地面 `[DGM-GROUND]`、场景 `[DGM-ART]`、设置 `[DGM-SLIDER]` 等现有分类标记保留，方便沿用筛选方式。

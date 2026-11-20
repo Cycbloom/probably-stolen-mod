@@ -29,6 +29,7 @@ namespace DumpingGroundMap
     [HarmonyPatch(typeof(EmporiumEntry), "Validate")]
     internal static class AfterhourGroundLayoutPatch
     {
+        [HarmonyAfter(ContainerWindowScaleBridge.HarmonyId)]
         private static void Postfix(EmporiumEntry __instance)
         {
             // 只在拾荒场景、地面窗口真正显示时才重排；商店里的 Validate 一律不碰。
@@ -41,6 +42,7 @@ namespace DumpingGroundMap
     [HarmonyPatch(typeof(EmporiumEntry), "ShowAfterhourInv")]
     internal static class AfterhourGroundShowPatch
     {
+        [HarmonyAfter(ContainerWindowScaleBridge.HarmonyId)]
         private static void Postfix(EmporiumEntry __instance)
         {
             if (!Core.Enabled) return;
