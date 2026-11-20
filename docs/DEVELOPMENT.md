@@ -21,6 +21,14 @@ Windows 环境需要游戏 Managed DLL、.NET Framework 4.7.2 引用程序集及
 - 关闭游戏后部署。首次重启后到 Mod 管理确认版本；若加载器提示本地文件更新，按它的正常流程处理。
 - 当前玩法写 README，变更写 CHANGELOG，调查与旧记录放 docs。历史快照不当作当前规则来源。
 
+## 可选地面扩展
+
+原生配置 `ground_enabled` 默认 `false`，归入 `dgm_settings_section_ground`，使用原生布尔控件并标记 `RequiresRestart`。旧配置没有新键时保持关闭，不从已有宽高推断开启；`ground_width` / `ground_height` / `ground_align` 的既有值和尺寸预设均保留，预设不会自动打开扩展开关。此布尔控件由原生设置界面处理，不接入自定义滑条预览。
+
+`GroundExpand.Apply` 与 `Relayout` 是统一入口，先判断模组启用及显式地面开关，再进入操作 Unity 对象的函数。`Relayout` 还要求当前 `EmporiumEntry` 是本模组实际完成扩展时记录的对象，焚化炉联动不再绕过归属判断。`SetupAfterhourInv` 仍清理本模组内存状态；拾荒作用域和溢出通知不依赖地面开关，保持独立。
+
+关闭或改小尺寸时不在运行中的地面上强制缩形、重建或移动物品。设置界面明确要求应用后重启，由原生重新创建地面；第一次升级也需要重启以加载新 DLL。本修复不改 `localScale` 或鼠标到网格的坐标换算，不将默认关闭等同于修复任意第三方缩放。目标是关闭后不再干预对方的地面布局。
+
 ## 日志
 
 统一通过 `ModLogger.Info`、`Warning`、`Error` 调用官方 `ModLog`，新代码不要直接调用 `Debug.Log*` 或自行添加 `[DumpingGroundMap]` 前缀。正式前缀来自清单的 `<Name>`；地面 `[DGM-GROUND]`、场景 `[DGM-ART]`、设置 `[DGM-SLIDER]` 等现有分类标记保留，方便沿用筛选方式。

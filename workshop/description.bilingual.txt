@@ -7,6 +7,7 @@
 [h2]主要内容[/h2]
 [list]
 [*]地图点击选区，地标支持悬停反馈，各区域拥有对应场景与物资倾向。
+[*]地面扩展可单独开启，默认关闭；关闭时由原版或其他模组管理地面尺寸和位置，区域拾荒与声望照常使用。切换后应用并重启游戏。
 [*]每周区域事件带来不同增益，地图和告示牌显示当天活动。
 [*]大奖与小奖使用独立的动态概率：大奖按天增长，小奖按搜索增长，中奖后降低。
 [*]告示牌可查看物品概率，以及基础、贵重品、箱卡、事件和大小奖的期望收益拆分。
@@ -40,7 +41,7 @@
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]声望增加显示 Reputation Pop[/url]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611]店铺便捷升级：背包挂钩/桌面工具箱/NPC鉴别[/url]
 [/list]
-拾荒拓展联动：技能加抽沿用当前区域；慧眼识珠按对应物资类别扩展候选。经验、技能追加物品与声望结算顺序已适配，背包与焚化炉沿用原生界面入口，地面布局自动预留炉体空间。告示板未单列第三方技能效果。
+拾荒拓展联动：技能加抽沿用当前区域；慧眼识珠按对应物资类别扩展候选。经验、技能追加物品与声望结算顺序已适配，背包与焚化炉沿用原生界面入口。仅在开启地面扩展、且地面由本模组扩展时预留炉体空间。告示板未单列第三方技能效果。
 以上模组均为可选安装，本模组可独立使用。
 [h3]存档与游戏版本[/h3]
 本模组改变拾荒经济并保存声望、事件和奖励进度，建议保留存档备份；卸载不会回滚已有物品或金钱。目标游戏版本：1.0.x（清单声明 1.0.0，覆盖 1.0 的修订）。
@@ -69,6 +70,7 @@ Choose where to scavenge in an expanded scrapyard. Explore eight distinct areas 
 [h2]Main Features[/h2]
 [list]
 [*]Click the overview map to select an area, with responsive landmarks, regional artwork and distinct loot preferences.
+[*]Ground expansion is optional and off by default. When off, the game or other mods control Ground size and position, while regional scavenging and reputation remain available. Apply and restart after changing the toggle.
 [*]Weekly regional events provide different bonuses. Active events appear on the map and notice board.
 [*]Jackpots and minor rewards have separate adaptive odds: jackpots grow by day, minor rewards by search, and wins reduce their odds.
 [*]The notice board shows item probabilities and separate expected-value contributions from basic loot, valuables, crates/keycards, events and rewards.
@@ -102,7 +104,7 @@ Compatible with the following mods:
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]Reputation Pop[/url]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611]Shop Convenience Upgrades: Backpack Hooks / Desktop Toolbox / NPC Appraisal[/url]
 [/list]
-Scavenging Expansion integration: bonus draws use the current area, and Keen Eye expands candidates within the matching supply category. Native XP capture and skill-loot/reputation ordering are integrated. Backpack and furnace features retain the native UI entry points, with space reserved beside the ground inventory for the furnace. Third-party skill effects are not separately itemized on the loot notice board.
+Scavenging Expansion integration: bonus draws use the current area, and Keen Eye expands candidates within the matching supply category. Native XP capture and skill-loot/reputation ordering are integrated. Backpack and furnace features retain the native UI entry points. Furnace space is reserved only when Ground expansion is enabled and this mod has expanded the Ground. Third-party skill effects are not separately itemized on the loot notice board.
 These mods are optional; this mod can also be used on its own.
 [h3]Saves & Game Version[/h3]
 This mod changes scavenging balance and saves reputation, event and reward progress. Keep a save backup; disabling it does not undo items or money already gained. Target game version: 1.0.x (the manifest declares 1.0.0, covering 1.0 revisions).

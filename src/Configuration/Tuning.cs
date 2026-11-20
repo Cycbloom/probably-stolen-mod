@@ -89,7 +89,7 @@ namespace DumpingGroundMap
 
         /// <summary>
         /// 拾荒地面：只放大拾荒时整理战利品的那块「地面」。
-        /// 12×9 是原版；默认 19×21，宽 12–19、高 9–31。
+        /// 默认关闭；手动开启后的默认尺寸 19×21，宽 12–19、高 9–31，原版为 12×9。
         /// 尺寸不进存档，改完下次重建地面时生效。
         /// </summary>
         internal const string GroundSection = "dgm_settings_section_ground";
@@ -99,6 +99,8 @@ namespace DumpingGroundMap
                 || key == PerfSection || key == GroundSection;
         }
         internal const string GroundWidthKey = "ground_width";
+        internal const string GroundEnabledKey = "ground_enabled";
+        internal const bool DefaultGroundEnabled = false;
         internal const string GroundHeightKey = "ground_height";
         internal const int DefaultGroundWidth = 19;
         internal const int DefaultGroundHeight = 21;
@@ -150,6 +152,7 @@ namespace DumpingGroundMap
         private static ConfigEntry<bool> perfLogEntry;
         private static ConfigEntry<float> debugPointsEntry;
         private static ConfigEntry<int> groundWidthEntry;
+        private static ConfigEntry<bool> groundEnabledEntry;
         private static ConfigEntry<int> groundHeightEntry;
         private static ConfigEntry<string> groundAlignEntry;
         private static int liveGroundWidth;
@@ -356,6 +359,12 @@ namespace DumpingGroundMap
             if (snapped > DebugPointsMax) snapped = DebugPointsMax;
             if (Mathf.Abs(debugPointsEntry.Value - snapped) < 0.001f) return;
             debugPointsEntry.Set(snapped);
+        }
+
+        /// <summary>Explicit opt-in; missing keys in older configs remain off.</summary>
+        internal static bool GroundEnabled
+        {
+            get { return groundEnabledEntry == null ? DefaultGroundEnabled : groundEnabledEntry.Value; }
         }
 
         /// <summary>拾荒地面宽度（格）。</summary>
@@ -682,6 +691,11 @@ namespace DumpingGroundMap
                     false);
 
                 MigrateSpecialtyTier(config);
+
+                groundEnabledEntry = config.Define(GroundEnabledKey, DefaultGroundEnabled, GroundSection,
+                    delegate { return Copy.Get("tuning_enable_ground_expansion"); },
+                    delegate { return Copy.Get("tuning_ground_expansion_optional_restart"); },
+                    true);
 
                 groundAlignEntry = config.Define(GroundAlignKey, GroundAlignValues[DefaultGroundAlign],
                     GroundSection,

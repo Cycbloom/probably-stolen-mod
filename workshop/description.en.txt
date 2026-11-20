@@ -7,6 +7,7 @@ Choose where to scavenge in an expanded scrapyard. Explore eight distinct areas 
 [h2]Main Features[/h2]
 [list]
 [*]Click the overview map to select an area, with responsive landmarks, regional artwork and distinct loot preferences.
+[*]Ground expansion is optional and off by default. When off, the game or other mods control Ground size and position, while regional scavenging and reputation remain available. Apply and restart after changing the toggle.
 [*]Weekly regional events provide different bonuses. Active events appear on the map and notice board.
 [*]Jackpots and minor rewards have separate adaptive odds: jackpots grow by day, minor rewards by search, and wins reduce their odds.
 [*]The notice board shows item probabilities and separate expected-value contributions from basic loot, valuables, crates/keycards, events and rewards.
@@ -40,7 +41,7 @@ Compatible with the following mods:
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3829053332]Reputation Pop[/url]
 [*][url=https://steamcommunity.com/sharedfiles/filedetails/?id=3832013611]Shop Convenience Upgrades: Backpack Hooks / Desktop Toolbox / NPC Appraisal[/url]
 [/list]
-Scavenging Expansion integration: bonus draws use the current area, and Keen Eye expands candidates within the matching supply category. Native XP capture and skill-loot/reputation ordering are integrated. Backpack and furnace features retain the native UI entry points, with space reserved beside the ground inventory for the furnace. Third-party skill effects are not separately itemized on the loot notice board.
+Scavenging Expansion integration: bonus draws use the current area, and Keen Eye expands candidates within the matching supply category. Native XP capture and skill-loot/reputation ordering are integrated. Backpack and furnace features retain the native UI entry points. Furnace space is reserved only when Ground expansion is enabled and this mod has expanded the Ground. Third-party skill effects are not separately itemized on the loot notice board.
 These mods are optional; this mod can also be used on its own.
 [h3]Saves & Game Version[/h3]
 This mod changes scavenging balance and saves reputation, event and reward progress. Keep a save backup; disabling it does not undo items or money already gained. Target game version: 1.0.x (the manifest declares 1.0.0, covering 1.0 revisions).

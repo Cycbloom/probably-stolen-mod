@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace DumpingGroundMap
 {
     /// <summary>
-    /// 拾荒地面扩展（原地放大，不接管别的窗口）。
+    /// 可选的拾荒地面扩展（默认关闭，原地放大，不接管别的窗口）。
     /// 只在原版 12×9、且地面空着的时候接手；尺寸只决定下次重建的地面，
     /// 不写存档、不新增存档键。
     /// </summary>
@@ -31,6 +31,12 @@ namespace DumpingGroundMap
         private static bool furnaceSpaceNoticed;
 
         internal static void Apply(EmporiumEntry entry)
+        {
+            if (!Core.Enabled || !Tuning.GroundEnabled) return;
+            ApplyEnabled(entry);
+        }
+
+        private static void ApplyEnabled(EmporiumEntry entry)
         {
             if (entry == null) return;
             if (applied && ReferenceEquals(entry, appliedOwner)) return;
@@ -129,8 +135,16 @@ namespace DumpingGroundMap
         /// </summary>
         internal static void Relayout(EmporiumEntry entry)
         {
+            if (!Core.Enabled || !Tuning.GroundEnabled) return;
+            // Never move a vanilla/third-party ground that we did not expand.
+            // This also prevents furnace compatibility from bypassing the opt-out.
+            if (!applied || !ReferenceEquals(entry, appliedOwner)) return;
+            RelayoutOwned(entry);
+        }
+
+        private static void RelayoutOwned(EmporiumEntry entry)
+        {
             if (entry == null) return;
-            bool owned = applied && ReferenceEquals(entry, appliedOwner);
             PixelWindow window = entry.afterhourWindow;
             if (window == null || window.rectTransform == null) return;
 
@@ -147,9 +161,6 @@ namespace DumpingGroundMap
 
             bool furnace = Picker.IsAtDump(MapUIManager.Instance)
                 && ModHelper.IsModRunning(ScavengingExpansionBridge.ModId);
-            // 没扩地（玩家把地面设回 12×9，或扩地因地面已有物品被跳过）时，
-            // 仍要按实际窗口尺寸给焚化炉让位；没有炉体时保持原版/其它模组的摆位。
-            if (!owned && !furnace) return;
 
             int align = Mathf.Clamp(Tuning.GroundAlign, 0, 8);
             int column = align % 3;
